@@ -1,29 +1,25 @@
 import { clsx } from "clsx"
 import { useState } from "react"
 import { Accordion } from "../../components/ui/accordion"
+import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 
 const FAQ_ITEMS = [
   {
-    question: "Are dinner plates safe for microwave use?",
+    question: "Are these original pieces or reprints?",
     answer:
-      "Yes — all Stryk pieces are microwave safe. Avoid pieces with metallic glazes if in doubt; the product page will specify.",
+      "Both. Each listing specifies whether it is an original vintage piece, a limited archival reprint, or a framed reproduction. Originals are one-of-a-kind; reprints are produced in numbered runs on acid-free stock.",
   },
   {
-    question: "How do I replace a damaged piece?",
+    question: "Do you ship internationally?",
     answer:
-      "We keep stock of all current collections. Contact us with your order number and we'll arrange a replacement at cost price.",
+      "Yes — we ship worldwide. All pieces are wrapped in archival tissue and packed in rigid board mailers to survive the journey. Tracking is included on every order.",
   },
   {
-    question: "What is the warranty on your pieces?",
+    question: "Can I request a piece from a specific country or era?",
     answer:
-      "All Stryk pieces carry a 1-year warranty against manufacturing defects. This covers glazing faults and structural issues under normal use.",
-  },
-  {
-    question: "How should I care for my dinnerware?",
-    answer:
-      "Dishwasher safe on the normal cycle. Hand washing extends the life of glazes. Avoid abrasive cleaners. Stack with care — felt separators are a good idea for long-term storage.",
+      "Absolutely. Use the contact form to describe what you're after — city, decade, style — and we'll search our current stock and upcoming sourcing trips for a match.",
   },
 ]
 
@@ -82,28 +78,28 @@ export function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark text-light">
+    <div className="min-h-screen bg-canvas text-dark">
       <Navbar />
 
-      <div className="grid min-h-screen gap-16 px-8 pt-32 pb-24 md:grid-cols-2 md:px-16">
+      <div className="grid min-h-screen gap-16 px-6 pt-36 pb-24 md:grid-cols-2 md:px-10 md:pt-40">
         {/* Left — info */}
         <div className="flex flex-col justify-between">
           <div>
-            <p className="mb-4 text-xs font-medium tracking-widest text-light/50 uppercase">
+            <p className="mb-4 text-xs font-medium tracking-widest text-dark/50 uppercase">
               Get in touch
             </p>
-            <h1 className="text-64 mb-12 leading-tight font-medium">We'd love to hear from you</h1>
-            <div className="space-y-4 text-sm text-light/60">
-              <p className="font-medium text-light">Stryk Studio</p>
+            <h1 className="text-64 mb-12 leading-tight font-medium">Tell us what you're hunting for</h1>
+            <div className="space-y-4 text-sm text-dark/60">
+              <p className="font-medium text-dark">Stryk Studio</p>
               <p>
                 1234 Maker Street
                 <br />
                 New York, NY 10001
               </p>
-              <a href="mailto:info@stryk.co" className="block transition-colors hover:text-light">
+              <a href="mailto:info@stryk.co" className="block transition-colors hover:text-dark">
                 info@stryk.co
               </a>
-              <a href="tel:+12125550100" className="block transition-colors hover:text-light">
+              <a href="tel:+12125550100" className="block transition-colors hover:text-dark">
                 +1 212 555 0100
               </a>
             </div>
@@ -111,7 +107,7 @@ export function ContactPage() {
 
           {/* FAQ */}
           <div className="mt-16">
-            <p className="mb-6 text-xs font-medium tracking-widest text-light/50 uppercase">FAQ</p>
+            <p className="mb-6 text-xs font-medium tracking-widest text-dark/50 uppercase">FAQ</p>
             <Accordion items={FAQ_ITEMS} />
           </div>
         </div>
@@ -120,7 +116,7 @@ export function ContactPage() {
         <div className="flex items-start justify-center pt-4 md:pt-0">
           {submitted ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-              <div className="flex h-16 w-16 items-center justify-center border border-light/20">
+              <div className="flex h-16 w-16 items-center justify-center border border-dark/20">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -132,7 +128,7 @@ export function ContactPage() {
                 </svg>
               </div>
               <p className="text-24 font-medium">Message sent</p>
-              <p className="text-sm text-light/50">We'll be in touch within 1–2 business days.</p>
+              <p className="text-sm text-dark/50">We'll be in touch within 1–2 business days.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-5">
@@ -167,7 +163,7 @@ export function ContactPage() {
               <div className="relative">
                 <label
                   htmlFor="contact-message"
-                  className="mb-1.5 block text-xs font-medium tracking-widest text-light/50 uppercase"
+                  className="mb-1.5 block text-xs font-medium tracking-widest text-dark/50 uppercase"
                 >
                   Message
                 </label>
@@ -178,10 +174,10 @@ export function ContactPage() {
                   value={fields.message.value}
                   onChange={(e) => set("message", e.target.value)}
                   className={clsx(
-                    "w-full resize-none border bg-transparent px-4 py-3 text-sm text-light outline-none transition-colors duration-200 placeholder:text-light/30",
+                    "w-full resize-none rounded-lg border bg-transparent px-4 py-3 text-sm text-dark outline-none transition-colors duration-200 placeholder:text-dark/30",
                     fields.message.status === "error"
                       ? "border-red-400/60"
-                      : "border-light/20 focus:border-light/50",
+                      : "border-dark/20 focus:border-dark/50",
                   )}
                   placeholder="Your message..."
                 />
@@ -200,30 +196,34 @@ export function ContactPage() {
                   aria-hidden="true"
                   className={clsx(
                     "mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center border transition-colors",
-                    terms ? "border-light bg-light" : "border-light/30",
+                    terms ? "border-dark bg-dark" : "border-dark/30",
                   )}
                 >
                   {terms && (
                     <svg viewBox="0 0 10 8" fill="none" className="h-2.5 w-2.5">
-                      <polyline points="1 4 3.5 6.5 9 1" stroke="#222" strokeWidth="1.5" />
+                      <polyline points="1 4 3.5 6.5 9 1" stroke="#f0ede6" strokeWidth="1.5" />
                     </svg>
                   )}
                 </span>
-                <span className="text-xs text-light/50">
+                <span className="text-xs text-dark/50">
                   I agree to the{" "}
-                  <button type="button" className="underline hover:text-light">
+                  <button type="button" className="underline hover:text-dark">
                     Terms & Conditions
                   </button>
                 </span>
               </label>
 
-              <button type="submit" className="btn-filled w-full justify-center text-sm">
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-dark px-6 py-3 text-sm font-medium tracking-wide text-canvas transition-all duration-300 hover:bg-dark/80"
+              >
                 Send message
               </button>
             </form>
           )}
         </div>
       </div>
+      <Footer />
     </div>
   )
 }
@@ -242,7 +242,7 @@ function Field({ label, type = "text", value, status, onChange }: FieldProps) {
     <div className="relative">
       <label
         htmlFor={id}
-        className="mb-1.5 block text-xs font-medium tracking-widest text-light/50 uppercase"
+        className="mb-1.5 block text-xs font-medium tracking-widest text-dark/50 uppercase"
       >
         {label}
       </label>
@@ -253,12 +253,12 @@ function Field({ label, type = "text", value, status, onChange }: FieldProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={clsx(
-          "w-full border bg-transparent px-4 py-3 text-sm text-light outline-none transition-colors duration-200 placeholder:text-light/30",
+          "w-full rounded-lg border bg-transparent px-4 py-3 text-sm text-dark outline-none transition-colors duration-200 placeholder:text-dark/30",
           status === "error"
             ? "border-red-400/60"
             : status === "success"
               ? "border-loam/60"
-              : "border-light/20 focus:border-light/50",
+              : "border-dark/20 focus:border-dark/50",
         )}
       />
       <FieldIcon status={status} />

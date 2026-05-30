@@ -15,7 +15,7 @@ export function Accordion({ items, className }: AccordionProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <div className={clsx("divide-y divide-light/10", className)}>
+    <div className={clsx("divide-y divide-dark/10", className)}>
       {items.map((item, i) => {
         const isOpen = openIndex === i
         return (
@@ -37,7 +37,7 @@ export function Accordion({ items, className }: AccordionProps) {
             </button>
             <div className={clsx("accordion-content", isOpen && "open")}>
               <div>
-                <p className="text-18 pt-4 text-light/60">{item.answer}</p>
+                <p className="text-18 pt-4 text-dark/60">{item.answer}</p>
               </div>
             </div>
           </div>

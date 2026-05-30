@@ -5,7 +5,6 @@ import type { ZoomLevel } from "../lib/types"
 const ZOOM_CONFIGS: Record<ZoomLevel, { scale: number; wFactor: number; hFactor: number }> = {
   2: { scale: 1.0, wFactor: 1, hFactor: 1 },
   1: { scale: 0.6, wFactor: 1.67, hFactor: 1.67 },
-  0: { scale: 0.35, wFactor: 2.86, hFactor: 2.86 },
 }
 
 export function useXpCanvas(active: boolean) {
@@ -103,14 +102,33 @@ export function useXpCanvas(active: boolean) {
   }, [getBounds])
 
   const applyZoom = useCallback(
-    (level: ZoomLevel) => {
+    (level: ZoomLevel, prevLevel: ZoomLevel) => {
       const wrapper = wrapperRef.current
-      if (!wrapper) return
+      const collection = collectionRef.current
+      if (!wrapper || !collection) return
       const cfg = ZOOM_CONFIGS[level]
+      const prevCfg = ZOOM_CONFIGS[prevLevel]
+
+      // Shift the collection so the canvas point at viewport center stays centered.
+      // Derivation: the canvas center point in wrapper-local coords is
+      //   P = wFactor * vw/2 - collection.x
+      // For P to stay at viewport center after zoom, new collection.x must be:
+      //   new_x = old_x + (newWFactor - oldWFactor) * vw/2
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const newX = positionRef.current.x + (cfg.wFactor - prevCfg.wFactor) * vw / 2
+      const newY = positionRef.current.y + (cfg.hFactor - prevCfg.hFactor) * vh / 2
+
+      positionRef.current = { x: newX, y: newY }
+      targetRef.current = { x: newX, y: newY }
+
+      gsap.to(collection, { x: newX, y: newY, duration: 1.5, ease: "expo.inOut" })
       gsap.to(wrapper, {
         scale: cfg.scale,
         width: `${cfg.wFactor * 100}vw`,
         height: `${cfg.hFactor * 100}vh`,
+        left: `${(1 - cfg.wFactor) * 50}vw`,
+        top: `${(1 - cfg.hFactor) * 50}vh`,
         duration: 1.5,
         ease: "expo.inOut",
         onComplete: initDraggable,
@@ -121,21 +139,22 @@ export function useXpCanvas(active: boolean) {
 
   const zoomIn = useCallback(() => {
     if (zoomRef.current >= 2) return
-    const next = (zoomRef.current + 1) as ZoomLevel
+    const prev = zoomRef.current as ZoomLevel
+    const next = (prev + 1) as ZoomLevel
     zoomRef.current = next
     setZoomLevel(next)
-    applyZoom(next)
+    applyZoom(next, prev)
   }, [applyZoom])
 
   const zoomOut = useCallback(() => {
-    if (zoomRef.current <= 0) return
-    const next = (zoomRef.current - 1) as ZoomLevel
+    if (zoomRef.current <= 1) return
+    const prev = zoomRef.current as ZoomLevel
+    const next = (prev - 1) as ZoomLevel
     zoomRef.current = next
     setZoomLevel(next)
-    applyZoom(next)
+    applyZoom(next, prev)
   }, [applyZoom])
 
-  // Called by HomePage after intro completes — starts the polka-dot pop-in then zoom
   const runEntrance = useCallback(() => {
     const wrapper = wrapperRef.current
     const collection = collectionRef.current
@@ -143,28 +162,27 @@ export function useXpCanvas(active: boolean) {
 
     const items = collection.querySelectorAll<HTMLElement>(".xp-item")
 
-    // Start zoomed out a bit
-    gsap.set(wrapper, { scale: 0.8, transformOrigin: "center center" })
+    // Allow items at the edges to be visible during the zoomed-out entrance —
+    // the wrapper's layout box is 100vw×100vh so overflow:hidden would clip them.
+    gsap.set(wrapper, { scale: 0.85, transformOrigin: "center center", overflow: "visible" })
 
-    // Randomise the order for the pop-in
     const shuffled = [...items].sort(() => Math.random() - 0.5)
 
-    // Pop in one by one, quickly
+    gsap.set(shuffled, { scale: 0.65, filter: "blur(14px)" })
     gsap.to(shuffled, {
       opacity: 1,
-      duration: 0.25,
-      ease: "power2.out",
-      stagger: {
-        each: 0.06,
-        from: "random",
-      },
+      scale: 1,
+      filter: "blur(0px)",
+      duration: 0.45,
+      ease: "back.out(1.2)",
+      stagger: { each: 0.03, from: "random" },
       onComplete: () => {
-        // After all images are in, zoom the canvas in slightly
         gsap.to(wrapper, {
           scale: 1,
-          duration: 1.8,
+          duration: 1.6,
           ease: "expo.inOut",
           onComplete: () => {
+            gsap.set(wrapper, { overflow: "hidden" })
             initDraggable()
             zoomRef.current = 2
             setZoomLevel(2)
@@ -183,9 +201,9 @@ export function useXpCanvas(active: boolean) {
     xSet.current = gsap.quickSetter(collection, "x", "px") as (v: number) => void
     ySet.current = gsap.quickSetter(collection, "y", "px") as (v: number) => void
 
-    // Center the canvas initially
-    const centerX = Math.max(0, (wrapper.offsetWidth - collection.scrollWidth) / 2)
-    const centerY = 60
+    // Center the canvas so the middle of the collection is at the viewport center
+    const centerX = (wrapper.offsetWidth - collection.scrollWidth) / 2
+    const centerY = (wrapper.offsetHeight - collection.scrollHeight) / 2
     positionRef.current = { x: centerX, y: centerY }
     targetRef.current = { x: centerX, y: centerY }
     gsap.set(collection, { x: centerX, y: centerY })

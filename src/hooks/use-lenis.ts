@@ -1,14 +1,23 @@
 import Lenis from "lenis"
-import { useEffect, useRef } from "react"
+import { type RefObject, useEffect, useRef } from "react"
 import { ScrollTrigger } from "../lib/gsap"
 
-export function useLenis(enabled = true) {
+export function useLenis(enabled = true, wrapperRef?: RefObject<HTMLElement | null>) {
   const lenisRef = useRef<Lenis | null>(null)
 
   useEffect(() => {
     if (!enabled) return
 
-    const lenis = new Lenis({ lerp: 0.1, wheelMultiplier: 0.7 })
+    const wrapper = wrapperRef?.current ?? undefined
+    const content = wrapper
+      ? (wrapper.firstElementChild as HTMLElement | undefined) ?? undefined
+      : undefined
+
+    const lenis = new Lenis({
+      lerp: 0.1,
+      wheelMultiplier: 0.7,
+      ...(wrapper ? { wrapper, content } : {}),
+    })
     lenisRef.current = lenis
 
     lenis.on("scroll", ScrollTrigger.update)
@@ -25,7 +34,7 @@ export function useLenis(enabled = true) {
       lenis.destroy()
       lenisRef.current = null
     }
-  }, [enabled])
+  }, [enabled, wrapperRef])
 
   return lenisRef
 }

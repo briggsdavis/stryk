@@ -32,7 +32,7 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
           className="xp-column"
           style={{
             marginTop: COL_OFFSETS[ci],
-            marginRight: ci < columns.length - 1 ? "4vw" : 0,
+            marginRight: ci < columns.length - 1 ? "12vw" : 0,
           }}
         >
           {col.map((product) => {

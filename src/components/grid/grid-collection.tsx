@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react"
+import React, { useEffect, useRef } from "react"
+import { Footer } from "../../components/ui/footer"
+import { useLenis } from "../../hooks/use-lenis"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
 import type { Product } from "../../lib/types"
 import { GridProductItem } from "./grid-product-item"
@@ -8,18 +10,22 @@ interface GridCollectionProps {
   onItemClick: (product: Product, el: HTMLElement) => void
   itemRefs: React.MutableRefObject<Map<string, HTMLElement>>
   visible: boolean
+  scrollerRef: React.RefObject<HTMLDivElement | null>
 }
 
-export function GridCollection({ products, onItemClick, itemRefs, visible }: GridCollectionProps) {
+export function GridCollection({ products, onItemClick, itemRefs, visible, scrollerRef }: GridCollectionProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  useLenis(visible, scrollerRef as React.RefObject<HTMLElement | null>)
 
   useEffect(() => {
-    if (!visible || !containerRef.current) return
+    if (!visible || !containerRef.current || !scrollerRef.current) return
 
+    const scroller = scrollerRef.current
     const items = containerRef.current.querySelectorAll<HTMLElement>(".grid-item")
     gsap.set(items, { scale: 0.9, opacity: 0 })
 
     ScrollTrigger.batch(items, {
+      scroller,
       start: "top 90%",
       onEnter: (els) => {
         gsap.to(els, {
@@ -33,17 +39,17 @@ export function GridCollection({ products, onItemClick, itemRefs, visible }: Gri
     })
 
     return () => ScrollTrigger.getAll().forEach((t) => t.kill())
-  }, [visible, products])
+  }, [visible, products, scrollerRef])
 
   if (!visible) return null
 
   return (
     <div ref={containerRef} className="min-h-screen px-6 pt-36 pb-28 md:px-10 md:pt-40">
       <header className="mb-16 md:mb-24">
-        <h1 className="text-128 max-w-[15ch] text-dark">Explore Stryk dinnerware collections</h1>
+        <h1 className="text-128 max-w-[15ch] text-dark">Matchbox art from around the world</h1>
         <p className="mt-8 max-w-md text-sm leading-relaxed text-dark/60">
-          Our collection is designed to engage all of the senses. Rich colors and beautifully
-          textured finishes transform every meal into a dish worth celebrating.
+          Vintage matchboxes and matchbooks sourced from Japan, Kenya, France, Germany, Italy,
+          and across the US — each one a miniature masterpiece of graphic design.
         </p>
       </header>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -59,6 +65,7 @@ export function GridCollection({ products, onItemClick, itemRefs, visible }: Gri
           />
         ))}
       </div>
+      <Footer />
     </div>
   )
 }

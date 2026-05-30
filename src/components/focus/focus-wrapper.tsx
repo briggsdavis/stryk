@@ -1,5 +1,5 @@
 import { clsx } from "clsx"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { gsap } from "../../lib/gsap"
 import type { Product } from "../../lib/types"
 
@@ -17,40 +17,130 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const ctaRef = useRef<HTMLButtonElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  // Outer wrapper for GSAP x animation (no centering transform so GSAP doesn't conflict)
   const dividerContainerRef = useRef<HTMLDivElement>(null)
-  const overlay1Ref = useRef<HTMLDivElement>(null)
-  const overlay2Ref = useRef<HTMLDivElement>(null)
+  const galleryOverlayRef = useRef<HTMLDivElement>(null)
 
-  const [carouselIdx, setCarouselIdx] = useState(0)
+  // Gallery
+  const imgRefs = useRef<(HTMLDivElement | null)[]>([])
+  const currentIdxRef = useRef(0)
+  const animatingRef = useRef(false)
+  const accDeltaRef = useRef(0)
+  const galleryActiveRef = useRef(false)
+  const [galleryActive, setGalleryActive] = useState(false)
+  const [currentIdx, setCurrentIdx] = useState(0)
+  const [hasScrolled, setHasScrolled] = useState(false)
 
   const isOpen = !!product
 
-  useEffect(() => {
-    setCarouselIdx(0)
-  }, [product?.id])
+  const galleryImages: string[] =
+    product?.images && product.images.length >= 2
+      ? product.images
+      : product
+        ? Array.from({ length: 5 }, () => product.image)
+        : []
 
+  // ── Reset + activate gallery on product open/close ────────────────────────
+  useEffect(() => {
+    if (!isOpen) {
+      galleryActiveRef.current = false
+      setGalleryActive(false)
+      setCurrentIdx(0)
+      setHasScrolled(false)
+      currentIdxRef.current = 0
+      animatingRef.current = false
+      accDeltaRef.current = 0
+      return
+    }
+
+    currentIdxRef.current = 0
+    setCurrentIdx(0)
+    setHasScrolled(false)
+    animatingRef.current = false
+    accDeltaRef.current = 0
+
+    imgRefs.current.forEach((el, i) => {
+      if (el) gsap.set(el, { x: 0, display: i === 0 ? "block" : "none" })
+    })
+
+    const timer = setTimeout(() => {
+      galleryActiveRef.current = true
+      setGalleryActive(true)
+    }, 1250)
+    return () => clearTimeout(timer)
+  }, [isOpen, product?.id])
+
+  // ── Slide to next / previous image from the section divider ─────────────
+  const navigate = useCallback((dir: 1 | -1) => {
+    const total = imgRefs.current.filter(Boolean).length
+    const cur = currentIdxRef.current
+    const next = cur + dir
+    if (next < 0 || next >= total || animatingRef.current) return
+
+    animatingRef.current = true
+    setHasScrolled(true)
+
+    const curEl = imgRefs.current[cur]
+    const nextEl = imgRefs.current[next]
+    if (!curEl || !nextEl) { animatingRef.current = false; return }
+
+    // Distance from the image frame's centre to the panel edge (= divider).
+    // Frame is centred in the panel, so:  dist = (panelWidth + frameWidth) / 2
+    // This places the incoming image's leading edge exactly at the divider,
+    // and the outgoing image's trailing edge exactly at the panel's far side.
+    const frameEl = document.getElementById("focus-image-frame")
+    const panelEl = panelRef.current
+    const dist = frameEl && panelEl
+      ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
+      : panelRef.current?.offsetWidth ?? 900
+
+    gsap.set(nextEl, { x: dir * dist, display: "block" })
+    gsap.to(curEl, { x: -dir * dist, duration: 0.7, ease: "power3.inOut" })
+    gsap.to(nextEl, {
+      x: 0,
+      duration: 0.7,
+      ease: "power3.inOut",
+      onComplete: () => {
+        gsap.set(curEl, { display: "none", x: 0 })
+        currentIdxRef.current = next
+        setCurrentIdx(next)
+        animatingRef.current = false
+      },
+    })
+  }, [])
+
+  // ── Wheel listener ────────────────────────────────────────────────────────
+  const onWheel = useCallback(
+    (e: WheelEvent) => {
+      if (!galleryActiveRef.current) return
+      e.preventDefault()
+      accDeltaRef.current += e.deltaY
+      if (Math.abs(accDeltaRef.current) >= 60) {
+        navigate(accDeltaRef.current > 0 ? 1 : -1)
+        accDeltaRef.current = 0
+      }
+    },
+    [navigate],
+  )
+
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
+    panel.addEventListener("wheel", onWheel, { passive: false })
+    return () => panel.removeEventListener("wheel", onWheel)
+  }, [onWheel])
+
+  // ── Panel entrance animation ──────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return
 
-    // Reset any leftover clip from previous close
     gsap.set(panelRef.current, { clipPath: "none" })
 
-    // --- Divider + × button: slides right with canvas ---
     gsap.set(dividerContainerRef.current, { x: "-60vw" })
     gsap.to(dividerContainerRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
 
-    // --- × button: pops in when divider arrives ---
     gsap.set(closeRef.current, { opacity: 0, scale: 0 })
-    gsap.to(closeRef.current, {
-      opacity: 1,
-      scale: 1,
-      duration: 0.35,
-      delay: 1.05,
-      ease: "back.out(1.7)",
-    })
+    gsap.to(closeRef.current, { opacity: 1, scale: 1, duration: 0.35, delay: 1.05, ease: "back.out(1.7)" })
 
-    // --- Staggered text fade-in (starts while Flip is still in flight) ---
     const textEls = [
       collectionNameRef.current,
       productNameRef.current,
@@ -68,45 +158,70 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     tl.to(priceRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35)
     tl.to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.45)
 
-    return () => {
-      tl.kill()
-    }
+    return () => { tl.kill() }
   }, [isOpen, product?.id])
 
-  // Vertical wheel → horizontal carousel
-  useEffect(() => {
-    const el = panelRef.current
-    if (!el || !isOpen) return
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      if (e.deltaY > 0) setCarouselIdx((p) => Math.min(p + 1, 2))
-      else setCarouselIdx((p) => Math.max(p - 1, 0))
-    }
-
-    el.addEventListener("wheel", onWheel, { passive: false })
-    return () => el.removeEventListener("wheel", onWheel)
-  }, [isOpen])
-
+  // ── Close ─────────────────────────────────────────────────────────────────
   const handleClose = () => {
-    // Wipe panel right-to-left in sync with canvas sliding back
-    gsap.set(panelRef.current, { clipPath: "inset(0 0% 0 0)" })
-    gsap.to(panelRef.current, { clipPath: "inset(0 100% 0 0)", duration: 1.1, ease: "expo.inOut" })
+    galleryActiveRef.current = false
+    animatingRef.current = false
 
-    // Slide × button + divider back left with canvas
-    gsap.to(dividerContainerRef.current, { x: "-60vw", duration: 1.0, ease: "expo.inOut" })
+    // Fade text + CTA out immediately so they don't linger during the wipe
+    const textEls = [
+      collectionNameRef.current,
+      productNameRef.current,
+      descriptionRef.current,
+      priceRef.current,
+      ctaRef.current,
+      closeRef.current,
+    ].filter(Boolean) as HTMLElement[]
+    gsap.to(textEls, { opacity: 0, y: -6, duration: 0.25, stagger: 0.03, ease: "power2.in" })
 
-    // Reset carousel overlays instantly
-    if (overlay1Ref.current) {
-      overlay1Ref.current.style.transition = "none"
-      overlay1Ref.current.style.transform = "translateX(101%)"
+    const triggerClose = () => {
+      // Hide the gallery overlay instantly so the morphing canvas beneath is clean
+      gsap.set(galleryOverlayRef.current, { opacity: 0 })
+      gsap.set(panelRef.current, { clipPath: "inset(0 0% 0 0)" })
+      gsap.to(panelRef.current, { clipPath: "inset(0 100% 0 0)", duration: 1.1, ease: "expo.inOut" })
+      gsap.to(dividerContainerRef.current, { x: "-60vw", duration: 1.0, ease: "expo.inOut" })
+      onClose()
     }
-    if (overlay2Ref.current) {
-      overlay2Ref.current.style.transition = "none"
-      overlay2Ref.current.style.transform = "translateX(101%)"
+
+    const idx = currentIdxRef.current
+    if (idx === 0) { triggerClose(); return }
+
+    // Kill any in-progress slide tweens
+    imgRefs.current.forEach((el) => { if (el) gsap.killTweensOf(el) })
+
+    const frameEl = document.getElementById("focus-image-frame")
+    const panelEl = panelRef.current
+    const dist = frameEl && panelEl
+      ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
+      : 900
+
+    // Lay all images 0..idx out as a filmstrip (same spacing as normal navigation)
+    // then animate the whole strip right so image 0 lands at x=0
+    for (let i = 0; i <= idx; i++) {
+      const el = imgRefs.current[i]
+      if (el) gsap.set(el, { x: (i - idx) * dist, display: "block" })
     }
-    setCarouselIdx(0)
-    onClose()
+
+    const strip = imgRefs.current
+      .slice(0, idx + 1)
+      .filter((el): el is HTMLDivElement => !!el)
+
+    gsap.to(strip, {
+      x: `+=${idx * dist}`,
+      duration: 0.55,
+      ease: "power3.inOut",
+      onComplete: () => {
+        imgRefs.current.forEach((el, i) => {
+          if (el && i !== 0) gsap.set(el, { display: "none", x: 0 })
+        })
+        currentIdxRef.current = 0
+        setCurrentIdx(0)
+        triggerClose()
+      },
+    })
   }
 
   return (
@@ -114,7 +229,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       {/* Left panel — 60vw */}
       <div
         ref={panelRef}
-        className="absolute inset-y-0 left-0"
+        className="absolute inset-y-0 left-0 overflow-hidden"
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
         {/* Collection name — top left */}
@@ -126,63 +241,70 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           {product?.collectionName}
         </h2>
 
-        {/* Image area — centered in the left panel (inset:0 + margin:auto). Its
-           width/height are set imperatively per-click to match the clicked
-           image's exact aspect ratio, so the morph is a pure scale (no crop or
-           aspect change). Width/height are intentionally NOT in this style object
-           so React never overwrites the per-click sizing. */}
+        {/* Image area */}
         <div
           id="focus-image-frame"
-          className="absolute overflow-hidden"
+          className="absolute"
           style={{ inset: 0, margin: "auto" }}
         >
-          {/* Flip element lands here and fills via CSS (#focus-image-slot > * rule) */}
           <div id="focus-image-slot" className="pointer-events-none absolute inset-0 z-[1]" />
 
-          {/* Carousel image 2 */}
-          {product?.images?.[1] && (
+          {/* Gallery overlay — fades in after morph, canvas bg fills the gap between sliding images */}
+          {isOpen && (
             <div
-              ref={overlay1Ref}
+              ref={galleryOverlayRef}
               className="absolute inset-0 z-[2]"
               style={{
-                transform: carouselIdx >= 1 ? "translateX(0)" : "translateX(101%)",
-                transition: "transform 0.6s cubic-bezier(0.625, 0.05, 0, 1)",
+                backgroundColor: "#f0ede6",
+                opacity: galleryActive ? 1 : 0,
+                transition: "opacity 0.35s ease",
+                pointerEvents: "none",
               }}
             >
-              <img src={product.images[1]} alt="" className="h-full w-full object-cover" />
+              {galleryImages.map((src, i) => (
+                <div
+                  key={`${product?.id}-${i}`}
+                  ref={(el) => { imgRefs.current[i] = el }}
+                  className="absolute inset-0"
+                  style={{ display: i === 0 ? "block" : "none" }}
+                >
+                  <img
+                    src={src}
+                    alt={product?.name ?? ""}
+                    draggable={false}
+                    className="pointer-events-none h-full w-full object-cover"
+                  />
+                </div>
+              ))}
             </div>
           )}
-
-          {/* Carousel image 3 */}
-          {product?.images?.[2] && (
-            <div
-              ref={overlay2Ref}
-              className="absolute inset-0 z-[2]"
-              style={{
-                transform: carouselIdx >= 2 ? "translateX(0)" : "translateX(101%)",
-                transition: "transform 0.6s cubic-bezier(0.625, 0.05, 0, 1)",
-              }}
-            >
-              <img src={product.images[2]} alt="" className="h-full w-full object-cover" />
-            </div>
-          )}
-
-          {/* Carousel dots */}
-          <div className="absolute bottom-3 left-1/2 z-[3] flex -translate-x-1/2 gap-2">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className={clsx(
-                  "h-1 w-1 rounded-full transition-all duration-300",
-                  i === carouselIdx ? "scale-125 bg-white" : "bg-white/50",
-                )}
-              />
-            ))}
-          </div>
         </div>
 
-        {/* Product name, description, price — bottom left */}
+        {/* Bottom info — dots, scroll hint, product text */}
         <div className="absolute bottom-8 left-6 z-20 md:left-10">
+          <div
+            className="mb-4 flex items-center gap-3"
+            style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
+          >
+            <div className="flex items-center gap-1.5">
+              {galleryImages.map((_, i) => (
+                <div
+                  key={i}
+                  className={clsx(
+                    "rounded-full bg-dark transition-all duration-300",
+                    i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
+                  )}
+                />
+              ))}
+            </div>
+            <span
+              className="text-[10px] font-medium tracking-widest text-dark/40 uppercase transition-opacity duration-500"
+              style={{ opacity: hasScrolled ? 0 : 1 }}
+            >
+              Scroll
+            </span>
+          </div>
+
           <p ref={productNameRef} className="text-sm font-medium text-dark" style={{ opacity: 0 }}>
             {product?.name}
           </p>
@@ -201,7 +323,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         {/* Add to Cart — bottom right */}
         <button
           ref={ctaRef}
-          className="absolute right-8 bottom-8 z-20 flex items-center gap-2 bg-dark px-5 py-3 text-xs font-medium tracking-widest text-white uppercase transition-opacity hover:opacity-70"
+          className="absolute right-8 bottom-8 z-20 flex items-center gap-2 rounded-lg bg-dark px-5 py-3 text-xs font-medium tracking-widest text-white uppercase transition-opacity hover:opacity-70"
           style={{ opacity: 0 }}
           onClick={(e) => e.preventDefault()}
         >
@@ -209,7 +331,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         </button>
       </div>
 
-      {/* Divider line + × button — slides right with canvas via GSAP x animation */}
+      {/* Divider line + × button */}
       {isOpen && (
         <div
           ref={dividerContainerRef}

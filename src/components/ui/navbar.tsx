@@ -1,19 +1,20 @@
 import { clsx } from "clsx"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Link } from "react-router"
 import { gsap } from "../../lib/gsap"
+import { useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
 
 interface NavbarProps {
   viewMode?: ViewMode
   onToggleView?: () => void
   showViewToggle?: boolean
+  showCta?: boolean
 }
 
 const LINKS = [
-  { label: "Collection", to: "/" },
   { label: "About", to: "/about" },
   { label: "Contact", to: "/contact" },
+  { label: "Collections", to: "/" },
 ]
 
 // Even 3×3 grid of dots — represents the grid view.
@@ -48,7 +49,8 @@ function DotIcon({ dots }: { dots: ReadonlyArray<readonly [number, number]> }) {
 const CAPSULE =
   "group flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-lg border border-dark/15 bg-canvas px-4 py-2.5 text-sm font-medium text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
 
-export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) {
+export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: NavbarProps) {
+  const transitionNavigate = useTransitionNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const topPillRef = useRef<HTMLButtonElement>(null)
@@ -56,6 +58,7 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
   const togglerContentRef = useRef<HTMLSpanElement>(null)
   const prevWidthRef = useRef<number | null>(null)
   const firstRunRef = useRef(true)
+  const ctaFirstRunRef = useRef(true)
 
   // ── Mini-menu open/close ───────────────────────────────────────────────
   useEffect(() => {
@@ -122,18 +125,46 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
     }
   }, [viewMode, showViewToggle])
 
+  // ── Hide / show the menu pill when a product is focused ──────────────────
+  useEffect(() => {
+    const menu = bottomPillRef.current
+    if (!menu) return
+
+    if (ctaFirstRunRef.current) {
+      ctaFirstRunRef.current = false
+      return
+    }
+
+    if (showCta) {
+      setMenuOpen(false)
+      gsap.to(menu, { opacity: 0, y: 6, duration: 0.2, ease: "power2.in",
+        onComplete: () => gsap.set(menu, { pointerEvents: "none" }),
+      })
+    } else {
+      gsap.set(menu, { pointerEvents: "auto" })
+      gsap.fromTo(menu, { opacity: 0, y: 8 }, {
+        opacity: 1, y: 0, duration: 0.35, ease: "power3.out", delay: 0.1,
+      })
+    }
+  }, [showCta])
+
   const close = () => setMenuOpen(false)
+
+  const handleLinkClick = (to: string) => {
+    close()
+    transitionNavigate(to)
+  }
 
   return (
     <>
       {/* Top-left logo */}
       <div className="fixed top-6 left-6 z-[500] md:left-10">
-        <Link
-          to="/"
+        <button
+          onClick={() => transitionNavigate("/")}
           className="text-xs font-medium tracking-[0.2em] text-dark/80 uppercase hover:text-dark"
         >
           Stryk
-        </Link>
+        </button>
       </div>
 
       {/* Top-center: view toggle — single capsule, dots left of label */}
@@ -147,7 +178,7 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
           >
             <span ref={togglerContentRef} className="flex items-center gap-2.5">
               <DotIcon dots={viewMode === "xp" ? GRID_DOTS : SCATTER_DOTS} />
-              <span>{viewMode === "xp" ? "grid view" : "experience view"}</span>
+              <span>{viewMode === "xp" ? "grid view" : "canvas view"}</span>
             </span>
           </button>
         </div>
@@ -162,14 +193,13 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
           style={{ display: "none" }}
         >
           {LINKS.map(({ label, to }) => (
-            <Link
+            <button
               key={to}
-              to={to}
-              onClick={close}
-              className="block border border-dark/20 bg-canvas px-5 py-2 text-[9px] font-medium tracking-widest text-dark uppercase transition-colors duration-200 hover:bg-dark hover:text-white"
+              onClick={() => handleLinkClick(to)}
+              className="block rounded-lg border border-dark/20 bg-canvas px-5 py-2 text-[9px] font-medium tracking-widest text-dark uppercase transition-colors duration-200 hover:bg-dark hover:text-white"
             >
               {label}
-            </Link>
+            </button>
           ))}
         </div>
 

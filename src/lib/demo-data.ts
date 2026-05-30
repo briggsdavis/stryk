@@ -21,26 +21,26 @@ const IMAGES = [
 ]
 
 const COLLECTIONS = [
-  { slug: "terra", name: "Terra", color: "#635858" },
-  { slug: "midori", name: "Midori", color: "#506157" },
-  { slug: "mist", name: "Mist", color: "#bbc1c8" },
-  { slug: "dust", name: "Dust", color: "#f3e0cf" },
-  { slug: "wisteria", name: "Wisteria", color: "#8b7fa8" },
-  { slug: "cobalt", name: "Cobalt", color: "#4a699f" },
-  { slug: "sage", name: "Sage", color: "#7a9e7e" },
-  { slug: "ivory", name: "Ivory", color: "#e8dcc8" },
-  { slug: "onyx", name: "Onyx", color: "#2c2c2c" },
-  { slug: "clay", name: "Clay", color: "#b5836a" },
+  { slug: "tokyo", name: "Tokyo", color: "#635858" },
+  { slug: "nairobi", name: "Nairobi", color: "#506157" },
+  { slug: "paris", name: "Paris", color: "#bbc1c8" },
+  { slug: "berlin", name: "Berlin", color: "#f3e0cf" },
+  { slug: "kyoto", name: "Kyoto", color: "#8b7fa8" },
+  { slug: "new-york", name: "New York", color: "#4a699f" },
+  { slug: "california", name: "California", color: "#7a9e7e" },
+  { slug: "milano", name: "Milano", color: "#e8dcc8" },
+  { slug: "hamburg", name: "Hamburg", color: "#2c2c2c" },
+  { slug: "lyon", name: "Lyon", color: "#b5836a" },
 ]
 
-const PIECES = ["Dinner Plate", "Side Plate", "Bowl", "Deep Plate", "Mug"]
+const PIECES = ["Matchbox", "Matchbook", "Album Cover", "Brand Archive", "Limited Edition"]
 
 const PIECE_DESCS = [
-  "A wide, generous plate that anchors every table setting with quiet confidence.",
-  "A compact plate perfect for bread, appetisers, or a small shared course.",
-  "A deep, rounded bowl suited to soups, grains, and abundant salads.",
-  "A shallow bowl with a broad rim that holds sauces and sides with ease.",
-  "A sturdy, balanced mug shaped for slow mornings and unhurried afternoons.",
+  "A striking matchbox label sourced from the streets of a city that knew how to make an impression.",
+  "A slim matchbook whose cover art distils an era's graphic energy into a single folded moment.",
+  "Reimagined as album artwork — this label channels the mood of a record that defined its decade.",
+  "Pulled from brand archives, this piece bears the mark of a company that shaped its city's visual culture.",
+  "A limited-run reprint of a rare label, hand-selected for its rarity, colour, and extraordinary design.",
 ]
 
 let globalIdx = 0
@@ -58,12 +58,14 @@ export const DEMO_PRODUCTS: Product[] = COLLECTIONS.flatMap((col) =>
       image: IMAGES[idx % IMAGES.length],
       images: [
         IMAGES[idx % IMAGES.length],
-        IMAGES[(idx + 5) % IMAGES.length],
-        IMAGES[(idx + 10) % IMAGES.length],
+        IMAGES[(idx + 3) % IMAGES.length],
+        IMAGES[(idx + 6) % IMAGES.length],
+        IMAGES[(idx + 9) % IMAGES.length],
+        IMAGES[(idx + 12) % IMAGES.length],
       ],
       price: 28 + pi * 10,
       color: col.color,
-      size: ["26cm", "21cm", "16cm", "22cm", "9cm"][pi],
+      size: ["5.5 × 3.5 cm", "4.5 × 4.5 cm", "31 × 31 cm", "5.5 × 3.5 cm", "14 × 9 cm"][pi],
       available: true,
     }
   }),

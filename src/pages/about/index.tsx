@@ -1,27 +1,30 @@
-import { useRef } from "react"
+import { clsx } from "clsx"
+import { useEffect, useRef, useState } from "react"
 import { Accordion } from "../../components/ui/accordion"
+import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
-import { useImageReveal, useSplitReveal } from "../../hooks/use-scroll-reveal"
+import { useSplitReveal } from "../../hooks/use-scroll-reveal"
+import { gsap } from "../../lib/gsap"
 
 const SUSTAINABILITY_ITEMS = [
   {
-    question: "Ethical production",
+    question: "Authentic sourcing",
     answer:
-      "Every piece is made in certified facilities that ensure fair wages, safe working conditions, and responsible manufacturing practices.",
+      "Every piece is sourced directly from estate sales, flea markets, and specialist dealers across Japan, Kenya, France, Germany, Italy, and the United States. We verify provenance before anything reaches our shelves.",
   },
   {
-    question: "Longevity and durability",
+    question: "Historical accuracy",
     answer:
-      "We design for decades, not seasons. Our stoneware is fired at high temperatures to resist chipping and withstand daily use for generations.",
+      "We research every label — dating it, identifying the brand, and tracing its regional context. What you receive comes with a record of its story, not just its image.",
   },
   {
-    question: "Sustainable materials",
+    question: "Responsible preservation",
     answer:
-      "We source clay and glazes from suppliers who meet strict environmental standards, minimising our impact from raw material to finished piece.",
+      "Vintage paper is fragile. We archive originals in archival-grade sleeves and produce reprints only on acid-free stock, ensuring the work survives another hundred years.",
   },
   {
-    question: "Responsible packaging",
+    question: "Sustainable packaging",
     answer:
       "All packaging is made from recycled or FSC-certified materials and is fully recyclable. We've eliminated all single-use plastics from our supply chain.",
   },
@@ -29,176 +32,249 @@ const SUSTAINABILITY_ITEMS = [
 
 const VALUES = [
   {
-    label: "Quality",
-    body: "Every detail is considered. We refuse to compromise on materials, process, or finish.",
+    label: "Curation",
+    body: "We don't list everything we find. Only pieces that stop us in our tracks make it to the store.",
   },
   {
-    label: "Love",
-    body: "We make things because we love making them — and because we love the rituals they serve.",
+    label: "Discovery",
+    body: "Every matchbox is a portal — to a city, a decade, a brand that no longer exists. We live for that feeling.",
   },
   {
-    label: "Creative & Bold",
-    body: "We push form and glaze into new territory without losing sight of function.",
+    label: "Craft",
+    body: "The designers who made these labels had no digital tools, only instinct and a tight deadline. That tension shows in every line.",
   },
   {
-    label: "Original",
-    body: "No trends, no fast cycles. Each collection is its own complete thought.",
+    label: "Story",
+    body: "No object without context. Every piece we sell comes with the history it earned.",
   },
 ]
+
+const NUM_PANELS = 4
 
 export function AboutPage() {
   useLenis()
 
+  const horizontalRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   const h1Ref = useRef<HTMLHeadingElement>(null)
-  const bodyTextRef = useRef<HTMLParagraphElement>(null)
-  const storyHeadingRef = useRef<HTMLHeadingElement>(null)
+  const [hoveredValue, setHoveredValue] = useState<string | null>(null)
 
   useSplitReveal(h1Ref)
-  useSplitReveal(bodyTextRef)
-  useSplitReveal(storyHeadingRef)
 
-  const { wrapRef: imgWrapRef, maskRef: imgMaskRef } = useImageReveal()
+  useEffect(() => {
+    const horizontal = horizontalRef.current
+    const track = trackRef.current
+    if (!horizontal || !track) return
+
+    const getTotal = () => (NUM_PANELS - 1) * window.innerWidth
+
+    const ctx = gsap.context(() => {
+      gsap.to(track, {
+        x: () => -getTotal(),
+        ease: "none",
+        scrollTrigger: {
+          trigger: horizontal,
+          start: "top top",
+          end: () => `+=${getTotal()}`,
+          pin: true,
+          scrub: 1,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+        },
+      })
+    }, horizontal)
+
+    return () => ctx.revert()
+  }, [])
 
   return (
-    <div className="bg-dark text-light">
+    <div className="bg-canvas text-dark">
       <Navbar />
 
       {/* ── Hero ── */}
-      <section className="flex min-h-screen flex-col justify-end px-8 pt-32 pb-20 md:px-16">
-        <p className="mb-4 text-xs font-medium tracking-widest text-light/50 uppercase">
+      <section className="px-6 pt-36 pb-16 md:px-10 md:pt-40">
+        <div className="group mb-10 overflow-hidden">
+          <img
+            src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1600&q=80"
+            alt="Stryk studio"
+            className="h-[52vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          />
+        </div>
+        <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
           About Stryk
         </p>
-        <h1 ref={h1Ref} className="text-128 max-w-4xl overflow-hidden font-medium">
-          Let's celebrate
+        <h1
+          ref={h1Ref}
+          className="text-128 max-w-4xl overflow-hidden font-medium leading-none"
+        >
+          Vintage charm, modern walls
         </h1>
       </section>
 
-      {/* ── Body + Image ── */}
-      <section className="grid gap-16 px-8 py-24 md:grid-cols-2 md:px-16">
-        <div className="flex flex-col justify-center">
-          <p ref={bodyTextRef} className="text-24 max-w-lg leading-relaxed text-light/80">
-            Every meal is a celebration when it's shared around a beautifully laid table. We make
-            dinnerware that invites you to slow down, set the table with intention, and savour the
-            ordinary moments that make up a life.
-          </p>
-        </div>
-        <div ref={imgWrapRef} className="image-mask-wrap aspect-[3/4] overflow-hidden">
-          <img
-            src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=800&q=80"
-            alt="Stryk dinnerware"
-            className="h-full w-full object-cover"
-          />
-          <div ref={imgMaskRef} className="image-mask" />
-        </div>
-      </section>
+      {/* ── Horizontal scroll ── */}
+      <div ref={horizontalRef} className="h-screen overflow-hidden">
+        <div
+          ref={trackRef}
+          className="flex h-full"
+          style={{ width: `${NUM_PANELS * 100}vw` }}
+        >
 
-      {/* ── Vision / Mission ── */}
-      <section className="grid gap-16 border-t border-light/10 px-8 py-24 md:grid-cols-2 md:px-16">
-        <div>
-          <h3 className="text-32 mb-6 font-medium text-light/40">Our Vision</h3>
-          <p className="text-64 leading-tight font-light">
-            A world where the table is the centre of connection.
-          </p>
-        </div>
-        <div>
-          <h3 className="text-32 mb-6 font-medium text-light/40">Our Mission</h3>
-          <p className="text-64 leading-tight font-light">
-            To make dinnerware that outlasts trends and earns its place on every table.
-          </p>
-        </div>
-      </section>
-
-      {/* ── Story ── */}
-      <section className="bg-[#222] px-8 py-24 md:px-16">
-        <p className="mb-4 text-xs font-medium tracking-widest text-light/50 uppercase">
-          Our Story
-        </p>
-        <h2 ref={storyHeadingRef} className="text-128 mb-16 max-w-3xl overflow-hidden font-medium">
-          Built from a shared table
-        </h2>
-        <div className="aspect-video w-full overflow-hidden bg-light/5">
-          <img
-            src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1200&q=80"
-            alt="Our story"
-            className="h-full w-full object-cover opacity-70"
-          />
-        </div>
-        <p className="text-18 mt-12 max-w-2xl leading-relaxed text-light/60">
-          Founded by a family of makers, Stryk began as a small studio operation in 2018. We wanted
-          to fill a gap — between mass-produced tableware that chips in a year and heirloom pieces
-          that cost a fortune. Today we make everything in small batches, by hand, from materials we
-          can stand behind.
-        </p>
-      </section>
-
-      {/* ── Values ── */}
-      <section className="px-8 py-24 md:px-16">
-        <p className="mb-12 text-xs font-medium tracking-widest text-light/50 uppercase">
-          What we stand for
-        </p>
-        <div className="grid gap-0 divide-y divide-light/10">
-          {VALUES.map((v) => (
-            <div key={v.label} className="group flex items-start justify-between gap-8 py-8">
-              <h3 className="text-48 font-medium transition-opacity duration-300 group-hover:opacity-60">
-                {v.label}
-              </h3>
-              <p className="text-18 mt-2 max-w-sm text-light/50">{v.body}</p>
+          {/* Panel 1 — Philosophy */}
+          <div className="flex h-full w-screen flex-shrink-0 items-center gap-16 px-6 md:px-10">
+            <div className="flex flex-1 flex-col justify-center">
+              <p className="mb-8 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                Our Philosophy
+              </p>
+              <blockquote className="text-64 max-w-xl font-light leading-tight">
+                The matchbox was the first mass-produced canvas. We're still finding the masterpieces.
+              </blockquote>
+              <p className="mt-10 max-w-sm text-sm leading-relaxed text-dark/55">
+                Stryk sources matchboxes and matchbooks from flea markets, estate sales, and specialist
+                dealers across four continents — and brings the best of them home as art.
+              </p>
+              <p className="mt-8 text-xs tracking-widest text-dark/25 uppercase">
+                Est. 2021 — New York
+              </p>
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="flex w-[38%] flex-col gap-4">
+              <div className="group overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=900&q=80"
+                  alt="Stryk ceramics"
+                  className="aspect-[3/4] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                />
+              </div>
+              <div className="group overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1597696929736-6d13bed8e6a8?w=900&q=80"
+                  alt="Stryk craft"
+                  className="aspect-[16/7] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                />
+              </div>
+            </div>
+          </div>
 
-      {/* ── Sustainability ── */}
-      <section className="border-t border-light/10 px-8 py-24 md:px-16">
-        <p className="mb-4 text-xs font-medium tracking-widest text-light/50 uppercase">
+          {/* Panel 2 — Vision & Mission */}
+          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center gap-12 px-6 md:px-10">
+            <p className="text-xs font-medium tracking-widest text-dark/40 uppercase">
+              What drives us
+            </p>
+            <div className="grid grid-cols-2 gap-16 border-t border-dark/10 pt-12">
+              <div>
+                <h3 className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                  Vision
+                </h3>
+                <p className="text-48 font-light leading-tight">
+                  A world that recognises everyday objects as the art they always were.
+                </p>
+              </div>
+              <div>
+                <h3 className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                  Mission
+                </h3>
+                <p className="text-48 font-light leading-tight">
+                  To surface the world's forgotten matchbox art and give it a permanent home.
+                </p>
+              </div>
+            </div>
+            <div className="group overflow-hidden">
+              <img
+                src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=1400&q=80"
+                alt="Stryk collection"
+                className="h-[22vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+              />
+            </div>
+          </div>
+
+          {/* Panel 3 — Our Story */}
+          <div className="flex h-full w-screen flex-shrink-0">
+            <div className="group w-[55%] overflow-hidden">
+              <img
+                src="https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?w=1000&q=80"
+                alt="Our story"
+                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+              />
+            </div>
+            <div className="flex flex-1 flex-col justify-center gap-8 px-12 md:px-16">
+              <div>
+                <p className="mb-5 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                  Our Story
+                </p>
+                <h2 className="text-48 mb-8 font-medium leading-tight">
+                  Found in a Tokyo flea market
+                </h2>
+                <p className="text-sm leading-relaxed text-dark/60">
+                  Stryk started in 2021 when our founder found a box of mid-century Japanese matchbooks
+                  at a market in Shimokitazawa. The labels — tiny, perfect, forgotten — looked like
+                  nothing they'd seen in any gallery.
+                </p>
+              </div>
+              <p className="text-sm leading-relaxed text-dark/60">
+                We've been hunting ever since. Tokyo, Nairobi, Paris, Berlin, Lyon, New York — wherever
+                brands once needed a flame, they needed a label. We find the best ones and bring them to you.
+              </p>
+              <div className="group mt-4 overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=700&q=80"
+                  alt="Stryk detail"
+                  className="aspect-[16/6] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Panel 4 — Values */}
+          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center px-6 md:px-10">
+            <p className="mb-14 text-xs font-medium tracking-widest text-dark/40 uppercase">
+              What we stand for
+            </p>
+            <div className="grid grid-cols-4 divide-x divide-dark/10 border-t border-dark/10 pt-12">
+              {VALUES.map((v) => (
+                <div
+                  key={v.label}
+                  onMouseEnter={() => setHoveredValue(v.label)}
+                  onMouseLeave={() => setHoveredValue(null)}
+                  className={clsx(
+                    "cursor-default px-8 py-6 transition-opacity duration-400 first:pl-0 last:pr-0",
+                    hoveredValue !== null && hoveredValue !== v.label
+                      ? "opacity-25"
+                      : "opacity-100",
+                  )}
+                >
+                  <h3 className="text-48 mb-5 font-medium">{v.label}</h3>
+                  <p
+                    className={clsx(
+                      "text-sm leading-relaxed text-dark/55 transition-opacity duration-300",
+                      hoveredValue === v.label ? "opacity-100" : "opacity-0",
+                    )}
+                  >
+                    {v.body}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-14 group overflow-hidden">
+              <img
+                src="https://images.unsplash.com/photo-1617784625140-515e220ba148?w=1400&q=80"
+                alt="Stryk values"
+                className="h-[20vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+              />
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Vertical: Sustainability ── */}
+      <section className="px-6 py-24 md:px-10">
+        <p className="mb-4 text-xs font-medium tracking-widest text-dark/50 uppercase">
           Sustainability
         </p>
-        <h2 className="text-64 mb-12 font-medium">How we operate</h2>
+        <h2 className="text-64 mb-12 font-medium">How we work</h2>
         <Accordion items={SUSTAINABILITY_ITEMS} />
       </section>
 
-      {/* ── Newsletter ── */}
-      <section className="border-t border-light/10 px-8 py-24 md:px-16">
-        <h2 className="text-48 mb-8 font-medium">Stay in the loop</h2>
-        <form className="flex max-w-md gap-0" onSubmit={(e) => e.preventDefault()}>
-          <input
-            type="email"
-            aria-label="Email address"
-            placeholder="your@email.com"
-            className="flex-1 border border-r-0 border-light/20 bg-transparent px-4 py-3 text-sm text-light outline-none placeholder:text-light/30 focus:border-light/50"
-          />
-          <button type="submit" className="btn-filled flex-shrink-0 border border-light/20 text-sm">
-            Subscribe
-          </button>
-        </form>
-      </section>
-
-      {/* ── Footer ── */}
-      <footer className="border-t border-light/10 px-8 py-12 md:px-16">
-        <div className="flex flex-col gap-8 md:flex-row md:justify-between">
-          <div>
-            <p className="mb-1 text-sm font-medium">Stryk</p>
-            <p className="text-sm text-light/40">info@stryk.co</p>
-          </div>
-          <div className="flex gap-8">
-            <button
-              type="button"
-              className="text-xs tracking-widest text-light/40 uppercase hover:text-light"
-            >
-              Instagram
-            </button>
-            <button
-              type="button"
-              className="text-xs tracking-widest text-light/40 uppercase hover:text-light"
-            >
-              Pinterest
-            </button>
-          </div>
-        </div>
-        <p className="mt-12 text-xs text-light/20">
-          © {new Date().getFullYear()} Stryk. All rights reserved.
-        </p>
-      </footer>
+      <Footer />
     </div>
   )
 }
