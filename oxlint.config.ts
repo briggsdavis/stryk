@@ -20,6 +20,5 @@ export default defineConfig({
     "import",
     "jsx-a11y",
     "promise",
-    "vitest",
   ],
 })

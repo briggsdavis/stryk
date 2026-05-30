@@ -28,7 +28,8 @@ export function XpProductItem({ product, index, onClick, itemRef }: XpProductIte
   const width = WIDTH_VARIANTS[index % WIDTH_VARIANTS.length]
 
   return (
-    <div
+    <button
+      type="button"
       className="xp-item"
       style={{
         width,
@@ -36,6 +37,10 @@ export function XpProductItem({ product, index, onClick, itemRef }: XpProductIte
         flexShrink: 0,
         overflow: "hidden",
         position: "relative",
+        padding: 0,
+        border: "none",
+        background: "none",
+        appearance: "none",
       }}
       data-cursor={product.name}
       data-product-id={product.id}
@@ -48,6 +53,6 @@ export function XpProductItem({ product, index, onClick, itemRef }: XpProductIte
         draggable={false}
         className="pointer-events-none h-full w-full object-cover"
       />
-    </div>
+    </button>
   )
 }

@@ -41,7 +41,9 @@ export function IntroScreen({ onComplete }: IntroScreenProps) {
       onComplete,
     })
 
-    return () => { tl.kill() }
+    return () => {
+      tl.kill()
+    }
   }, [onComplete])
 
   return (

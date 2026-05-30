@@ -1,5 +1,5 @@
-import { useState } from "react"
 import { clsx } from "clsx"
+import { useState } from "react"
 import { Accordion } from "../../components/ui/accordion"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
@@ -54,10 +54,22 @@ export function ContactPage() {
     let valid = true
     const next = { ...fields }
 
-    if (!fields.firstName.value.trim()) { next.firstName = { ...next.firstName, status: "error" }; valid = false }
-    if (!fields.lastName.value.trim()) { next.lastName = { ...next.lastName, status: "error" }; valid = false }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value)) { next.email = { ...next.email, status: "error" }; valid = false }
-    if (!fields.message.value.trim()) { next.message = { ...next.message, status: "error" }; valid = false }
+    if (!fields.firstName.value.trim()) {
+      next.firstName = { ...next.firstName, status: "error" }
+      valid = false
+    }
+    if (!fields.lastName.value.trim()) {
+      next.lastName = { ...next.lastName, status: "error" }
+      valid = false
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value)) {
+      next.email = { ...next.email, status: "error" }
+      valid = false
+    }
+    if (!fields.message.value.trim()) {
+      next.message = { ...next.message, status: "error" }
+      valid = false
+    }
 
     if (!valid) setFields(next)
     return valid
@@ -77,17 +89,21 @@ export function ContactPage() {
         {/* Left — info */}
         <div className="flex flex-col justify-between">
           <div>
-            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-light/50">Get in touch</p>
-            <h1 className="text-64 mb-12 font-medium leading-tight">
-              We'd love to hear from you
-            </h1>
+            <p className="mb-4 text-xs font-medium tracking-widest text-light/50 uppercase">
+              Get in touch
+            </p>
+            <h1 className="text-64 mb-12 leading-tight font-medium">We'd love to hear from you</h1>
             <div className="space-y-4 text-sm text-light/60">
               <p className="font-medium text-light">Stryk Studio</p>
-              <p>1234 Maker Street<br />New York, NY 10001</p>
-              <a href="mailto:info@stryk.co" className="block hover:text-light transition-colors">
+              <p>
+                1234 Maker Street
+                <br />
+                New York, NY 10001
+              </p>
+              <a href="mailto:info@stryk.co" className="block transition-colors hover:text-light">
                 info@stryk.co
               </a>
-              <a href="tel:+12125550100" className="block hover:text-light transition-colors">
+              <a href="tel:+12125550100" className="block transition-colors hover:text-light">
                 +1 212 555 0100
               </a>
             </div>
@@ -95,7 +111,7 @@ export function ContactPage() {
 
           {/* FAQ */}
           <div className="mt-16">
-            <p className="mb-6 text-xs font-medium uppercase tracking-widest text-light/50">FAQ</p>
+            <p className="mb-6 text-xs font-medium tracking-widest text-light/50 uppercase">FAQ</p>
             <Accordion items={FAQ_ITEMS} />
           </div>
         </div>
@@ -105,7 +121,13 @@ export function ContactPage() {
           {submitted ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
               <div className="flex h-16 w-16 items-center justify-center border border-light/20">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-8 w-8 text-loam">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="h-8 w-8 text-loam"
+                >
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
@@ -143,16 +165,23 @@ export function ContactPage() {
                 onChange={(v) => set("phone", v)}
               />
               <div className="relative">
-                <label className="mb-1.5 block text-xs font-medium uppercase tracking-widest text-light/50">
+                <label
+                  htmlFor="contact-message"
+                  className="mb-1.5 block text-xs font-medium tracking-widest text-light/50 uppercase"
+                >
                   Message
                 </label>
                 <textarea
+                  id="contact-message"
+                  aria-label="Message"
                   rows={5}
                   value={fields.message.value}
                   onChange={(e) => set("message", e.target.value)}
                   className={clsx(
                     "w-full resize-none border bg-transparent px-4 py-3 text-sm text-light outline-none transition-colors duration-200 placeholder:text-light/30",
-                    fields.message.status === "error" ? "border-red-400/60" : "border-light/20 focus:border-light/50",
+                    fields.message.status === "error"
+                      ? "border-red-400/60"
+                      : "border-light/20 focus:border-light/50",
                   )}
                   placeholder="Your message..."
                 />
@@ -160,8 +189,15 @@ export function ContactPage() {
               </div>
 
               <label className="flex cursor-pointer items-start gap-3">
-                <div
-                  onClick={() => setTerms(!terms)}
+                <input
+                  type="checkbox"
+                  checked={terms}
+                  onChange={(e) => setTerms(e.target.checked)}
+                  aria-label="I agree to the Terms & Conditions"
+                  className="sr-only"
+                />
+                <span
+                  aria-hidden="true"
                   className={clsx(
                     "mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center border transition-colors",
                     terms ? "border-light bg-light" : "border-light/30",
@@ -172,19 +208,16 @@ export function ContactPage() {
                       <polyline points="1 4 3.5 6.5 9 1" stroke="#222" strokeWidth="1.5" />
                     </svg>
                   )}
-                </div>
+                </span>
                 <span className="text-xs text-light/50">
                   I agree to the{" "}
-                  <a href="#" className="underline hover:text-light">
+                  <button type="button" className="underline hover:text-light">
                     Terms & Conditions
-                  </a>
+                  </button>
                 </span>
               </label>
 
-              <button
-                type="submit"
-                className="btn-filled w-full justify-center text-sm"
-              >
+              <button type="submit" className="btn-filled w-full justify-center text-sm">
                 Send message
               </button>
             </form>
@@ -204,13 +237,19 @@ interface FieldProps {
 }
 
 function Field({ label, type = "text", value, status, onChange }: FieldProps) {
+  const id = `field-${label.toLowerCase().replace(/\s+/g, "-")}`
   return (
     <div className="relative">
-      <label className="mb-1.5 block text-xs font-medium uppercase tracking-widest text-light/50">
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-xs font-medium tracking-widest text-light/50 uppercase"
+      >
         {label}
       </label>
       <input
+        id={id}
         type={type}
+        aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={clsx(
@@ -218,8 +257,8 @@ function Field({ label, type = "text", value, status, onChange }: FieldProps) {
           status === "error"
             ? "border-red-400/60"
             : status === "success"
-            ? "border-loam/60"
-            : "border-light/20 focus:border-light/50",
+              ? "border-loam/60"
+              : "border-light/20 focus:border-light/50",
         )}
       />
       <FieldIcon status={status} />
@@ -230,7 +269,7 @@ function Field({ label, type = "text", value, status, onChange }: FieldProps) {
 function FieldIcon({ status }: { status: "idle" | "success" | "error" }) {
   if (status === "idle") return null
   return (
-    <div className="pointer-events-none absolute right-3 top-9">
+    <div className="pointer-events-none absolute top-9 right-3">
       {status === "success" ? (
         <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 text-loam">
           <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.2" />

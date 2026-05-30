@@ -38,7 +38,7 @@ export function GridCollection({ products, onItemClick, itemRefs, visible }: Gri
   if (!visible) return null
 
   return (
-    <div ref={containerRef} className="min-h-screen px-6 pb-28 pt-36 md:px-10 md:pt-40">
+    <div ref={containerRef} className="min-h-screen px-6 pt-36 pb-28 md:px-10 md:pt-40">
       <header className="mb-16 md:mb-24">
         <h1 className="text-128 max-w-[15ch] text-dark">Explore Stryk dinnerware collections</h1>
         <p className="mt-8 max-w-md text-sm leading-relaxed text-dark/60">

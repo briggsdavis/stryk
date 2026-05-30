@@ -16,7 +16,6 @@ export function useXpCanvas(active: boolean) {
   const zoomRef = useRef<ZoomLevel>(2)
 
   // smooth pan via lerp
-  const scrollDeltaRef = useRef({ x: 0, y: 0 })
   const positionRef = useRef({ x: 0, y: 0 })
   const targetRef = useRef({ x: 0, y: 0 })
   const rafRef = useRef<number>(0)
@@ -72,10 +71,7 @@ export function useXpCanvas(active: boolean) {
     (e: WheelEvent) => {
       if (!active) return
       e.preventDefault()
-      const next = clamp(
-        targetRef.current.x - e.deltaX * 0.7,
-        targetRef.current.y - e.deltaY * 0.7,
-      )
+      const next = clamp(targetRef.current.x - e.deltaX * 0.7, targetRef.current.y - e.deltaY * 0.7)
       targetRef.current = next
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(tick)

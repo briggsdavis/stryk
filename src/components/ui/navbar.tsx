@@ -107,7 +107,11 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
 
     gsap.fromTo(top, { width: prevW }, { width: targetW, duration: 0.5, ease: "expo.out" })
     if (bottom) {
-      gsap.fromTo(bottom, { width: bottom.offsetWidth }, { width: targetW, duration: 0.5, ease: "expo.out" })
+      gsap.fromTo(
+        bottom,
+        { width: bottom.offsetWidth },
+        { width: targetW, duration: 0.5, ease: "expo.out" },
+      )
     }
     if (togglerContentRef.current) {
       gsap.fromTo(
@@ -123,15 +127,18 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
   return (
     <>
       {/* Top-left logo */}
-      <div className="fixed left-6 top-6 z-[500] md:left-10">
-        <Link to="/" className="text-xs font-medium uppercase tracking-[0.2em] text-dark/80 hover:text-dark">
+      <div className="fixed top-6 left-6 z-[500] md:left-10">
+        <Link
+          to="/"
+          className="text-xs font-medium tracking-[0.2em] text-dark/80 uppercase hover:text-dark"
+        >
           Stryk
         </Link>
       </div>
 
       {/* Top-center: view toggle — single capsule, dots left of label */}
       {showViewToggle && viewMode && onToggleView && (
-        <div className="fixed left-1/2 top-5 z-[500] -translate-x-1/2">
+        <div className="fixed top-5 left-1/2 z-[500] -translate-x-1/2">
           <button
             ref={topPillRef}
             onClick={onToggleView}
@@ -147,7 +154,7 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
       )}
 
       {/* Bottom-center: menu capsule + expanding mini-menu above it */}
-      <div className="fixed bottom-8 left-1/2 z-[600] -translate-x-1/2 flex flex-col items-center gap-2">
+      <div className="fixed bottom-8 left-1/2 z-[600] flex -translate-x-1/2 flex-col items-center gap-2">
         {/* Mini-menu items — slide up above the capsule */}
         <div
           ref={menuRef}
@@ -159,7 +166,7 @@ export function Navbar({ viewMode, onToggleView, showViewToggle }: NavbarProps) 
               key={to}
               to={to}
               onClick={close}
-              className="block border border-dark/20 bg-canvas px-5 py-2 text-[9px] font-medium uppercase tracking-widest text-dark transition-colors duration-200 hover:bg-dark hover:text-white"
+              className="block border border-dark/20 bg-canvas px-5 py-2 text-[9px] font-medium tracking-widest text-dark uppercase transition-colors duration-200 hover:bg-dark hover:text-white"
             >
               {label}
             </Link>

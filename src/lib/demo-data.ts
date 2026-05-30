@@ -21,16 +21,16 @@ const IMAGES = [
 ]
 
 const COLLECTIONS = [
-  { slug: "terra",    name: "Terra",    color: "#635858" },
-  { slug: "midori",   name: "Midori",   color: "#506157" },
-  { slug: "mist",     name: "Mist",     color: "#bbc1c8" },
-  { slug: "dust",     name: "Dust",     color: "#f3e0cf" },
+  { slug: "terra", name: "Terra", color: "#635858" },
+  { slug: "midori", name: "Midori", color: "#506157" },
+  { slug: "mist", name: "Mist", color: "#bbc1c8" },
+  { slug: "dust", name: "Dust", color: "#f3e0cf" },
   { slug: "wisteria", name: "Wisteria", color: "#8b7fa8" },
-  { slug: "cobalt",   name: "Cobalt",   color: "#4a699f" },
-  { slug: "sage",     name: "Sage",     color: "#7a9e7e" },
-  { slug: "ivory",    name: "Ivory",    color: "#e8dcc8" },
-  { slug: "onyx",     name: "Onyx",     color: "#2c2c2c" },
-  { slug: "clay",     name: "Clay",     color: "#b5836a" },
+  { slug: "cobalt", name: "Cobalt", color: "#4a699f" },
+  { slug: "sage", name: "Sage", color: "#7a9e7e" },
+  { slug: "ivory", name: "Ivory", color: "#e8dcc8" },
+  { slug: "onyx", name: "Onyx", color: "#2c2c2c" },
+  { slug: "clay", name: "Clay", color: "#b5836a" },
 ]
 
 const PIECES = ["Dinner Plate", "Side Plate", "Bowl", "Deep Plate", "Mug"]

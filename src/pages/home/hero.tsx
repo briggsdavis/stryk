@@ -18,19 +18,36 @@ export function Hero() {
     }
 
     if (subRef.current)
-      tl.fromTo(subRef.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.4)
+      tl.fromTo(
+        subRef.current,
+        { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" },
+        0.4,
+      )
 
     if (ctasRef.current)
-      tl.fromTo(ctasRef.current, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.6)
+      tl.fromTo(
+        ctasRef.current,
+        { opacity: 0, y: 12 },
+        { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" },
+        0.6,
+      )
 
     if (hintRef.current)
-      tl.fromTo(hintRef.current, { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "power2.out" }, 1)
+      tl.fromTo(
+        hintRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.8, ease: "power2.out" },
+        1,
+      )
 
-    return () => { tl.kill() }
+    return () => {
+      tl.kill()
+    }
   }, [])
 
   return (
-    <div className="pointer-events-none absolute bottom-12 left-8 right-8 z-10 md:left-16 md:right-16">
+    <div className="pointer-events-none absolute right-8 bottom-12 left-8 z-10 md:right-16 md:left-16">
       <h1 ref={headingRef} className="text-160 mb-6 max-w-4xl font-medium">
         Explore Stryk collections
       </h1>
@@ -38,16 +55,16 @@ export function Hero() {
         Thoughtfully crafted dinnerware for moments worth remembering.
       </p>
       <div ref={ctasRef} className="pointer-events-auto flex gap-4" style={{ opacity: 0 }}>
-        <a href="#" className="btn-filled">
+        <button type="button" className="btn-filled">
           Shop Now →
-        </a>
-        <a href="#" className="btn-outline">
+        </button>
+        <button type="button" className="btn-outline">
           View Collection
-        </a>
+        </button>
       </div>
       <p
         ref={hintRef}
-        className="pointer-events-none mt-8 text-xs font-medium uppercase tracking-widest text-light/30"
+        className="pointer-events-none mt-8 text-xs font-medium tracking-widest text-light/30 uppercase"
         style={{ opacity: 0 }}
       >
         Drag to explore

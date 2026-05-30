@@ -7,8 +7,8 @@ import { IntroScreen } from "../../components/ui/intro-screen"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
-import { Flip, gsap } from "../../lib/gsap"
 import { DEMO_PRODUCTS } from "../../lib/demo-data"
+import { Flip, gsap } from "../../lib/gsap"
 import type { Product, ViewMode } from "../../lib/types"
 
 const CANVAS_SHIFT = "60vw"
@@ -28,8 +28,9 @@ export function HomePage() {
   const viewTransitioningRef = useRef(false)
   const isFocusedRef = useRef(false)
 
-  const { wrapperRef, collectionRef, zoomLevel, zoomIn, zoomOut, runEntrance } =
-    useXpCanvas(introComplete && viewMode === "xp")
+  const { wrapperRef, collectionRef, zoomLevel, zoomIn, zoomOut, runEntrance } = useXpCanvas(
+    introComplete && viewMode === "xp",
+  )
 
   // ── Intro ────────────────────────────────────────────────────────────────
   const handleIntroComplete = useCallback(() => {
@@ -50,8 +51,12 @@ export function HomePage() {
 
       items.forEach((item) => {
         const rect = item.getBoundingClientRect()
-        if (rect.right < 0 || rect.left > window.innerWidth ||
-            rect.bottom < 0 || rect.top > window.innerHeight) {
+        if (
+          rect.right < 0 ||
+          rect.left > window.innerWidth ||
+          rect.bottom < 0 ||
+          rect.top > window.innerHeight
+        ) {
           gsap.to(item, { scale: 1, duration: 0.5, overwrite: "auto" })
           return
         }
@@ -61,7 +66,10 @@ export function HomePage() {
         const factor = Math.max(0, 1 - dist / PROXIMITY_RADIUS)
         const scale = 1 + factor * 0.15
         gsap.to(item, { scale, duration: 0.35, ease: "power2.out", overwrite: "auto" })
-        if (dist < closestDist) { closestDist = dist; closestName = item.dataset.cursor ?? "" }
+        if (dist < closestDist) {
+          closestDist = dist
+          closestName = item.dataset.cursor ?? ""
+        }
       })
 
       window.dispatchEvent(
@@ -88,9 +96,7 @@ export function HomePage() {
     if (viewTransitioningRef.current || isFocusedRef.current) return
     viewTransitioningRef.current = true
     const currentItems =
-      viewMode === "xp"
-        ? [...xpItemRefs.current.values()]
-        : [...gridItemRefs.current.values()]
+      viewMode === "xp" ? [...xpItemRefs.current.values()] : [...gridItemRefs.current.values()]
     flipStateRef.current = Flip.getState(currentItems)
     setViewMode((prev) => (prev === "xp" ? "grid" : "xp"))
   }, [viewMode])
@@ -104,7 +110,9 @@ export function HomePage() {
       ease: "expo.inOut",
       stagger: 0.012,
       absolute: true,
-      onComplete: () => { viewTransitioningRef.current = false },
+      onComplete: () => {
+        viewTransitioningRef.current = false
+      },
     })
   })
 
@@ -248,26 +256,27 @@ export function HomePage() {
       el,
       { left: fromRect.left, top: fromRect.top, width: fromRect.width, height: fromRect.height },
       {
-      left: toRect.left,
-      top: toRect.top,
-      width: toRect.width,
-      height: toRect.height,
-      duration: 1.1,
-      ease: "expo.inOut",
-      onComplete: () => {
-        // Drop back into the canvas column where the placeholder held the gap,
-        // and restore its original vw size.
-        placeholder.parentElement?.replaceChild(el, placeholder)
-        placeholderRef.current = null
-        gsap.set(el, { clearProps: "top,left,zIndex,margin" })
-        el.style.position = "relative"
-        el.style.width = originalSizeRef.current.w
-        el.style.height = originalSizeRef.current.h
-        focusedElRef.current = null
-        isFocusedRef.current = false
-        setFocusedProduct(null)
+        left: toRect.left,
+        top: toRect.top,
+        width: toRect.width,
+        height: toRect.height,
+        duration: 1.1,
+        ease: "expo.inOut",
+        onComplete: () => {
+          // Drop back into the canvas column where the placeholder held the gap,
+          // and restore its original vw size.
+          placeholder.parentElement?.replaceChild(el, placeholder)
+          placeholderRef.current = null
+          gsap.set(el, { clearProps: "top,left,zIndex,margin" })
+          el.style.position = "relative"
+          el.style.width = originalSizeRef.current.w
+          el.style.height = originalSizeRef.current.h
+          focusedElRef.current = null
+          isFocusedRef.current = false
+          setFocusedProduct(null)
+        },
       },
-    })
+    )
   }, [wrapperRef])
 
   return (
@@ -324,7 +333,7 @@ export function HomePage() {
       )}
 
       {viewMode === "xp" && introComplete && !focusedProduct && (
-        <p className="fixed bottom-9 left-6 z-10 text-[10px] font-medium uppercase tracking-widest text-dark/30 md:left-10">
+        <p className="fixed bottom-9 left-6 z-10 text-[10px] font-medium tracking-widest text-dark/30 uppercase md:left-10">
           Scroll to navigate
         </p>
       )}

@@ -225,11 +225,11 @@
 
   /* ── Grid view ── */
   .grid-item {
-    @apply relative overflow-hidden cursor-pointer rounded-xl border border-dark/15 bg-canvas;
+    @apply relative cursor-pointer overflow-hidden rounded-xl border border-dark/15 bg-canvas;
     aspect-ratio: 3 / 4;
   }
   .grid-item img {
-    @apply w-full h-full object-cover block transition-transform duration-700;
+    @apply block h-full w-full object-cover transition-transform duration-700;
     transition-timing-function: var(--ease-ui);
   }
   .grid-item:hover img {

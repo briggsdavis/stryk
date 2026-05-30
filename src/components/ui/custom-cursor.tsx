@@ -33,7 +33,7 @@ export function CustomCursor() {
   return (
     <div
       ref={cursorRef}
-      className="pointer-events-none fixed left-0 top-0 z-[99999] hidden md:block"
+      className="pointer-events-none fixed top-0 left-0 z-[99999] hidden md:block"
       style={{ transform: "translate(-50%, -50%)" }}
     >
       <div

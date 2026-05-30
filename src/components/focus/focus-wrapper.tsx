@@ -42,7 +42,13 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
     // --- × button: pops in when divider arrives ---
     gsap.set(closeRef.current, { opacity: 0, scale: 0 })
-    gsap.to(closeRef.current, { opacity: 1, scale: 1, duration: 0.35, delay: 1.05, ease: "back.out(1.7)" })
+    gsap.to(closeRef.current, {
+      opacity: 1,
+      scale: 1,
+      duration: 0.35,
+      delay: 1.05,
+      ease: "back.out(1.7)",
+    })
 
     // --- Staggered text fade-in (starts while Flip is still in flight) ---
     const textEls = [
@@ -62,7 +68,9 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     tl.to(priceRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35)
     tl.to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.45)
 
-    return () => { tl.kill() }
+    return () => {
+      tl.kill()
+    }
   }, [isOpen, product?.id])
 
   // Vertical wheel → horizontal carousel
@@ -103,7 +111,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
   return (
     <div className={clsx("focus-wrapper", isOpen && "active")}>
-
       {/* Left panel — 60vw */}
       <div
         ref={panelRef}
@@ -113,7 +120,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         {/* Collection name — top left */}
         <h2
           ref={collectionNameRef}
-          className="pointer-events-none absolute left-6 top-6 z-20 font-medium leading-none text-dark md:left-10 md:top-8"
+          className="pointer-events-none absolute top-6 left-6 z-20 leading-none font-medium text-dark md:top-8 md:left-10"
           style={{ fontSize: "clamp(3rem, 7vw, 6rem)", letterSpacing: "-0.04em", opacity: 0 }}
         >
           {product?.collectionName}
@@ -194,7 +201,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         {/* Add to Cart — bottom right */}
         <button
           ref={ctaRef}
-          className="absolute bottom-8 right-8 z-20 flex items-center gap-2 bg-dark px-5 py-3 text-xs font-medium uppercase tracking-widest text-white transition-opacity hover:opacity-70"
+          className="absolute right-8 bottom-8 z-20 flex items-center gap-2 bg-dark px-5 py-3 text-xs font-medium tracking-widest text-white uppercase transition-opacity hover:opacity-70"
           style={{ opacity: 0 }}
           onClick={(e) => e.preventDefault()}
         >
@@ -229,7 +236,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           </div>
         </div>
       )}
-
     </div>
   )
 }

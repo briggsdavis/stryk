@@ -9,7 +9,7 @@ interface ZoomControlsProps {
 
 export function ZoomControls({ level, onZoomIn, onZoomOut }: ZoomControlsProps) {
   return (
-    <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-1">
+    <div className="fixed right-8 bottom-8 z-[200] flex flex-col gap-1">
       <button
         onClick={onZoomIn}
         disabled={level >= 2}
