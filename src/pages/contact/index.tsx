@@ -1,0 +1,248 @@
+import { useState } from "react"
+import { clsx } from "clsx"
+import { Accordion } from "../../components/ui/accordion"
+import { Navbar } from "../../components/ui/navbar"
+import { useLenis } from "../../hooks/use-lenis"
+
+const FAQ_ITEMS = [
+  {
+    question: "Are dinner plates safe for microwave use?",
+    answer:
+      "Yes — all Stryk pieces are microwave safe. Avoid pieces with metallic glazes if in doubt; the product page will specify.",
+  },
+  {
+    question: "How do I replace a damaged piece?",
+    answer:
+      "We keep stock of all current collections. Contact us with your order number and we'll arrange a replacement at cost price.",
+  },
+  {
+    question: "What is the warranty on your pieces?",
+    answer:
+      "All Stryk pieces carry a 1-year warranty against manufacturing defects. This covers glazing faults and structural issues under normal use.",
+  },
+  {
+    question: "How should I care for my dinnerware?",
+    answer:
+      "Dishwasher safe on the normal cycle. Hand washing extends the life of glazes. Avoid abrasive cleaners. Stack with care — felt separators are a good idea for long-term storage.",
+  },
+]
+
+interface FieldState {
+  value: string
+  status: "idle" | "success" | "error"
+}
+
+const emptyField = (): FieldState => ({ value: "", status: "idle" })
+
+export function ContactPage() {
+  useLenis()
+
+  const [fields, setFields] = useState({
+    firstName: emptyField(),
+    lastName: emptyField(),
+    email: emptyField(),
+    phone: emptyField(),
+    message: emptyField(),
+  })
+  const [terms, setTerms] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  const set = (key: keyof typeof fields, value: string) =>
+    setFields((prev) => ({ ...prev, [key]: { value, status: "idle" } }))
+
+  const validate = () => {
+    let valid = true
+    const next = { ...fields }
+
+    if (!fields.firstName.value.trim()) { next.firstName = { ...next.firstName, status: "error" }; valid = false }
+    if (!fields.lastName.value.trim()) { next.lastName = { ...next.lastName, status: "error" }; valid = false }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value)) { next.email = { ...next.email, status: "error" }; valid = false }
+    if (!fields.message.value.trim()) { next.message = { ...next.message, status: "error" }; valid = false }
+
+    if (!valid) setFields(next)
+    return valid
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validate() || !terms) return
+    setSubmitted(true)
+  }
+
+  return (
+    <div className="min-h-screen bg-dark text-light">
+      <Navbar />
+
+      <div className="grid min-h-screen gap-16 px-8 pt-32 pb-24 md:grid-cols-2 md:px-16">
+        {/* Left — info */}
+        <div className="flex flex-col justify-between">
+          <div>
+            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-light/50">Get in touch</p>
+            <h1 className="text-64 mb-12 font-medium leading-tight">
+              We'd love to hear from you
+            </h1>
+            <div className="space-y-4 text-sm text-light/60">
+              <p className="font-medium text-light">Stryk Studio</p>
+              <p>1234 Maker Street<br />New York, NY 10001</p>
+              <a href="mailto:info@stryk.co" className="block hover:text-light transition-colors">
+                info@stryk.co
+              </a>
+              <a href="tel:+12125550100" className="block hover:text-light transition-colors">
+                +1 212 555 0100
+              </a>
+            </div>
+          </div>
+
+          {/* FAQ */}
+          <div className="mt-16">
+            <p className="mb-6 text-xs font-medium uppercase tracking-widest text-light/50">FAQ</p>
+            <Accordion items={FAQ_ITEMS} />
+          </div>
+        </div>
+
+        {/* Right — form */}
+        <div className="flex items-start justify-center pt-4 md:pt-0">
+          {submitted ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+              <div className="flex h-16 w-16 items-center justify-center border border-light/20">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-8 w-8 text-loam">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="text-24 font-medium">Message sent</p>
+              <p className="text-sm text-light/50">We'll be in touch within 1–2 business days.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <Field
+                  label="First name"
+                  value={fields.firstName.value}
+                  status={fields.firstName.status}
+                  onChange={(v) => set("firstName", v)}
+                />
+                <Field
+                  label="Last name"
+                  value={fields.lastName.value}
+                  status={fields.lastName.status}
+                  onChange={(v) => set("lastName", v)}
+                />
+              </div>
+              <Field
+                label="Email address"
+                type="email"
+                value={fields.email.value}
+                status={fields.email.status}
+                onChange={(v) => set("email", v)}
+              />
+              <Field
+                label="Phone number"
+                type="tel"
+                value={fields.phone.value}
+                status={fields.phone.status}
+                onChange={(v) => set("phone", v)}
+              />
+              <div className="relative">
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-widest text-light/50">
+                  Message
+                </label>
+                <textarea
+                  rows={5}
+                  value={fields.message.value}
+                  onChange={(e) => set("message", e.target.value)}
+                  className={clsx(
+                    "w-full resize-none border bg-transparent px-4 py-3 text-sm text-light outline-none transition-colors duration-200 placeholder:text-light/30",
+                    fields.message.status === "error" ? "border-red-400/60" : "border-light/20 focus:border-light/50",
+                  )}
+                  placeholder="Your message..."
+                />
+                <FieldIcon status={fields.message.status} />
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3">
+                <div
+                  onClick={() => setTerms(!terms)}
+                  className={clsx(
+                    "mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center border transition-colors",
+                    terms ? "border-light bg-light" : "border-light/30",
+                  )}
+                >
+                  {terms && (
+                    <svg viewBox="0 0 10 8" fill="none" className="h-2.5 w-2.5">
+                      <polyline points="1 4 3.5 6.5 9 1" stroke="#222" strokeWidth="1.5" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-xs text-light/50">
+                  I agree to the{" "}
+                  <a href="#" className="underline hover:text-light">
+                    Terms & Conditions
+                  </a>
+                </span>
+              </label>
+
+              <button
+                type="submit"
+                className="btn-filled w-full justify-center text-sm"
+              >
+                Send message
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface FieldProps {
+  label: string
+  type?: string
+  value: string
+  status: "idle" | "success" | "error"
+  onChange: (v: string) => void
+}
+
+function Field({ label, type = "text", value, status, onChange }: FieldProps) {
+  return (
+    <div className="relative">
+      <label className="mb-1.5 block text-xs font-medium uppercase tracking-widest text-light/50">
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={clsx(
+          "w-full border bg-transparent px-4 py-3 text-sm text-light outline-none transition-colors duration-200 placeholder:text-light/30",
+          status === "error"
+            ? "border-red-400/60"
+            : status === "success"
+            ? "border-loam/60"
+            : "border-light/20 focus:border-light/50",
+        )}
+      />
+      <FieldIcon status={status} />
+    </div>
+  )
+}
+
+function FieldIcon({ status }: { status: "idle" | "success" | "error" }) {
+  if (status === "idle") return null
+  return (
+    <div className="pointer-events-none absolute right-3 top-9">
+      {status === "success" ? (
+        <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 text-loam">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.2" />
+          <polyline points="5 8 7 10 11 6" stroke="currentColor" strokeWidth="1.2" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 text-red-400">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.2" />
+          <line x1="8" y1="5" x2="8" y2="9" stroke="currentColor" strokeWidth="1.2" />
+          <circle cx="8" cy="11.5" r="0.8" fill="currentColor" />
+        </svg>
+      )}
+    </div>
+  )
+}

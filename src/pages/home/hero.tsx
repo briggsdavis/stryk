@@ -1,0 +1,57 @@
+import { useEffect, useRef } from "react"
+import { gsap, SplitText } from "../../lib/gsap"
+
+export function Hero() {
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const subRef = useRef<HTMLParagraphElement>(null)
+  const ctasRef = useRef<HTMLDivElement>(null)
+  const hintRef = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    const tl = gsap.timeline({ delay: 2.8 })
+
+    if (headingRef.current) {
+      const split = new SplitText(headingRef.current, { type: "lines" })
+      gsap.set(headingRef.current, { overflow: "hidden" })
+      gsap.set(split.lines, { yPercent: 110 })
+      tl.to(split.lines, { yPercent: 0, duration: 1, ease: "power3.out", stagger: 0.08 }, 0)
+    }
+
+    if (subRef.current)
+      tl.fromTo(subRef.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.4)
+
+    if (ctasRef.current)
+      tl.fromTo(ctasRef.current, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.6)
+
+    if (hintRef.current)
+      tl.fromTo(hintRef.current, { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "power2.out" }, 1)
+
+    return () => { tl.kill() }
+  }, [])
+
+  return (
+    <div className="pointer-events-none absolute bottom-12 left-8 right-8 z-10 md:left-16 md:right-16">
+      <h1 ref={headingRef} className="text-160 mb-6 max-w-4xl font-medium">
+        Explore Stryk collections
+      </h1>
+      <p ref={subRef} className="text-18 mb-8 max-w-sm text-light/60" style={{ opacity: 0 }}>
+        Thoughtfully crafted dinnerware for moments worth remembering.
+      </p>
+      <div ref={ctasRef} className="pointer-events-auto flex gap-4" style={{ opacity: 0 }}>
+        <a href="#" className="btn-filled">
+          Shop Now →
+        </a>
+        <a href="#" className="btn-outline">
+          View Collection
+        </a>
+      </div>
+      <p
+        ref={hintRef}
+        className="pointer-events-none mt-8 text-xs font-medium uppercase tracking-widest text-light/30"
+        style={{ opacity: 0 }}
+      >
+        Drag to explore
+      </p>
+    </div>
+  )
+}
