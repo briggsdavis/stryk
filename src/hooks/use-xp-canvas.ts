@@ -116,8 +116,8 @@ export function useXpCanvas(active: boolean) {
       //   new_x = old_x + (newWFactor - oldWFactor) * vw/2
       const vw = window.innerWidth
       const vh = window.innerHeight
-      const newX = positionRef.current.x + (cfg.wFactor - prevCfg.wFactor) * vw / 2
-      const newY = positionRef.current.y + (cfg.hFactor - prevCfg.hFactor) * vh / 2
+      const newX = positionRef.current.x + ((cfg.wFactor - prevCfg.wFactor) * vw) / 2
+      const newY = positionRef.current.y + ((cfg.hFactor - prevCfg.hFactor) * vh) / 2
 
       positionRef.current = { x: newX, y: newY }
       targetRef.current = { x: newX, y: newY }

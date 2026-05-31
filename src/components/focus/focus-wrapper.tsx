@@ -81,7 +81,10 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
     const curEl = imgRefs.current[cur]
     const nextEl = imgRefs.current[next]
-    if (!curEl || !nextEl) { animatingRef.current = false; return }
+    if (!curEl || !nextEl) {
+      animatingRef.current = false
+      return
+    }
 
     // Distance from the image frame's centre to the panel edge (= divider).
     // Frame is centred in the panel, so:  dist = (panelWidth + frameWidth) / 2
@@ -89,9 +92,10 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     // and the outgoing image's trailing edge exactly at the panel's far side.
     const frameEl = document.getElementById("focus-image-frame")
     const panelEl = panelRef.current
-    const dist = frameEl && panelEl
-      ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
-      : panelRef.current?.offsetWidth ?? 900
+    const dist =
+      frameEl && panelEl
+        ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
+        : (panelRef.current?.offsetWidth ?? 900)
 
     gsap.set(nextEl, { x: dir * dist, display: "block" })
     gsap.to(curEl, { x: -dir * dist, duration: 0.7, ease: "power3.inOut" })
@@ -139,7 +143,13 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     gsap.to(dividerContainerRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
 
     gsap.set(closeRef.current, { opacity: 0, scale: 0 })
-    gsap.to(closeRef.current, { opacity: 1, scale: 1, duration: 0.35, delay: 1.05, ease: "back.out(1.7)" })
+    gsap.to(closeRef.current, {
+      opacity: 1,
+      scale: 1,
+      duration: 0.35,
+      delay: 1.05,
+      ease: "back.out(1.7)",
+    })
 
     const textEls = [
       collectionNameRef.current,
@@ -158,7 +168,9 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     tl.to(priceRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35)
     tl.to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.45)
 
-    return () => { tl.kill() }
+    return () => {
+      tl.kill()
+    }
   }, [isOpen, product?.id])
 
   // ── Close ─────────────────────────────────────────────────────────────────
@@ -181,22 +193,29 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       // Hide the gallery overlay instantly so the morphing canvas beneath is clean
       gsap.set(galleryOverlayRef.current, { opacity: 0 })
       gsap.set(panelRef.current, { clipPath: "inset(0 0% 0 0)" })
-      gsap.to(panelRef.current, { clipPath: "inset(0 100% 0 0)", duration: 1.1, ease: "expo.inOut" })
+      gsap.to(panelRef.current, {
+        clipPath: "inset(0 100% 0 0)",
+        duration: 1.1,
+        ease: "expo.inOut",
+      })
       gsap.to(dividerContainerRef.current, { x: "-60vw", duration: 1.0, ease: "expo.inOut" })
       onClose()
     }
 
     const idx = currentIdxRef.current
-    if (idx === 0) { triggerClose(); return }
+    if (idx === 0) {
+      triggerClose()
+      return
+    }
 
     // Kill any in-progress slide tweens
-    imgRefs.current.forEach((el) => { if (el) gsap.killTweensOf(el) })
+    imgRefs.current.forEach((el) => {
+      if (el) gsap.killTweensOf(el)
+    })
 
     const frameEl = document.getElementById("focus-image-frame")
     const panelEl = panelRef.current
-    const dist = frameEl && panelEl
-      ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
-      : 900
+    const dist = frameEl && panelEl ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2 : 900
 
     // Lay all images 0..idx out as a filmstrip (same spacing as normal navigation)
     // then animate the whole strip right so image 0 lands at x=0
@@ -205,9 +224,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       if (el) gsap.set(el, { x: (i - idx) * dist, display: "block" })
     }
 
-    const strip = imgRefs.current
-      .slice(0, idx + 1)
-      .filter((el): el is HTMLDivElement => !!el)
+    const strip = imgRefs.current.slice(0, idx + 1).filter((el): el is HTMLDivElement => !!el)
 
     gsap.to(strip, {
       x: `+=${idx * dist}`,
@@ -242,11 +259,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         </h2>
 
         {/* Image area */}
-        <div
-          id="focus-image-frame"
-          className="absolute"
-          style={{ inset: 0, margin: "auto" }}
-        >
+        <div id="focus-image-frame" className="absolute" style={{ inset: 0, margin: "auto" }}>
           <div id="focus-image-slot" className="pointer-events-none absolute inset-0 z-[1]" />
 
           {/* Gallery overlay — fades in after morph, canvas bg fills the gap between sliding images */}
@@ -264,7 +277,9 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
               {galleryImages.map((src, i) => (
                 <div
                   key={`${product?.id}-${i}`}
-                  ref={(el) => { imgRefs.current[i] = el }}
+                  ref={(el) => {
+                    imgRefs.current[i] = el
+                  }}
                   className="absolute inset-0"
                   style={{ display: i === 0 ? "block" : "none" }}
                 >

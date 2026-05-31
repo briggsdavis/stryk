@@ -137,14 +137,26 @@ export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: Navb
 
     if (showCta) {
       setMenuOpen(false)
-      gsap.to(menu, { opacity: 0, y: 6, duration: 0.2, ease: "power2.in",
+      gsap.to(menu, {
+        opacity: 0,
+        y: 6,
+        duration: 0.2,
+        ease: "power2.in",
         onComplete: () => gsap.set(menu, { pointerEvents: "none" }),
       })
     } else {
       gsap.set(menu, { pointerEvents: "auto" })
-      gsap.fromTo(menu, { opacity: 0, y: 8 }, {
-        opacity: 1, y: 0, duration: 0.35, ease: "power3.out", delay: 0.1,
-      })
+      gsap.fromTo(
+        menu,
+        { opacity: 0, y: 8 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.35,
+          ease: "power3.out",
+          delay: 0.1,
+        },
+      )
     }
   }, [showCta])
 

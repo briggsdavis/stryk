@@ -13,7 +13,13 @@ interface GridCollectionProps {
   scrollerRef: React.RefObject<HTMLDivElement | null>
 }
 
-export function GridCollection({ products, onItemClick, itemRefs, visible, scrollerRef }: GridCollectionProps) {
+export function GridCollection({
+  products,
+  onItemClick,
+  itemRefs,
+  visible,
+  scrollerRef,
+}: GridCollectionProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   useLenis(visible, scrollerRef as React.RefObject<HTMLElement | null>)
 
@@ -48,8 +54,8 @@ export function GridCollection({ products, onItemClick, itemRefs, visible, scrol
       <header className="mb-16 md:mb-24">
         <h1 className="text-128 max-w-[15ch] text-dark">Matchbox art from around the world</h1>
         <p className="mt-8 max-w-md text-sm leading-relaxed text-dark/60">
-          Vintage matchboxes and matchbooks sourced from Japan, Kenya, France, Germany, Italy,
-          and across the US — each one a miniature masterpiece of graphic design.
+          Vintage matchboxes and matchbooks sourced from Japan, Kenya, France, Germany, Italy, and
+          across the US — each one a miniature masterpiece of graphic design.
         </p>
       </header>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

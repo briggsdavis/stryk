@@ -10,7 +10,7 @@ export function useLenis(enabled = true, wrapperRef?: RefObject<HTMLElement | nu
 
     const wrapper = wrapperRef?.current ?? undefined
     const content = wrapper
-      ? (wrapper.firstElementChild as HTMLElement | undefined) ?? undefined
+      ? ((wrapper.firstElementChild as HTMLElement | undefined) ?? undefined)
       : undefined
 
     const lenis = new Lenis({

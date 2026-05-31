@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useRef } from "react"
+import type { ReactNode } from "react"
 import { flushSync } from "react-dom"
 import { useNavigate, useLocation } from "react-router"
-import type { ReactNode } from "react"
 
 const TransitionCtx = createContext<(to: string) => void>(() => {})
 export const useTransitionNavigate = () => useContext(TransitionCtx)

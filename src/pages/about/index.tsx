@@ -103,34 +103,27 @@ export function AboutPage() {
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
           About Stryk
         </p>
-        <h1
-          ref={h1Ref}
-          className="text-128 max-w-4xl overflow-hidden font-medium leading-none"
-        >
+        <h1 ref={h1Ref} className="text-128 max-w-4xl overflow-hidden leading-none font-medium">
           Vintage charm, modern walls
         </h1>
       </section>
 
       {/* ── Horizontal scroll ── */}
       <div ref={horizontalRef} className="h-screen overflow-hidden">
-        <div
-          ref={trackRef}
-          className="flex h-full"
-          style={{ width: `${NUM_PANELS * 100}vw` }}
-        >
-
+        <div ref={trackRef} className="flex h-full" style={{ width: `${NUM_PANELS * 100}vw` }}>
           {/* Panel 1 — Philosophy */}
           <div className="flex h-full w-screen flex-shrink-0 items-center gap-16 px-6 md:px-10">
             <div className="flex flex-1 flex-col justify-center">
               <p className="mb-8 text-xs font-medium tracking-widest text-dark/40 uppercase">
                 Our Philosophy
               </p>
-              <blockquote className="text-64 max-w-xl font-light leading-tight">
-                The matchbox was the first mass-produced canvas. We're still finding the masterpieces.
+              <blockquote className="text-64 max-w-xl leading-tight font-light">
+                The matchbox was the first mass-produced canvas. We're still finding the
+                masterpieces.
               </blockquote>
               <p className="mt-10 max-w-sm text-sm leading-relaxed text-dark/55">
-                Stryk sources matchboxes and matchbooks from flea markets, estate sales, and specialist
-                dealers across four continents — and brings the best of them home as art.
+                Stryk sources matchboxes and matchbooks from flea markets, estate sales, and
+                specialist dealers across four continents — and brings the best of them home as art.
               </p>
               <p className="mt-8 text-xs tracking-widest text-dark/25 uppercase">
                 Est. 2021 — New York
@@ -164,7 +157,7 @@ export function AboutPage() {
                 <h3 className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Vision
                 </h3>
-                <p className="text-48 font-light leading-tight">
+                <p className="text-48 leading-tight font-light">
                   A world that recognises everyday objects as the art they always were.
                 </p>
               </div>
@@ -172,7 +165,7 @@ export function AboutPage() {
                 <h3 className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Mission
                 </h3>
-                <p className="text-48 font-light leading-tight">
+                <p className="text-48 leading-tight font-light">
                   To surface the world's forgotten matchbox art and give it a permanent home.
                 </p>
               </div>
@@ -200,18 +193,19 @@ export function AboutPage() {
                 <p className="mb-5 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Our Story
                 </p>
-                <h2 className="text-48 mb-8 font-medium leading-tight">
+                <h2 className="text-48 mb-8 leading-tight font-medium">
                   Found in a Tokyo flea market
                 </h2>
                 <p className="text-sm leading-relaxed text-dark/60">
-                  Stryk started in 2021 when our founder found a box of mid-century Japanese matchbooks
-                  at a market in Shimokitazawa. The labels — tiny, perfect, forgotten — looked like
-                  nothing they'd seen in any gallery.
+                  Stryk started in 2021 when our founder found a box of mid-century Japanese
+                  matchbooks at a market in Shimokitazawa. The labels — tiny, perfect, forgotten —
+                  looked like nothing they'd seen in any gallery.
                 </p>
               </div>
               <p className="text-sm leading-relaxed text-dark/60">
-                We've been hunting ever since. Tokyo, Nairobi, Paris, Berlin, Lyon, New York — wherever
-                brands once needed a flame, they needed a label. We find the best ones and bring them to you.
+                We've been hunting ever since. Tokyo, Nairobi, Paris, Berlin, Lyon, New York —
+                wherever brands once needed a flame, they needed a label. We find the best ones and
+                bring them to you.
               </p>
               <div className="group mt-4 overflow-hidden">
                 <img
@@ -253,7 +247,7 @@ export function AboutPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-14 group overflow-hidden">
+            <div className="group mt-14 overflow-hidden">
               <img
                 src="https://images.unsplash.com/photo-1617784625140-515e220ba148?w=1400&q=80"
                 alt="Stryk values"
@@ -261,7 +255,6 @@ export function AboutPage() {
               />
             </div>
           </div>
-
         </div>
       </div>
 
