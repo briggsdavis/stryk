@@ -46,6 +46,15 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const [currentIdx, setCurrentIdx] = useState(0)
   const [hasScrolled, setHasScrolled] = useState(false)
 
+  // Expanded (lightbox) view — current image morphs to a larger, centred
+  // position over a white backdrop.
+  const [expanded, setExpanded] = useState(false)
+  const expandedActiveRef = useRef(false)
+  const expandFromRectRef = useRef<DOMRect | null>(null)
+  const expandImgRef = useRef<HTMLImageElement>(null)
+  const expandOverlayRef = useRef<HTMLDivElement>(null)
+  const closeExpandRef = useRef<HTMLButtonElement>(null)
+
   // Purchase configuration — both must be chosen before adding to cart.
   const [selectedSize, setSelectedSize] = useState<SizeKey | null>(null)
   const [withFrame, setWithFrame] = useState<boolean | null>(null)
@@ -84,6 +93,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       lastWheelTimeRef.current = 0
       setSelectedSize(null)
       setWithFrame(null)
+      expandedActiveRef.current = false
+      setExpanded(false)
       return
     }
 
@@ -166,6 +177,13 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     (e: WheelEvent) => {
       if (!galleryActiveRef.current) return
       e.preventDefault()
+
+      // While the lightbox is open, swallow wheel input so the gallery beneath
+      // it can't slide.
+      if (expandedActiveRef.current) {
+        accDeltaRef.current = 0
+        return
+      }
 
       // While a slide is running (or during its cooldown) swallow wheel input
       // so momentum-scroll can't queue up and skip past images.
@@ -301,6 +319,106 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     })
   }
 
+  // ── Expanded (lightbox) view ──────────────────────────────────────────────
+  const openExpanded = () => {
+    if (!galleryActiveRef.current || expandedActiveRef.current) return
+    const el = imgRefs.current[currentIdxRef.current]
+    if (!el) return
+    expandFromRectRef.current = el.getBoundingClientRect()
+    expandedActiveRef.current = true
+    setExpanded(true)
+  }
+
+  const closeExpanded = useCallback(() => {
+    const img = expandImgRef.current
+    const overlay = expandOverlayRef.current
+    // Morph back to wherever the source image now sits in the panel.
+    const liveEl = imgRefs.current[currentIdxRef.current]
+    const from = liveEl?.getBoundingClientRect() ?? expandFromRectRef.current
+
+    if (!img || !overlay || !from) {
+      expandedActiveRef.current = false
+      setExpanded(false)
+      return
+    }
+
+    gsap.killTweensOf(img)
+    gsap.to(closeExpandRef.current, { opacity: 0, scale: 0, duration: 0.2, ease: "power2.in" })
+    gsap.to(img, {
+      left: from.left,
+      top: from.top,
+      width: from.width,
+      height: from.height,
+      duration: 0.6,
+      ease: "expo.inOut",
+    })
+    gsap.to(overlay, {
+      opacity: 0,
+      duration: 0.45,
+      delay: 0.15,
+      ease: "power2.in",
+      onComplete: () => {
+        expandedActiveRef.current = false
+        setExpanded(false)
+      },
+    })
+  }, [])
+
+  // Morph the image out to a larger, centred position when the lightbox opens.
+  useEffect(() => {
+    if (!expanded) return
+    const from = expandFromRectRef.current
+    const img = expandImgRef.current
+    const overlay = expandOverlayRef.current
+    if (!from || !img || !overlay) return
+
+    const aspect = from.width / from.height
+    let w = window.innerWidth * 0.7
+    let h = w / aspect
+    const maxH = window.innerHeight * 0.82
+    if (h > maxH) {
+      h = maxH
+      w = h * aspect
+    }
+    const left = (window.innerWidth - w) / 2
+    const top = (window.innerHeight - h) / 2
+
+    gsap.set(overlay, { opacity: 0 })
+    gsap.to(overlay, { opacity: 1, duration: 0.4, ease: "power2.out" })
+
+    gsap.set(img, {
+      position: "fixed",
+      margin: 0,
+      left: from.left,
+      top: from.top,
+      width: from.width,
+      height: from.height,
+    })
+    gsap.to(img, { left, top, width: w, height: h, duration: 0.75, ease: "expo.inOut" })
+
+    gsap.set(closeExpandRef.current, { opacity: 0, scale: 0 })
+    gsap.to(closeExpandRef.current, {
+      opacity: 1,
+      scale: 1,
+      duration: 0.35,
+      delay: 0.5,
+      ease: "back.out(1.7)",
+    })
+  }, [expanded])
+
+  // Escape closes the lightbox.
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeExpanded()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [expanded, closeExpanded])
+
+  const expandedSrc = galleryImages[currentIdx] ?? product?.image ?? ""
+  const expandFrom = expandFromRectRef.current
+
   return (
     <div className={clsx("focus-wrapper", isOpen && "active")}>
       {/* Left panel — 60vw */}
@@ -352,6 +470,31 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Hover affordance — click the image to open the expanded view */}
+          {galleryActive && (
+            <button
+              type="button"
+              onClick={openExpanded}
+              aria-label="Expand image"
+              className="group absolute inset-0 z-[3] flex cursor-none items-center justify-center"
+            >
+              <span className="flex h-14 w-14 scale-90 items-center justify-center rounded-full bg-dark/65 text-light opacity-0 backdrop-blur-sm transition-all duration-300 ease-out group-hover:scale-100 group-hover:opacity-100">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                >
+                  <path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4" />
+                </svg>
+              </span>
+            </button>
           )}
         </div>
 
@@ -499,6 +642,51 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
               </svg>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Expanded (lightbox) view */}
+      {expanded && (
+        <div ref={expandOverlayRef} className="fixed inset-0 z-[2000] bg-white" style={{ opacity: 0 }}>
+          {/* Backdrop — click anywhere outside to close */}
+          <button
+            type="button"
+            onClick={closeExpanded}
+            aria-label="Close expanded image"
+            className="absolute inset-0 z-[1] cursor-none"
+          />
+          <button
+            ref={closeExpandRef}
+            type="button"
+            onClick={closeExpanded}
+            aria-label="Close expanded image"
+            className="absolute top-6 right-6 z-[3] flex h-11 w-11 items-center justify-center rounded-none border border-dark/20 bg-white text-dark transition-all duration-300 hover:rounded-lg hover:bg-dark hover:text-white md:top-8 md:right-8"
+            style={{ opacity: 0 }}
+          >
+            <svg viewBox="0 0 12 12" fill="none" className="h-3.5 w-3.5">
+              <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" />
+              <line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </button>
+          <img
+            ref={expandImgRef}
+            src={expandedSrc}
+            alt={product?.name ?? ""}
+            draggable={false}
+            className="pointer-events-none object-cover"
+            style={
+              expandFrom
+                ? {
+                    position: "fixed",
+                    margin: 0,
+                    left: expandFrom.left,
+                    top: expandFrom.top,
+                    width: expandFrom.width,
+                    height: expandFrom.height,
+                  }
+                : { opacity: 0 }
+            }
+          />
         </div>
       )}
     </div>
