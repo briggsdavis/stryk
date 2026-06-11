@@ -143,8 +143,26 @@ export function HomePage() {
       const aspect = fromRect.width / fromRect.height
       const frame = document.getElementById("focus-image-frame")
       if (frame) {
+        // Reserve a band at the top for the collection title and one at the
+        // bottom for the info/options strip, then size + centre the image
+        // within what's left. This is a universal guard: the image's top edge
+        // can never rise into the title (the "Tokyo O" overlap), regardless of
+        // artwork aspect ratio or viewport size.
+        //
+        // Title metrics mirror the <h2>: top-16/top-24 offset + clamp(3rem,
+        // 7vw, 6rem) font size, so the reserve scales with the viewport.
+        const isMd = window.innerWidth >= 768
+        const titleTop = isMd ? 96 : 64
+        const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
+        const topReserve = titleTop + titleFont + 28
+        // Sized to clear the tallest the bottom strip can get (dots +
+        // "scroll to explore", product name, and a description that wraps to
+        // ~4 lines at max-width 28ch) plus a comfortable gap, so the image
+        // never crowds the copy for any artwork.
+        const bottomReserve = 210
+
         const maxW = Math.min(window.innerWidth * 0.36, 440)
-        const maxH = window.innerHeight * 0.64
+        const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
         let tw = maxW
         let th = tw / aspect
         if (th > maxH) {
@@ -153,6 +171,9 @@ export function HomePage() {
         }
         frame.style.width = `${tw}px`
         frame.style.height = `${th}px`
+        // Centre within the reserved band rather than the full panel height.
+        frame.style.top = `${topReserve}px`
+        frame.style.bottom = `${bottomReserve}px`
       }
 
       setFocusedProduct(product)

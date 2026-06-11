@@ -1,8 +1,27 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&display=swap");
+
+/* ── Local fonts ── */
+/* Titles: Rotunda Variable (rendered at extra-bold). */
+@font-face {
+  font-family: "Rotunda Variable";
+  src: url("/fonnts.com-Rotunda_Variable_Regular.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+/* Body copy: Sweet Sans Pro Medium. */
+@font-face {
+  font-family: "Sweet Sans Pro";
+  src: url("/SweetSansPro-Medium.woff") format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-sans: "Sweet Sans Pro", system-ui, sans-serif;
+  --font-title: "Rotunda Variable", system-ui, sans-serif;
+  --font-button: "Noto Sans", system-ui, sans-serif;
 
   --color-dark: #222222;
   --color-light: #f5f6ee;
@@ -70,25 +89,38 @@
   h2,
   h3,
   h4 {
+    font-family: var(--font-title);
     letter-spacing: -0.05em;
     line-height: 1;
-    font-weight: 500;
+    font-weight: 800;
+    font-variation-settings: "wght" 800;
+  }
+
+  /* All button text uses Noto Sans. */
+  button,
+  .btn-outline,
+  .btn-filled {
+    font-family: var(--font-button);
   }
 }
 
 /* ── Typography scale ── */
 @layer components {
   .text-160 {
+    font-family: var(--font-title);
     font-size: clamp(4rem, 8.33vw, 10rem);
     line-height: 1;
     letter-spacing: -0.05em;
-    font-weight: 500;
+    font-weight: 800;
+    font-variation-settings: "wght" 800;
   }
   .text-128 {
+    font-family: var(--font-title);
     font-size: clamp(3rem, 6.67vw, 8rem);
     line-height: 1;
     letter-spacing: -0.05em;
-    font-weight: 500;
+    font-weight: 800;
+    font-variation-settings: "wght" 800;
   }
   .text-64 {
     font-size: clamp(2rem, 3.33vw, 4rem);
