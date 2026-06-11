@@ -25,6 +25,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const currentIdxRef = useRef(0)
   const animatingRef = useRef(false)
   const accDeltaRef = useRef(0)
+  const lockedRef = useRef(false)
+  const lastWheelTimeRef = useRef(0)
   const galleryActiveRef = useRef(false)
   const [galleryActive, setGalleryActive] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -49,6 +51,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       currentIdxRef.current = 0
       animatingRef.current = false
       accDeltaRef.current = 0
+      lockedRef.current = false
+      lastWheelTimeRef.current = 0
       return
     }
 
@@ -57,6 +61,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     setHasScrolled(false)
     animatingRef.current = false
     accDeltaRef.current = 0
+    lockedRef.current = false
+    lastWheelTimeRef.current = 0
 
     imgRefs.current.forEach((el, i) => {
       if (el) gsap.set(el, { x: 0, display: i === 0 ? "block" : "none" })
@@ -77,12 +83,14 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     if (next < 0 || next >= total || animatingRef.current) return
 
     animatingRef.current = true
+    lockedRef.current = true
     setHasScrolled(true)
 
     const curEl = imgRefs.current[cur]
     const nextEl = imgRefs.current[next]
     if (!curEl || !nextEl) {
       animatingRef.current = false
+      lockedRef.current = false
       return
     }
 
@@ -97,6 +105,11 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
         : (panelRef.current?.offsetWidth ?? 900)
 
+    // Advance the active dot at the start of the slide so the indicator
+    // tracks the image in sync, rather than jumping after the tween ends.
+    currentIdxRef.current = next
+    setCurrentIdx(next)
+
     gsap.set(nextEl, { x: dir * dist, display: "block" })
     gsap.to(curEl, { x: -dir * dist, duration: 0.7, ease: "power3.inOut" })
     gsap.to(nextEl, {
@@ -105,9 +118,12 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       ease: "power3.inOut",
       onComplete: () => {
         gsap.set(curEl, { display: "none", x: 0 })
-        currentIdxRef.current = next
-        setCurrentIdx(next)
         animatingRef.current = false
+        // Brief cooldown after the slide so trailing momentum-scroll can't
+        // immediately trigger a second navigation when scrolling hard.
+        window.setTimeout(() => {
+          lockedRef.current = false
+        }, 150)
       },
     })
   }, [])
@@ -117,6 +133,20 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     (e: WheelEvent) => {
       if (!galleryActiveRef.current) return
       e.preventDefault()
+
+      // While a slide is running (or during its cooldown) swallow wheel input
+      // so momentum-scroll can't queue up and skip past images.
+      if (animatingRef.current || lockedRef.current) {
+        accDeltaRef.current = 0
+        return
+      }
+
+      // Reset the accumulator after an idle pause so each transition requires a
+      // fresh, deliberate scroll gesture rather than leftover momentum.
+      const now = performance.now()
+      if (now - lastWheelTimeRef.current > 180) accDeltaRef.current = 0
+      lastWheelTimeRef.current = now
+
       accDeltaRef.current += e.deltaY
       if (Math.abs(accDeltaRef.current) >= 60) {
         navigate(accDeltaRef.current > 0 ? 1 : -1)
@@ -252,7 +282,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         {/* Collection name — top left */}
         <h2
           ref={collectionNameRef}
-          className="pointer-events-none absolute top-6 left-6 z-20 leading-none font-medium text-dark md:top-8 md:left-10"
+          className="pointer-events-none absolute top-16 left-6 z-20 leading-none font-medium text-dark md:top-24 md:left-10"
           style={{ fontSize: "clamp(3rem, 7vw, 6rem)", letterSpacing: "-0.04em", opacity: 0 }}
         >
           {product?.collectionName}
@@ -306,17 +336,31 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
                 <div
                   key={i}
                   className={clsx(
-                    "rounded-full bg-dark transition-all duration-300",
+                    "rounded-full bg-dark transition-all duration-700 ease-out",
                     i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
                   )}
                 />
               ))}
             </div>
             <span
-              className="text-[10px] font-medium tracking-widest text-dark/40 uppercase transition-opacity duration-500"
+              className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
               style={{ opacity: hasScrolled ? 0 : 1 }}
             >
-              Scroll
+              Scroll to explore
+              <svg
+                viewBox="0 0 16 8"
+                fill="none"
+                className="scroll-hint-arrow h-2 w-4 text-dark/60"
+                aria-hidden="true"
+              >
+                <path
+                  d="M1 4h13M11 1l3 3-3 3"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </span>
           </div>
 

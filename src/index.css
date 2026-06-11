@@ -167,6 +167,22 @@
     }
   }
 
+  /* ── Gallery scroll hint ── */
+  .scroll-hint-arrow {
+    animation: scroll-hint-nudge 1.3s ease-in-out infinite;
+  }
+  @keyframes scroll-hint-nudge {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 0.6;
+    }
+    50% {
+      transform: translateX(3px);
+      opacity: 1;
+    }
+  }
+
   /* ── Page transition overlay ── */
   .page-transition {
     @apply pointer-events-none fixed inset-0 z-[9999] flex;
