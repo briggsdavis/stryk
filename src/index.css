@@ -19,22 +19,22 @@
   --ease-ui: cubic-bezier(0.625, 0.05, 0, 1);
 }
 
-/* ── Page slide transitions (View Transitions API) ── */
-@keyframes page-slide-out-left {
+/* ── Page fade transitions (View Transitions API) ── */
+@keyframes page-fade-out {
   to {
-    transform: translateX(-100%);
+    opacity: 0;
   }
 }
-@keyframes page-slide-in-right {
+@keyframes page-fade-in {
   from {
-    transform: translateX(100%);
+    opacity: 0;
   }
 }
 ::view-transition-old(root) {
-  animation: 1000ms cubic-bezier(0.85, 0, 0.9, 0.8) 90ms both page-slide-out-left;
+  animation: 1000ms cubic-bezier(0.4, 0, 0.2, 1) both page-fade-out;
 }
 ::view-transition-new(root) {
-  animation: 1000ms cubic-bezier(0.85, 0, 0.9, 0.8) 90ms both page-slide-in-right;
+  animation: 1000ms cubic-bezier(0.4, 0, 0.2, 1) both page-fade-in;
 }
 
 /* ── Base ── */
@@ -164,6 +164,22 @@
     }
     to {
       transform: translateX(-50%);
+    }
+  }
+
+  /* ── Gallery scroll hint ── */
+  .scroll-hint-arrow {
+    animation: scroll-hint-nudge 1.3s ease-in-out infinite;
+  }
+  @keyframes scroll-hint-nudge {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 0.6;
+    }
+    50% {
+      transform: translateX(3px);
+      opacity: 1;
     }
   }
 
