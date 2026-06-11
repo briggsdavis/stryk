@@ -173,9 +173,10 @@ export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: Navb
       <div className="fixed top-6 left-6 z-[500] md:left-10">
         <button
           onClick={() => transitionNavigate("/")}
-          className="text-xs font-medium tracking-[0.2em] text-dark/80 uppercase hover:text-dark"
+          aria-label="Stryk — home"
+          className="opacity-80 transition-opacity hover:opacity-100"
         >
-          Stryk
+          <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
         </button>
       </div>
 
