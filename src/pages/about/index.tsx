@@ -103,7 +103,7 @@ export function AboutPage() {
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
           About Stryk
         </p>
-        <h1 ref={h1Ref} className="text-128 max-w-4xl overflow-hidden leading-none font-medium">
+        <h1 ref={h1Ref} className="text-128 max-w-4xl overflow-hidden leading-none">
           Vintage charm, modern walls
         </h1>
       </section>
@@ -193,7 +193,7 @@ export function AboutPage() {
                 <p className="mb-5 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Our Story
                 </p>
-                <h2 className="text-48 mb-8 leading-tight font-medium">
+                <h2 className="text-48 mb-8 leading-tight">
                   Found in a Tokyo flea market
                 </h2>
                 <p className="text-sm leading-relaxed text-dark/60">
@@ -235,7 +235,7 @@ export function AboutPage() {
                       : "opacity-100",
                   )}
                 >
-                  <h3 className="text-48 mb-5 font-medium">{v.label}</h3>
+                  <h3 className="text-48 mb-5">{v.label}</h3>
                   <p
                     className={clsx(
                       "text-sm leading-relaxed text-dark/55 transition-opacity duration-300",
@@ -263,7 +263,7 @@ export function AboutPage() {
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/50 uppercase">
           Sustainability
         </p>
-        <h2 className="text-64 mb-12 font-medium">How we work</h2>
+        <h2 className="text-64 mb-12">How we work</h2>
         <Accordion items={SUSTAINABILITY_ITEMS} />
       </section>
 

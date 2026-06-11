@@ -48,7 +48,7 @@ export function Hero() {
 
   return (
     <div className="pointer-events-none absolute right-8 bottom-12 left-8 z-10 md:right-16 md:left-16">
-      <h1 ref={headingRef} className="text-160 mb-6 max-w-4xl font-medium">
+      <h1 ref={headingRef} className="text-160 mb-6 max-w-4xl">
         Explore Stryk collections
       </h1>
       <p ref={subRef} className="text-18 mb-8 max-w-sm text-light/60" style={{ opacity: 0 }}>

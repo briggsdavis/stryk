@@ -1,8 +1,31 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap");
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&display=swap");
+
+/* ── Local fonts ── */
+/* Titles site-wide: Rotunda variable, extra-bold rendition */
+@font-face {
+  font-family: "Rotunda Variable";
+  src: url("/fonnts.com-Rotunda_Italic_Variable_Regular.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+/* Regular copy site-wide */
+@font-face {
+  font-family: "Sweet Sans Pro";
+  src: url("/SweetSansPro-Medium.woff") format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  /* Body / regular copy */
+  --font-sans: "Sweet Sans Pro", system-ui, sans-serif;
+  /* Titles */
+  --font-title: "Rotunda Variable", Georgia, serif;
+  /* Button text */
+  --font-button: "Noto Sans", system-ui, sans-serif;
 
   --color-dark: #222222;
   --color-light: #f5f6ee;
@@ -70,9 +93,15 @@
   h2,
   h3,
   h4 {
+    font-family: var(--font-title);
     letter-spacing: -0.05em;
     line-height: 1;
-    font-weight: 500;
+    /* Extra-bold rendition of the Rotunda variable font */
+    font-weight: 800;
+  }
+
+  button {
+    font-family: var(--font-button);
   }
 }
 
@@ -82,13 +111,13 @@
     font-size: clamp(4rem, 8.33vw, 10rem);
     line-height: 1;
     letter-spacing: -0.05em;
-    font-weight: 500;
+    font-weight: 800;
   }
   .text-128 {
     font-size: clamp(3rem, 6.67vw, 8rem);
     line-height: 1;
     letter-spacing: -0.05em;
-    font-weight: 500;
+    font-weight: 800;
   }
   .text-64 {
     font-size: clamp(2rem, 3.33vw, 4rem);

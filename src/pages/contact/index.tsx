@@ -107,7 +107,7 @@ export function ContactPage() {
             <p className="mb-4 text-xs font-medium tracking-widest text-dark/50 uppercase">
               Get in touch
             </p>
-            <h1 className="text-64 mb-12 leading-tight font-medium">
+            <h1 className="text-64 mb-12 leading-tight">
               Tell us what you're hunting for
             </h1>
             <div className="space-y-4 text-sm text-dark/60">
