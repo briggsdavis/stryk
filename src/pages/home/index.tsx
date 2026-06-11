@@ -155,7 +155,11 @@ export function HomePage() {
         const titleTop = isMd ? 96 : 64
         const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
         const topReserve = titleTop + titleFont + 28
-        const bottomReserve = 140
+        // Sized to clear the tallest the bottom strip can get (dots +
+        // "scroll to explore", product name, and a description that wraps to
+        // ~4 lines at max-width 28ch) plus a comfortable gap, so the image
+        // never crowds the copy for any artwork.
+        const bottomReserve = 210
 
         const maxW = Math.min(window.innerWidth * 0.36, 440)
         const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
