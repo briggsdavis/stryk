@@ -1,9 +1,18 @@
 import { clsx } from "clsx"
 import { useState } from "react"
+import { useSearchParams } from "react-router"
 import { Accordion } from "../../components/ui/accordion"
 import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
+
+const INQUIRY_TYPES = [
+  { key: "general", label: "General" },
+  { key: "custom", label: "Custom print" },
+  { key: "order", label: "Order support" },
+] as const
+
+type InquiryKey = (typeof INQUIRY_TYPES)[number]["key"]
 
 const FAQ_ITEMS = [
   {
@@ -33,11 +42,17 @@ const emptyField = (): FieldState => ({ value: "", status: "idle" })
 export function ContactPage() {
   useLenis()
 
+  const [searchParams] = useSearchParams()
+  const initialInquiry: InquiryKey = searchParams.get("inquiry") === "custom" ? "custom" : "general"
+
+  const [inquiryType, setInquiryType] = useState<InquiryKey>(initialInquiry)
   const [fields, setFields] = useState({
     firstName: emptyField(),
     lastName: emptyField(),
     email: emptyField(),
     phone: emptyField(),
+    reference: { value: searchParams.get("product") ?? "", status: "idle" } as FieldState,
+    size: emptyField(),
     message: emptyField(),
   })
   const [terms, setTerms] = useState(false)
@@ -64,6 +79,10 @@ export function ContactPage() {
     }
     if (!fields.message.value.trim()) {
       next.message = { ...next.message, status: "error" }
+      valid = false
+    }
+    if (inquiryType === "custom" && !fields.size.value.trim()) {
+      next.size = { ...next.size, status: "error" }
       valid = false
     }
 
@@ -134,6 +153,31 @@ export function ContactPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-5">
+              {/* Inquiry type */}
+              <div>
+                <p className="mb-1.5 block text-xs font-medium tracking-widest text-dark/50 uppercase">
+                  Inquiry type
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {INQUIRY_TYPES.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setInquiryType(key)}
+                      aria-pressed={inquiryType === key}
+                      className={clsx(
+                        "rounded-lg border px-4 py-2 text-xs font-medium transition-colors",
+                        inquiryType === key
+                          ? "border-dark bg-dark text-canvas"
+                          : "border-dark/20 text-dark hover:border-dark/40",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <Field
                   label="First name"
@@ -162,16 +206,35 @@ export function ContactPage() {
                 status={fields.phone.status}
                 onChange={(v) => set("phone", v)}
               />
+
+              {/* Custom-print specifics */}
+              {inquiryType === "custom" && (
+                <>
+                  <Field
+                    label="Reference artwork"
+                    value={fields.reference.value}
+                    status={fields.reference.status}
+                    onChange={(v) => set("reference", v)}
+                  />
+                  <Field
+                    label="Desired size"
+                    value={fields.size.value}
+                    status={fields.size.status}
+                    onChange={(v) => set("size", v)}
+                  />
+                </>
+              )}
+
               <div className="relative">
                 <label
                   htmlFor="contact-message"
                   className="mb-1.5 block text-xs font-medium tracking-widest text-dark/50 uppercase"
                 >
-                  Message
+                  {inquiryType === "custom" ? "Comments" : "Message"}
                 </label>
                 <textarea
                   id="contact-message"
-                  aria-label="Message"
+                  aria-label={inquiryType === "custom" ? "Comments" : "Message"}
                   rows={5}
                   value={fields.message.value}
                   onChange={(e) => set("message", e.target.value)}
@@ -181,7 +244,11 @@ export function ContactPage() {
                       ? "border-red-400/60"
                       : "border-dark/20 focus:border-dark/50",
                   )}
-                  placeholder="Your message..."
+                  placeholder={
+                    inquiryType === "custom"
+                      ? "Tell us about colours, finish, quantity, deadline…"
+                      : "Your message..."
+                  }
                 />
                 <FieldIcon status={fields.message.status} />
               </div>

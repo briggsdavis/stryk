@@ -1,6 +1,7 @@
 import { clsx } from "clsx"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { gsap } from "../../lib/gsap"
+import { useTransitionNavigate } from "../../lib/transition"
 import type { Product } from "../../lib/types"
 
 interface FocusWrapperProps {
@@ -9,12 +10,26 @@ interface FocusWrapperProps {
   onClose: () => void
 }
 
+// Print size + framing options. Price is a fixed amount per size, plus a flat
+// surcharge when framed. "Custom" has no price — it routes to the contact page.
+type SizeKey = "8x8" | "12x12" | "16x16"
+
+const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
+  { key: "8x8", label: '8×8"' },
+  { key: "12x12", label: '12×12"' },
+  { key: "16x16", label: '16×16"' },
+]
+
+const SIZE_PRICES: Record<SizeKey, number> = { "8x8": 45, "12x12": 75, "16x16": 120 }
+const FRAME_SURCHARGE = 40
+
 export function FocusWrapper({ product, allProducts: _allProducts, onClose }: FocusWrapperProps) {
+  const transitionNavigate = useTransitionNavigate()
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
   const productNameRef = useRef<HTMLParagraphElement>(null)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
   const priceRef = useRef<HTMLParagraphElement>(null)
-  const ctaRef = useRef<HTMLButtonElement>(null)
+  const optionsRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const dividerContainerRef = useRef<HTMLDivElement>(null)
@@ -32,7 +47,22 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const [currentIdx, setCurrentIdx] = useState(0)
   const [hasScrolled, setHasScrolled] = useState(false)
 
+  // Purchase configuration — both must be chosen before adding to cart.
+  const [selectedSize, setSelectedSize] = useState<SizeKey | null>(null)
+  const [withFrame, setWithFrame] = useState<boolean | null>(null)
+
   const isOpen = !!product
+
+  const price =
+    selectedSize !== null ? SIZE_PRICES[selectedSize] + (withFrame ? FRAME_SURCHARGE : 0) : null
+  const canAddToCart = selectedSize !== null && withFrame !== null
+
+  // "Custom" size can't be priced here — hand off to the contact page with the
+  // custom-print inquiry preselected and the artwork name prefilled.
+  const handleCustomSize = () => {
+    if (!product) return
+    transitionNavigate(`/contact?inquiry=custom&product=${encodeURIComponent(product.name)}`)
+  }
 
   const galleryImages: string[] =
     product?.images && product.images.length >= 2
@@ -53,6 +83,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       accDeltaRef.current = 0
       lockedRef.current = false
       lastWheelTimeRef.current = 0
+      setSelectedSize(null)
+      setWithFrame(null)
       return
     }
 
@@ -63,6 +95,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     accDeltaRef.current = 0
     lockedRef.current = false
     lastWheelTimeRef.current = 0
+    setSelectedSize(null)
+    setWithFrame(null)
 
     imgRefs.current.forEach((el, i) => {
       if (el) gsap.set(el, { x: 0, display: i === 0 ? "block" : "none" })
@@ -186,7 +220,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       productNameRef.current,
       descriptionRef.current,
       priceRef.current,
-      ctaRef.current,
+      optionsRef.current,
     ].filter(Boolean) as HTMLElement[]
 
     gsap.set(textEls, { opacity: 0, y: 14 })
@@ -196,7 +230,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     tl.to(productNameRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.15)
     tl.to(descriptionRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.25)
     tl.to(priceRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35)
-    tl.to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.45)
+    tl.to(optionsRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.45)
 
     return () => {
       tl.kill()
@@ -214,7 +248,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       productNameRef.current,
       descriptionRef.current,
       priceRef.current,
-      ctaRef.current,
+      optionsRef.current,
       closeRef.current,
     ].filter(Boolean) as HTMLElement[]
     gsap.to(textEls, { opacity: 0, y: -6, duration: 0.25, stagger: 0.03, ease: "power2.in" })
@@ -374,20 +408,89 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           >
             {product?.description}
           </p>
-          <p ref={priceRef} className="mt-2 text-xs text-dark/40" style={{ opacity: 0 }}>
-            ∅ {product?.size} · ${product?.price}
+          <p ref={priceRef} className="mt-2 text-sm font-medium text-dark" style={{ opacity: 0 }}>
+            {price !== null ? `$${price}` : "From $45"}
           </p>
         </div>
 
-        {/* Add to Cart — bottom right */}
-        <button
-          ref={ctaRef}
-          className="absolute right-8 bottom-8 z-20 flex items-center gap-2 rounded-lg bg-dark px-5 py-3 text-xs font-medium tracking-widest text-white uppercase transition-opacity hover:opacity-70"
+        {/* Purchase options + Add to Cart — bottom right */}
+        <div
+          ref={optionsRef}
+          className="absolute right-6 bottom-8 z-20 flex w-[min(15rem,42vw)] flex-col gap-4 md:right-8"
           style={{ opacity: 0 }}
-          onClick={(e) => e.preventDefault()}
         >
-          Add to Cart <span>→</span>
-        </button>
+          {/* Size */}
+          <div>
+            <p className="mb-2 text-[10px] font-medium tracking-widest text-dark/40 uppercase">
+              Size
+            </p>
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {SIZE_OPTIONS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedSize(key)}
+                  aria-pressed={selectedSize === key}
+                  className={clsx(
+                    "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    selectedSize === key
+                      ? "border-dark bg-dark text-white"
+                      : "border-dark/20 text-dark hover:border-dark/40",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                onClick={handleCustomSize}
+                className="rounded-lg border border-dark/20 px-3 py-2 text-xs font-medium text-dark transition-colors hover:border-dark/40"
+              >
+                Custom
+              </button>
+            </div>
+          </div>
+
+          {/* Frame */}
+          <div>
+            <p className="mb-2 text-[10px] font-medium tracking-widest text-dark/40 uppercase">
+              Frame
+            </p>
+            <div className="flex justify-end gap-1.5">
+              {[
+                { value: true, label: "Framed" },
+                { value: false, label: "Unframed" },
+              ].map(({ value, label }) => (
+                <button
+                  key={label}
+                  onClick={() => setWithFrame(value)}
+                  aria-pressed={withFrame === value}
+                  className={clsx(
+                    "flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    withFrame === value
+                      ? "border-dark bg-dark text-white"
+                      : "border-dark/20 text-dark hover:border-dark/40",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Add to Cart — enabled only once size + frame are chosen */}
+          <button
+            disabled={!canAddToCart}
+            onClick={(e) => e.preventDefault()}
+            className={clsx(
+              "flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-xs font-medium tracking-widest uppercase transition-all",
+              canAddToCart
+                ? "bg-dark text-white hover:opacity-70"
+                : "cursor-not-allowed bg-dark/25 text-white/70",
+            )}
+          >
+            Add to Cart
+            {price !== null ? ` · $${price}` : ""} <span>→</span>
+          </button>
+        </div>
       </div>
 
       {/* Divider line + × button */}
@@ -405,7 +508,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
             <button
               ref={closeRef}
               onClick={handleClose}
-              className="absolute flex h-10 w-10 items-center justify-center border border-dark/20 bg-[#f0ede6] text-dark transition-colors hover:bg-dark hover:text-white"
+              className="absolute flex h-10 w-10 items-center justify-center rounded-none border border-dark/20 bg-[#f0ede6] text-dark transition-all duration-300 hover:rounded-lg hover:bg-dark hover:text-white"
               style={{ opacity: 0, transform: "scale(0)" }}
               aria-label="Close"
             >
