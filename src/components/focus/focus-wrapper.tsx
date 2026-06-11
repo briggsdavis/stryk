@@ -28,7 +28,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
   const productNameRef = useRef<HTMLParagraphElement>(null)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
-  const priceRef = useRef<HTMLParagraphElement>(null)
   const optionsRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -219,7 +218,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       collectionNameRef.current,
       productNameRef.current,
       descriptionRef.current,
-      priceRef.current,
       optionsRef.current,
     ].filter(Boolean) as HTMLElement[]
 
@@ -229,8 +227,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     tl.to(collectionNameRef.current, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0)
     tl.to(productNameRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.15)
     tl.to(descriptionRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.25)
-    tl.to(priceRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35)
-    tl.to(optionsRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.45)
+    tl.to(optionsRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35)
 
     return () => {
       tl.kill()
@@ -247,7 +244,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       collectionNameRef.current,
       productNameRef.current,
       descriptionRef.current,
-      priceRef.current,
       optionsRef.current,
       closeRef.current,
     ].filter(Boolean) as HTMLElement[]
@@ -359,79 +355,73 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           )}
         </div>
 
-        {/* Bottom info — dots, scroll hint, product text */}
-        <div className="absolute bottom-8 left-6 z-20 md:left-10">
-          <div
-            className="mb-4 flex items-center gap-3"
-            style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
-          >
-            <div className="flex items-center gap-1.5">
-              {galleryImages.map((_, i) => (
-                <div
-                  key={i}
-                  className={clsx(
-                    "rounded-full bg-dark transition-all duration-700 ease-out",
-                    i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
-                  )}
-                />
-              ))}
-            </div>
-            <span
-              className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
-              style={{ opacity: hasScrolled ? 0 : 1 }}
+        {/* Bottom strip — info left, options right */}
+        <div className="absolute inset-x-6 bottom-8 z-20 flex items-end justify-between gap-4 md:inset-x-10">
+          {/* Left: gallery indicator + product text */}
+          <div className="min-w-0">
+            <div
+              className="mb-3 flex items-center gap-3"
+              style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
             >
-              Scroll to explore
-              <svg
-                viewBox="0 0 16 8"
-                fill="none"
-                className="scroll-hint-arrow h-2 w-4 text-dark/60"
-                aria-hidden="true"
+              <div className="flex items-center gap-1.5">
+                {galleryImages.map((_, i) => (
+                  <div
+                    key={i}
+                    className={clsx(
+                      "rounded-full bg-dark transition-all duration-700 ease-out",
+                      i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
+                    )}
+                  />
+                ))}
+              </div>
+              <span
+                className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
+                style={{ opacity: hasScrolled ? 0 : 1 }}
               >
-                <path
-                  d="M1 4h13M11 1l3 3-3 3"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
+                Scroll to explore
+                <svg
+                  viewBox="0 0 16 8"
+                  fill="none"
+                  className="scroll-hint-arrow h-2 w-4 text-dark/60"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M1 4h13M11 1l3 3-3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </div>
+            <p ref={productNameRef} className="text-sm font-medium text-dark" style={{ opacity: 0 }}>
+              {product?.name}
+            </p>
+            <p
+              ref={descriptionRef}
+              className="mt-1 text-xs leading-relaxed text-dark/50"
+              style={{ opacity: 0, maxWidth: "28ch" }}
+            >
+              {product?.description}
+            </p>
           </div>
 
-          <p ref={productNameRef} className="text-sm font-medium text-dark" style={{ opacity: 0 }}>
-            {product?.name}
-          </p>
-          <p
-            ref={descriptionRef}
-            className="mt-1 text-xs leading-relaxed text-dark/50"
-            style={{ opacity: 0, maxWidth: "38ch" }}
+          {/* Right: size row → frame + cart row */}
+          <div
+            ref={optionsRef}
+            className="flex flex-shrink-0 flex-col items-end gap-1.5"
+            style={{ opacity: 0 }}
           >
-            {product?.description}
-          </p>
-          <p ref={priceRef} className="mt-2 text-sm font-medium text-dark" style={{ opacity: 0 }}>
-            {price !== null ? `$${price}` : "From $45"}
-          </p>
-        </div>
-
-        {/* Purchase options + Add to Cart — bottom right */}
-        <div
-          ref={optionsRef}
-          className="absolute right-6 bottom-8 z-20 flex w-[min(15rem,42vw)] flex-col gap-4 md:right-8"
-          style={{ opacity: 0 }}
-        >
-          {/* Size */}
-          <div>
-            <p className="mb-2 text-[10px] font-medium tracking-widest text-dark/40 uppercase">
-              Size
-            </p>
-            <div className="flex flex-wrap justify-end gap-1.5">
+            {/* Size */}
+            <div className="flex items-center gap-1">
               {SIZE_OPTIONS.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => setSelectedSize(key)}
                   aria-pressed={selectedSize === key}
                   className={clsx(
-                    "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
                     selectedSize === key
                       ? "border-dark bg-dark text-white"
                       : "border-dark/20 text-dark hover:border-dark/40",
@@ -442,54 +432,45 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
               ))}
               <button
                 onClick={handleCustomSize}
-                className="rounded-lg border border-dark/20 px-3 py-2 text-xs font-medium text-dark transition-colors hover:border-dark/40"
+                className="rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
               >
                 Custom
               </button>
             </div>
-          </div>
 
-          {/* Frame */}
-          <div>
-            <p className="mb-2 text-[10px] font-medium tracking-widest text-dark/40 uppercase">
-              Frame
-            </p>
-            <div className="flex justify-end gap-1.5">
-              {[
-                { value: true, label: "Framed" },
-                { value: false, label: "Unframed" },
-              ].map(({ value, label }) => (
-                <button
-                  key={label}
-                  onClick={() => setWithFrame(value)}
-                  aria-pressed={withFrame === value}
-                  className={clsx(
-                    "flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                    withFrame === value
-                      ? "border-dark bg-dark text-white"
-                      : "border-dark/20 text-dark hover:border-dark/40",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+            {/* Frame toggle + Add to Cart */}
+            <div className="flex items-center gap-1">
+              {([{ value: true, label: "Framed" }, { value: false, label: "Unframed" }] as const).map(
+                ({ value, label }) => (
+                  <button
+                    key={label}
+                    onClick={() => setWithFrame(value)}
+                    aria-pressed={withFrame === value}
+                    className={clsx(
+                      "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                      withFrame === value
+                        ? "border-dark bg-dark text-white"
+                        : "border-dark/20 text-dark hover:border-dark/40",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ),
+              )}
+              <button
+                disabled={!canAddToCart}
+                onClick={(e) => e.preventDefault()}
+                className={clsx(
+                  "ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
+                  canAddToCart
+                    ? "bg-dark text-white hover:opacity-70"
+                    : "cursor-not-allowed bg-dark/20 text-dark/40",
+                )}
+              >
+                {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
+              </button>
             </div>
           </div>
-
-          {/* Add to Cart — enabled only once size + frame are chosen */}
-          <button
-            disabled={!canAddToCart}
-            onClick={(e) => e.preventDefault()}
-            className={clsx(
-              "flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-xs font-medium tracking-widest uppercase transition-all",
-              canAddToCart
-                ? "bg-dark text-white hover:opacity-70"
-                : "cursor-not-allowed bg-dark/25 text-white/70",
-            )}
-          >
-            Add to Cart
-            {price !== null ? ` · $${price}` : ""} <span>→</span>
-          </button>
         </div>
       </div>
 
