@@ -162,6 +162,16 @@
     @apply bg-light/80;
   }
 
+  .admin-card {
+    @apply rounded-lg border border-dark/10 bg-light/45 p-6;
+  }
+  .admin-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-dark px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-50;
+  }
+  .admin-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-dark/15 px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-dark hover:text-white;
+  }
+
   /* ── Image mask (scroll reveal) ── */
   .image-mask-wrap {
     @apply relative overflow-hidden;

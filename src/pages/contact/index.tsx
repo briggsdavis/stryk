@@ -1,10 +1,12 @@
 import { clsx } from "clsx"
+import { useMutation } from "convex/react"
 import { useState } from "react"
 import { useSearchParams } from "react-router"
 import { Accordion } from "../../components/ui/accordion"
 import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
+import { api } from "../../../convex/_generated/api"
 
 const INQUIRY_TYPES = [
   { key: "general", label: "General" },
@@ -57,6 +59,9 @@ export function ContactPage() {
   })
   const [terms, setTerms] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const submitContact = useMutation(api.inquiries.submitContact)
 
   const set = (key: keyof typeof fields, value: string) =>
     setFields((prev) => ({ ...prev, [key]: { value, status: "idle" } }))
@@ -90,10 +95,28 @@ export function ContactPage() {
     return valid
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate() || !terms) return
-    setSubmitted(true)
+    setSubmitError(null)
+    setIsSubmitting(true)
+    try {
+      await submitContact({
+        inquiryType,
+        firstName: fields.firstName.value.trim(),
+        lastName: fields.lastName.value.trim(),
+        email: fields.email.value.trim().toLowerCase(),
+        phone: fields.phone.value.trim() || undefined,
+        reference: fields.reference.value.trim() || undefined,
+        size: fields.size.value.trim() || undefined,
+        message: fields.message.value.trim(),
+      })
+      setSubmitted(true)
+    } catch {
+      setSubmitError("Could not send your message. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -152,7 +175,7 @@ export function ContactPage() {
               <p className="text-sm text-dark/50">We'll be in touch within 1–2 business days.</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-5">
+            <form onSubmit={(event) => void handleSubmit(event)} className="w-full max-w-lg space-y-5">
               {/* Inquiry type */}
               <div>
                 <p className="mb-1.5 block text-xs font-medium tracking-widest text-dark/50 uppercase">
@@ -282,11 +305,14 @@ export function ContactPage() {
                 </span>
               </label>
 
+              {submitError && <p className="text-sm text-red-700">{submitError}</p>}
+
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-dark px-6 py-3 text-sm font-medium tracking-wide text-canvas transition-all duration-300 hover:bg-dark/80"
               >
-                Send message
+                {isSubmitting ? "Sending..." : "Send message"}
               </button>
             </form>
           )}

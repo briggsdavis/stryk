@@ -1,4 +1,5 @@
-import { ConvexProvider, ConvexReactClient } from "convex/react"
+import { ConvexAuthProvider } from "@convex-dev/auth/react"
+import { ConvexReactClient } from "convex/react"
 import { StrictMode } from "react"
 import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
@@ -14,7 +15,7 @@ const convex = convexUrl ? new ConvexReactClient(convexUrl) : null
 
 function Providers({ children }: { children: ReactNode }) {
   if (convex) {
-    return <ConvexProvider client={convex}>{children}</ConvexProvider>
+    return <ConvexAuthProvider client={convex}>{children}</ConvexAuthProvider>
   }
   return <>{children}</>
 }
