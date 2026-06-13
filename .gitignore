@@ -19,6 +19,3 @@ yarn-error.log*
 # editor / OS
 .DS_Store
 *.local
-
-# convex generated
-convex/_generated
