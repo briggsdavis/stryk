@@ -69,42 +69,33 @@ export function ExpandingControl({
 
     const items = inner.querySelectorAll<HTMLElement>(":scope > *")
     if (open) {
-      // Grow from 0 to the content width, then release to `auto`/`visible` so the
-      // upward popovers and later badge/clear changes aren't clipped. A gentler
-      // ease here (vs. the front-loaded expo) keeps the reveal from snapping open,
-      // so the items have room to ease in rather than popping.
+      // The track clips its contents while it widens, so fading the items during
+      // that growth just gets masked by the expanding clip (it reads as a flicker).
+      // Instead: hide the items immediately, open the track to make room, then
+      // fade + slide them in with a stagger once the space exists.
       track.style.overflow = "hidden"
-      gsap.fromTo(
+      const tl = gsap.timeline()
+      tl.set(items, { opacity: 0, y: 8 }, 0)
+      tl.fromTo(
         track,
         { width: 0 },
         {
           width: innerWidth,
-          duration: 0.55,
-          ease: "power3.out",
+          duration: 0.45,
+          ease: "power2.out",
           onComplete: () => {
             track.style.width = "auto"
             track.style.overflow = "visible"
           },
         },
+        0,
       )
-      gsap.fromTo(
-        items,
-        { opacity: 0, x: -12 },
-        {
-          opacity: 1,
-          x: 0,
-          duration: 0.5,
-          stagger: 0.08,
-          ease: "power3.out",
-          delay: 0.12,
-          overwrite: true,
-        },
-      )
+      tl.to(items, { opacity: 1, y: 0, duration: 0.45, stagger: 0.07, ease: "power3.out" }, 0.3)
     } else {
       // Pin the current width, hide overflow, then collapse to 0.
       track.style.overflow = "hidden"
       gsap.fromTo(track, { width: innerWidth }, { width: 0, duration: 0.5, ease: "expo.out" })
-      gsap.to(items, { opacity: 0, x: -10, duration: 0.2, ease: "power2.in" })
+      gsap.to(items, { opacity: 0, y: 6, duration: 0.2, ease: "power2.in" })
     }
   }, [open])
 
