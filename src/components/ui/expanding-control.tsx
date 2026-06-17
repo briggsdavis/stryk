@@ -67,35 +67,45 @@ export function ExpandingControl({
 
     gsap.fromTo(trigger, { width: prev }, { width: triggerTarget, duration: 0.5, ease: "expo.out" })
 
-    const items = inner.querySelectorAll<HTMLElement>(":scope > *")
+    const items = gsap.utils.toArray<HTMLElement>(inner.children)
     if (open) {
-      // The track clips its contents while it widens, so fading the items during
-      // that growth just gets masked by the expanding clip (it reads as a flicker).
-      // Instead: hide the items immediately, open the track to make room, then
-      // fade + slide them in with a stagger once the space exists.
-      track.style.overflow = "hidden"
-      const tl = gsap.timeline()
-      tl.set(items, { opacity: 0, y: 8 }, 0)
-      tl.fromTo(
+      // Keep overflow visible while opening: the items are invisible (opacity 0)
+      // during the track's growth, so there's nothing to clip — which means the
+      // entrance fade is never masked by the expanding clip (the old "flicker").
+      // Then pop each item in with a clear, staggered overshoot so the appearance
+      // reads as a deliberate animation rather than a sudden reveal.
+      gsap.killTweensOf(items)
+      gsap.set(items, { opacity: 0, y: 12, scale: 0.85 })
+      track.style.overflow = "visible"
+      gsap.fromTo(
         track,
         { width: 0 },
         {
           width: innerWidth,
-          duration: 0.45,
-          ease: "power2.out",
+          duration: 0.5,
+          ease: "power3.out",
           onComplete: () => {
             track.style.width = "auto"
-            track.style.overflow = "visible"
           },
         },
-        0,
       )
-      tl.to(items, { opacity: 1, y: 0, duration: 0.45, stagger: 0.07, ease: "power3.out" }, 0.3)
+      gsap.to(items, {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.5,
+        stagger: 0.1,
+        ease: "back.out(1.6)",
+        delay: 0.12,
+        overwrite: true,
+      })
     } else {
-      // Pin the current width, hide overflow, then collapse to 0.
+      // Clip while collapsing so the fading items don't spill past the shrinking
+      // track.
       track.style.overflow = "hidden"
+      gsap.killTweensOf(items)
       gsap.fromTo(track, { width: innerWidth }, { width: 0, duration: 0.5, ease: "expo.out" })
-      gsap.to(items, { opacity: 0, y: 6, duration: 0.2, ease: "power2.in" })
+      gsap.to(items, { opacity: 0, y: 8, scale: 0.9, duration: 0.2, ease: "power2.in" })
     }
   }, [open])
 
