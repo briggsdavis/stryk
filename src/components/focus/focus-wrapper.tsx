@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { gsap } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { Product } from "../../lib/types"
+import { HoverLabel } from "../ui/hover-label"
 
 interface FocusWrapperProps {
   product: Product | null
@@ -23,6 +24,11 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 const SIZE_PRICES: Record<SizeKey, number> = { "8x8": 45, "12x12": 75, "16x16": 120 }
 const FRAME_SURCHARGE = 40
 
+// Vertical space (px) reserved below the image for the collapsed bottom strip.
+// Must match the open-morph's bottomReserve in the home page. The "more details"
+// dropdown adds its own height on top of this when expanded.
+const COLLAPSED_RESERVE = 150
+
 export function FocusWrapper({ product, allProducts: _allProducts, onClose }: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
@@ -33,6 +39,15 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const panelRef = useRef<HTMLDivElement>(null)
   const dividerContainerRef = useRef<HTMLDivElement>(null)
   const galleryOverlayRef = useRef<HTMLDivElement>(null)
+
+  // Collapsible "more details" dropdown — collapsed by default. Expanding it
+  // grows the bottom strip and shrinks the image to make room.
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const detailsFirstRunRef = useRef(true)
+  const summaryRef = useRef<HTMLDivElement>(null)
+  const detailsRef = useRef<HTMLDivElement>(null)
+  const detailsInnerRef = useRef<HTMLDivElement>(null)
+  const moreDetailsRef = useRef<HTMLButtonElement>(null)
 
   // Gallery
   const imgRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -95,6 +110,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       setWithFrame(null)
       expandedActiveRef.current = false
       setExpanded(false)
+      setDetailsOpen(false)
+      detailsFirstRunRef.current = true
       return
     }
 
@@ -107,6 +124,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     lastWheelTimeRef.current = 0
     setSelectedSize(null)
     setWithFrame(null)
+    setDetailsOpen(false)
+    detailsFirstRunRef.current = true
 
     imgRefs.current.forEach((el, i) => {
       if (el) gsap.set(el, { x: 0, display: i === 0 ? "block" : "none" })
@@ -235,8 +254,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     const textEls = [
       collectionNameRef.current,
       productNameRef.current,
-      descriptionRef.current,
-      optionsRef.current,
+      moreDetailsRef.current,
     ].filter(Boolean) as HTMLElement[]
 
     gsap.set(textEls, { opacity: 0, y: 14 })
@@ -244,8 +262,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     const tl = gsap.timeline({ delay: 0.6 })
     tl.to(collectionNameRef.current, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0)
     tl.to(productNameRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.15)
-    tl.to(descriptionRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.25)
-    tl.to(optionsRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.35)
+    tl.to(moreDetailsRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.3)
 
     return () => {
       tl.kill()
@@ -261,8 +278,8 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     const textEls = [
       collectionNameRef.current,
       productNameRef.current,
-      descriptionRef.current,
-      optionsRef.current,
+      moreDetailsRef.current,
+      detailsInnerRef.current,
       closeRef.current,
     ].filter(Boolean) as HTMLElement[]
     gsap.to(textEls, { opacity: 0, y: -6, duration: 0.25, stagger: 0.03, ease: "power2.in" })
@@ -416,6 +433,76 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     return () => window.removeEventListener("keydown", onKey)
   }, [expanded, closeExpanded])
 
+  // ── "More details" dropdown ────────────────────────────────────────────────
+  // Resize + re-centre the image frame for a given bottom reserve. The slot
+  // (and the morphing canvas image inside it) and the gallery overlay all sit at
+  // inset-0 of the frame, so they follow this resize — and the close-morph back
+  // to the canvas reads the frame's live rect, so it still lands correctly.
+  const sizeFrame = useCallback((bottomReserve: number) => {
+    const frame = document.getElementById("focus-image-frame")
+    if (!frame) return
+    const aspect = frame.offsetWidth / frame.offsetHeight
+    const isMd = window.innerWidth >= 768
+    const titleTop = isMd ? 96 : 64
+    const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
+    const topReserve = titleTop + titleFont + 28
+    const maxW = Math.min(window.innerWidth * 0.36, 440)
+    const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 160)
+    let tw = maxW
+    let th = tw / aspect
+    if (th > maxH) {
+      th = maxH
+      tw = th * aspect
+    }
+    gsap.to(frame, {
+      width: tw,
+      height: th,
+      top: topReserve,
+      bottom: bottomReserve,
+      duration: 0.55,
+      ease: "expo.inOut",
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const details = detailsRef.current
+    const inner = detailsInnerRef.current
+    if (!details || !inner) return
+
+    // Skip the collapsed mount — the open-morph already sized the frame.
+    if (detailsFirstRunRef.current) {
+      detailsFirstRunRef.current = false
+      return
+    }
+
+    if (detailsOpen) {
+      // `inner` is never height-constrained, so its offsetHeight is the natural
+      // target even while `details` is collapsed to 0.
+      const target = inner.offsetHeight
+      gsap.fromTo(
+        details,
+        { height: 0 },
+        {
+          height: target,
+          duration: 0.5,
+          ease: "expo.out",
+          onComplete: () => gsap.set(details, { height: "auto" }),
+        },
+      )
+      gsap.fromTo(
+        inner,
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.5, delay: 0.1, ease: "power3.out" },
+      )
+      sizeFrame(COLLAPSED_RESERVE + target)
+    } else {
+      gsap.to(details, { height: 0, duration: 0.45, ease: "expo.inOut" })
+      gsap.to(inner, { opacity: 0, y: 8, duration: 0.25, ease: "power2.in" })
+      sizeFrame(COLLAPSED_RESERVE)
+    }
+  }, [detailsOpen, isOpen, sizeFrame])
+
   const expandedSrc = galleryImages[currentIdx] ?? product?.image ?? ""
   const expandFrom = expandFromRectRef.current
 
@@ -498,120 +585,173 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           )}
         </div>
 
-        {/* Bottom strip — info left, options right */}
-        <div className="absolute inset-x-6 bottom-8 z-20 flex items-end justify-between gap-4 md:inset-x-10">
-          {/* Left: gallery indicator + product text */}
-          <div className="min-w-0">
-            <div
-              className="mb-3 flex items-center gap-3"
-              style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
-            >
-              <div className="flex items-center gap-1.5">
-                {galleryImages.map((_, i) => (
-                  <div
-                    key={i}
-                    className={clsx(
-                      "rounded-full bg-dark transition-all duration-700 ease-out",
-                      i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
-                    )}
-                  />
-                ))}
-              </div>
-              <span
-                className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
-                style={{ opacity: hasScrolled ? 0 : 1 }}
+        {/* Bottom strip — collapsed summary + expandable "more details" */}
+        <div className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
+          {/* Summary row — gallery indicator + title, with the details toggle */}
+          <div ref={summaryRef} className="flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <div
+                className="mb-3 flex items-center gap-3"
+                style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
               >
-                Scroll to explore
-                <svg
-                  viewBox="0 0 16 8"
-                  fill="none"
-                  className="scroll-hint-arrow h-2 w-4 text-dark/60"
-                  aria-hidden="true"
+                <div className="flex items-center gap-1.5">
+                  {galleryImages.map((_, i) => (
+                    <div
+                      key={i}
+                      className={clsx(
+                        "rounded-full bg-dark transition-all duration-700 ease-out",
+                        i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
+                      )}
+                    />
+                  ))}
+                </div>
+                <span
+                  className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
+                  style={{ opacity: hasScrolled ? 0 : 1 }}
                 >
-                  <path
-                    d="M1 4h13M11 1l3 3-3 3"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
+                  Scroll to explore
+                  <svg
+                    viewBox="0 0 16 8"
+                    fill="none"
+                    className="scroll-hint-arrow h-2 w-4 text-dark/60"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M1 4h13M11 1l3 3-3 3"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </div>
+              <p
+                ref={productNameRef}
+                className="text-sm font-medium text-dark"
+                style={{ opacity: 0 }}
+              >
+                {product?.name}
+              </p>
             </div>
-            <p ref={productNameRef} className="text-sm font-medium text-dark" style={{ opacity: 0 }}>
-              {product?.name}
-            </p>
-            <p
-              ref={descriptionRef}
-              className="mt-1 text-xs leading-relaxed text-dark/50"
-              style={{ opacity: 0, maxWidth: "28ch" }}
+
+            {/* More-details toggle */}
+            <button
+              ref={moreDetailsRef}
+              type="button"
+              onClick={() => setDetailsOpen((o) => !o)}
+              aria-expanded={detailsOpen}
+              className="group flex flex-shrink-0 items-center gap-1.5 text-sm font-medium text-dark"
+              style={{ opacity: 0 }}
             >
-              {product?.description}
-            </p>
+              <HoverLabel>{detailsOpen ? "less details" : "more details"}</HoverLabel>
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                className={clsx(
+                  "h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-y-0.5",
+                  detailsOpen && "rotate-180 group-hover:-translate-y-0.5",
+                )}
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 6l4 4 4-4"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
           </div>
 
-          {/* Right: size row → frame + cart row */}
-          <div
-            ref={optionsRef}
-            className="flex flex-shrink-0 flex-col items-end gap-1.5"
-            style={{ opacity: 0 }}
-          >
-            {/* Size */}
-            <div className="flex items-center gap-1">
-              {SIZE_OPTIONS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedSize(key)}
-                  aria-pressed={selectedSize === key}
-                  className={clsx(
-                    "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
-                    selectedSize === key
-                      ? "border-dark bg-dark text-white"
-                      : "border-dark/20 text-dark hover:border-dark/40",
-                  )}
+          {/* Expandable details — description, options, explore collection */}
+          <div ref={detailsRef} style={{ height: 0, overflow: "hidden" }}>
+            <div ref={detailsInnerRef} className="flex items-end justify-between gap-6 pt-5">
+              {/* Left: description + explore collection */}
+              <div className="min-w-0">
+                <p
+                  ref={descriptionRef}
+                  className="text-xs leading-relaxed text-dark/55"
+                  style={{ maxWidth: "34ch" }}
                 >
-                  {label}
+                  {product?.description}
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => e.preventDefault()}
+                  className="group mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-3.5 py-2 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
+                >
+                  <HoverLabel>Explore collection</HoverLabel>
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">
+                    →
+                  </span>
                 </button>
-              ))}
-              <button
-                onClick={handleCustomSize}
-                className="rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
-              >
-                Custom
-              </button>
-            </div>
+              </div>
 
-            {/* Frame toggle + Add to Cart */}
-            <div className="flex items-center gap-1">
-              {([{ value: true, label: "Framed" }, { value: false, label: "Unframed" }] as const).map(
-                ({ value, label }) => (
+              {/* Right: size row → frame + cart row */}
+              <div ref={optionsRef} className="flex flex-shrink-0 flex-col items-end gap-1.5">
+                {/* Size */}
+                <div className="flex items-center gap-1">
+                  {SIZE_OPTIONS.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedSize(key)}
+                      aria-pressed={selectedSize === key}
+                      className={clsx(
+                        "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                        selectedSize === key
+                          ? "border-dark bg-dark text-white"
+                          : "border-dark/20 text-dark hover:border-dark/40",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
                   <button
-                    key={label}
-                    onClick={() => setWithFrame(value)}
-                    aria-pressed={withFrame === value}
+                    onClick={handleCustomSize}
+                    className="rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
+                  >
+                    Custom
+                  </button>
+                </div>
+
+                {/* Frame toggle + Add to Cart */}
+                <div className="flex items-center gap-1">
+                  {(
+                    [
+                      { value: true, label: "Framed" },
+                      { value: false, label: "Unframed" },
+                    ] as const
+                  ).map(({ value, label }) => (
+                    <button
+                      key={label}
+                      onClick={() => setWithFrame(value)}
+                      aria-pressed={withFrame === value}
+                      className={clsx(
+                        "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                        withFrame === value
+                          ? "border-dark bg-dark text-white"
+                          : "border-dark/20 text-dark hover:border-dark/40",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    disabled={!canAddToCart}
+                    onClick={(e) => e.preventDefault()}
                     className={clsx(
-                      "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
-                      withFrame === value
-                        ? "border-dark bg-dark text-white"
-                        : "border-dark/20 text-dark hover:border-dark/40",
+                      "ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
+                      canAddToCart
+                        ? "bg-dark text-white hover:opacity-70"
+                        : "cursor-not-allowed bg-dark/20 text-dark/40",
                     )}
                   >
-                    {label}
+                    {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
                   </button>
-                ),
-              )}
-              <button
-                disabled={!canAddToCart}
-                onClick={(e) => e.preventDefault()}
-                className={clsx(
-                  "ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
-                  canAddToCart
-                    ? "bg-dark text-white hover:opacity-70"
-                    : "cursor-not-allowed bg-dark/20 text-dark/40",
-                )}
-              >
-                {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
-              </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -647,7 +787,11 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
       {/* Expanded (lightbox) view */}
       {expanded && (
-        <div ref={expandOverlayRef} className="fixed inset-0 z-[2000] bg-white" style={{ opacity: 0 }}>
+        <div
+          ref={expandOverlayRef}
+          className="fixed inset-0 z-[2000] bg-white"
+          style={{ opacity: 0 }}
+        >
           {/* Backdrop — click anywhere outside to close */}
           <button
             type="button"

@@ -70,15 +70,17 @@ export function ExpandingControl({
     const items = inner.querySelectorAll<HTMLElement>(":scope > *")
     if (open) {
       // Grow from 0 to the content width, then release to `auto`/`visible` so the
-      // upward popovers and later badge/clear changes aren't clipped.
+      // upward popovers and later badge/clear changes aren't clipped. A gentler
+      // ease here (vs. the front-loaded expo) keeps the reveal from snapping open,
+      // so the items have room to ease in rather than popping.
       track.style.overflow = "hidden"
       gsap.fromTo(
         track,
         { width: 0 },
         {
           width: innerWidth,
-          duration: 0.5,
-          ease: "expo.out",
+          duration: 0.55,
+          ease: "power3.out",
           onComplete: () => {
             track.style.width = "auto"
             track.style.overflow = "visible"
@@ -87,8 +89,16 @@ export function ExpandingControl({
       )
       gsap.fromTo(
         items,
-        { opacity: 0, x: -14 },
-        { opacity: 1, x: 0, duration: 0.4, stagger: 0.05, ease: "power3.out", delay: 0.08 },
+        { opacity: 0, x: -12 },
+        {
+          opacity: 1,
+          x: 0,
+          duration: 0.5,
+          stagger: 0.08,
+          ease: "power3.out",
+          delay: 0.12,
+          overwrite: true,
+        },
       )
     } else {
       // Pin the current width, hide overflow, then collapse to 0.

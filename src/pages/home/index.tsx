@@ -190,11 +190,11 @@ export function HomePage() {
         const titleTop = isMd ? 96 : 64
         const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
         const topReserve = titleTop + titleFont + 28
-        // Sized to clear the tallest the bottom strip can get (dots +
-        // "scroll to explore", product name, and a description that wraps to
-        // ~4 lines at max-width 28ch) plus a comfortable gap, so the image
-        // never crowds the copy for any artwork.
-        const bottomReserve = 210
+        // The focus panel opens with its details collapsed, so the bottom strip
+        // is just the gallery indicator + product title. The details dropdown
+        // grows this reserve (and shrinks the image) on demand from within the
+        // focus panel. Keep this in sync with COLLAPSED_RESERVE there.
+        const bottomReserve = 150
 
         const maxW = Math.min(window.innerWidth * 0.36, 440)
         const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
