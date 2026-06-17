@@ -196,7 +196,7 @@ export function Navbar({
               <button
                 key={to}
                 onClick={() => handleLinkClick(to)}
-                className="group flex items-center gap-1.5 rounded-lg bg-dark px-5 py-3 text-sm font-medium whitespace-nowrap text-white transition-colors duration-200 hover:bg-dark/80"
+                className="group flex items-center gap-1.5 rounded-lg bg-dark px-5 py-3 text-sm font-medium whitespace-nowrap text-white"
               >
                 {isActive && <span className="block h-1.5 w-1.5 rounded-full bg-white" />}
                 <HoverLabel>{label}</HoverLabel>

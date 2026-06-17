@@ -75,7 +75,7 @@ export function ExpandingControl({
       // Then pop each item in with a clear, staggered overshoot so the appearance
       // reads as a deliberate animation rather than a sudden reveal.
       gsap.killTweensOf(items)
-      gsap.set(items, { opacity: 0, y: 12, scale: 0.85 })
+      gsap.set(items, { opacity: 0, y: 10, scale: 0.9 })
       track.style.overflow = "visible"
       gsap.fromTo(
         track,
@@ -93,10 +93,10 @@ export function ExpandingControl({
         opacity: 1,
         y: 0,
         scale: 1,
-        duration: 0.5,
-        stagger: 0.1,
-        ease: "back.out(1.6)",
-        delay: 0.12,
+        duration: 0.55,
+        stagger: 0.09,
+        ease: "power3.out",
+        delay: 0.14,
         overwrite: true,
       })
     } else {
