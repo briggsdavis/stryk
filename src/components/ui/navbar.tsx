@@ -5,8 +5,10 @@ import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
-import { FilterControl } from "./filter-control"
-import { CAPSULE, ROUND_CLOSE } from "./pill"
+import { ExpandingControl } from "./expanding-control"
+import { FilterPills } from "./filter-pills"
+import { HoverLabel } from "./hover-label"
+import { CAPSULE } from "./pill"
 
 interface NavbarProps {
   viewMode?: ViewMode
@@ -64,11 +66,13 @@ function HamburgerIcon() {
   )
 }
 
-function XIcon() {
+function SlidersIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none">
-      <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="1.5" />
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true" fill="none">
+      <line x1="4" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.5" />
+      <line x1="4" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="9" cy="8" r="2.6" fill="currentColor" />
+      <circle cx="15" cy="16" r="2.6" fill="currentColor" />
     </svg>
   )
 }
@@ -90,38 +94,11 @@ export function Navbar({
   const location = useLocation()
   const [panel, setPanel] = useState<Panel>("none")
   const menuOpen = panel === "menu"
-  const menuRef = useRef<HTMLDivElement>(null)
   const topPillRef = useRef<HTMLButtonElement>(null)
   const togglerContentRef = useRef<HTMLSpanElement>(null)
   const prevWidthRef = useRef<number | null>(null)
   const firstRunRef = useRef(true)
   const ctaFirstRunRef = useRef(true)
-
-  // ── Mini-menu open/close — items slide in horizontally to the right ────────
-  useEffect(() => {
-    const menu = menuRef.current
-    if (!menu) return
-
-    if (menuOpen) {
-      gsap.set(menu, { display: "flex", pointerEvents: "all" })
-      const items = menu.querySelectorAll<HTMLElement>("a, button")
-      gsap.fromTo(
-        items,
-        { x: -16, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.35, stagger: 0.05, ease: "power3.out" },
-      )
-    } else {
-      const items = menu.querySelectorAll<HTMLElement>("a, button")
-      gsap.to(items, {
-        x: -10,
-        opacity: 0,
-        duration: 0.2,
-        stagger: 0.03,
-        ease: "power2.in",
-        onComplete: () => gsap.set(menu, { display: "none", pointerEvents: "none" }),
-      })
-    }
-  }, [menuOpen])
 
   // ── Morph the top view-toggle on label change ──────────────────────────────
   // The top toggle changes label ("grid view" ↔ "canvas view"), so its natural
@@ -166,6 +143,7 @@ export function Navbar({
   }
 
   const hideForFocus = showCta
+  const hasFilter = showFilter && filterGroups && activeFilters && onToggleFilter && onClearFilters
 
   return (
     <>
@@ -191,7 +169,7 @@ export function Navbar({
           >
             <span ref={togglerContentRef} className="flex items-center gap-2.5">
               <DotIcon dots={viewMode === "xp" ? GRID_DOTS : SCATTER_DOTS} />
-              <span>{viewMode === "xp" ? "grid view" : "canvas view"}</span>
+              <HoverLabel>{viewMode === "xp" ? "grid view" : "canvas view"}</HoverLabel>
             </span>
           </button>
         </div>
@@ -204,62 +182,47 @@ export function Navbar({
           hideForFocus && "pointer-events-none opacity-0",
         )}
       >
-        {/* Menu group — trigger morphs to a round X, links expand to the right */}
-        <div className="flex items-center gap-2">
-          {menuOpen ? (
-            <button
-              onClick={() => setPanel("none")}
-              className={ROUND_CLOSE}
-              aria-label="Close menu"
-            >
-              <XIcon />
-            </button>
-          ) : (
-            <button
-              onClick={() => setPanel("menu")}
-              className={CAPSULE}
-              aria-label="Open menu"
-              aria-expanded={false}
-            >
-              <HamburgerIcon />
-              <span>menu</span>
-            </button>
-          )}
+        {/* Menu — links slide out to the right as the trigger glides aside */}
+        <ExpandingControl
+          open={menuOpen}
+          onToggle={() => setPanel((p) => (p === "menu" ? "none" : "menu"))}
+          icon={<HamburgerIcon />}
+          label="menu"
+          ariaLabel={menuOpen ? "Close menu" : "Open menu"}
+        >
+          {LINKS.map(({ label, to }) => {
+            const isActive = location.pathname === to
+            return (
+              <button
+                key={to}
+                onClick={() => handleLinkClick(to)}
+                className="group flex items-center gap-1.5 rounded-lg bg-dark px-5 py-3 text-sm font-medium whitespace-nowrap text-white transition-colors duration-200 hover:bg-dark/80"
+              >
+                {isActive && <span className="block h-1.5 w-1.5 rounded-full bg-white" />}
+                <HoverLabel>{label}</HoverLabel>
+              </button>
+            )
+          })}
+        </ExpandingControl>
 
-          <div ref={menuRef} className="flex items-center gap-2" style={{ display: "none" }}>
-            {LINKS.map(({ label, to }) => {
-              const isActive = location.pathname === to
-              return (
-                <button
-                  key={to}
-                  onClick={() => handleLinkClick(to)}
-                  className="flex items-center gap-1.5 rounded-lg bg-dark px-5 py-3 text-sm font-medium whitespace-nowrap text-white transition-colors duration-200 hover:bg-dark/80"
-                >
-                  {isActive && <span className="block h-1.5 w-1.5 rounded-full bg-white" />}
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Filter group — canvas view only; hidden while the menu is open */}
-        {showFilter && filterGroups && activeFilters && onToggleFilter && onClearFilters && (
-          <div
-            className={clsx(
-              "transition-opacity duration-300",
-              menuOpen && "pointer-events-none opacity-0",
-            )}
+        {/* Filter — canvas view only; dimmed while the menu is open */}
+        {hasFilter && (
+          <ExpandingControl
+            open={panel === "filter"}
+            onToggle={() => setPanel((p) => (p === "filter" ? "none" : "filter"))}
+            icon={<SlidersIcon />}
+            label="filter"
+            ariaLabel={panel === "filter" ? "Close filters" : "Open filters"}
+            dimmed={menuOpen}
           >
-            <FilterControl
-              open={panel === "filter"}
-              onToggleOpen={() => setPanel((p) => (p === "filter" ? "none" : "filter"))}
+            <FilterPills
               groups={filterGroups}
               active={activeFilters}
               onToggleOption={onToggleFilter}
               onClear={onClearFilters}
+              popoverSide="top"
             />
-          </div>
+          </ExpandingControl>
         )}
       </div>
     </>

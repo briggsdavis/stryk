@@ -1,21 +1,27 @@
 import { clsx } from "clsx"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { XpWrapper } from "../../components/canvas/xp-wrapper"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { GridCollection } from "../../components/grid/grid-collection"
+import { EmptyFilterState } from "../../components/ui/empty-filter-state"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
 import { DEMO_PRODUCTS } from "../../lib/demo-data"
 import type { ActiveFilters, FilterKey } from "../../lib/filters"
-import { buildFilterGroups, EMPTY_FILTERS } from "../../lib/filters"
+import {
+  activeFilterCount,
+  buildFilterGroups,
+  EMPTY_FILTERS,
+  productMatches,
+} from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
+import { useTransitionNavigate } from "../../lib/transition"
 import type { Product, ViewMode } from "../../lib/types"
 
 const CANVAS_SHIFT = "60vw"
 const PROXIMITY_RADIUS = 220
-const GRID_PRODUCTS = DEMO_PRODUCTS.slice(0, 9)
 const FILTER_GROUPS = buildFilterGroups(DEMO_PRODUCTS)
 
 type WithVTA = Document & { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
@@ -34,6 +40,19 @@ export function HomePage() {
   }, [])
 
   const clearFilters = useCallback(() => setFilters(EMPTY_FILTERS), [])
+
+  const transitionNavigate = useTransitionNavigate()
+  const goToSpecialRequest = useCallback(
+    () => transitionNavigate("/contact?inquiry=custom"),
+    [transitionNavigate],
+  )
+
+  const hasActiveFilters = activeFilterCount(filters) > 0
+  const matchCount = useMemo(
+    () => DEMO_PRODUCTS.filter((p) => productMatches(p, filters)).length,
+    [filters],
+  )
+  const noMatches = hasActiveFilters && matchCount === 0
 
   const xpItemRefs = useRef<Map<string, HTMLElement>>(new Map())
   const gridItemRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -68,9 +87,9 @@ export function HomePage() {
       let closestName = ""
 
       items.forEach((item) => {
+        // Skip pieces filtered out of the current view.
+        if (item.dataset.filtered === "true") return
         const rect = item.getBoundingClientRect()
-        // Filtered-out items are display:none → zero-size; skip them.
-        if (rect.width === 0) return
         if (
           rect.right < 0 ||
           rect.left > window.innerWidth ||
@@ -331,8 +350,13 @@ export function HomePage() {
         )}
       >
         <GridCollection
-          products={GRID_PRODUCTS}
+          products={DEMO_PRODUCTS}
+          filters={filters}
+          filterGroups={FILTER_GROUPS}
+          onToggleFilter={toggleFilter}
+          onClearFilters={clearFilters}
           onItemClick={handleGridItemClick}
+          onContact={goToSpecialRequest}
           itemRefs={gridItemRefs}
           visible={viewMode === "grid"}
           scrollerRef={gridWrapperRef}
@@ -345,6 +369,13 @@ export function HomePage() {
         allProducts={DEMO_PRODUCTS}
         onClose={handleCloseFocus}
       />
+
+      {/* Empty-filter message on the canvas */}
+      {viewMode === "xp" && !focusedProduct && noMatches && (
+        <div className="pointer-events-none absolute inset-0 z-[150] flex items-center justify-center">
+          <EmptyFilterState onContact={goToSpecialRequest} />
+        </div>
+      )}
 
       {viewMode === "xp" && !focusedProduct && (
         <ZoomControls level={zoomLevel} onZoomIn={zoomIn} onZoomOut={zoomOut} />

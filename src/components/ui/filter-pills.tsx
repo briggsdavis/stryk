@@ -2,49 +2,28 @@ import { clsx } from "clsx"
 import { useState } from "react"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { activeFilterCount } from "../../lib/filters"
-import { CAPSULE, ROUND_CLOSE } from "./pill"
 
-interface FilterControlProps {
-  open: boolean
-  onToggleOpen: () => void
+interface FilterPillsProps {
   groups: FilterGroup[]
   active: ActiveFilters
   onToggleOption: (key: FilterKey, value: string) => void
   onClear: () => void
+  // Which side the options popover opens toward.
+  popoverSide?: "top" | "bottom"
 }
 
-function SlidersIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true" fill="none">
-      <line x1="4" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="4" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="9" cy="8" r="2.6" fill="currentColor" />
-      <circle cx="15" cy="16" r="2.6" fill="currentColor" />
-    </svg>
-  )
-}
-
-function XIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none">
-      <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
-
-// A single filter dimension (color / category / collection). The pill toggles a
-// popover of selectable options that floats above it.
 function FilterGroupPill({
   group,
   active,
   open,
+  side,
   onToggle,
   onToggleOption,
 }: {
   group: FilterGroup
   active: string[]
   open: boolean
+  side: "top" | "bottom"
   onToggle: () => void
   onToggleOption: (value: string) => void
 }) {
@@ -52,9 +31,13 @@ function FilterGroupPill({
 
   return (
     <div className="relative">
-      {/* Options popover */}
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 flex min-w-[150px] flex-col gap-1 rounded-xl border border-dark/15 bg-canvas p-1.5 shadow-lg shadow-dark/5">
+        <div
+          className={clsx(
+            "absolute left-0 z-10 flex min-w-[150px] flex-col gap-1 rounded-xl border border-dark/15 bg-canvas p-1.5 shadow-lg shadow-dark/5",
+            side === "top" ? "bottom-full mb-2" : "top-full mt-2",
+          )}
+        >
           {group.options.map((opt) => {
             const selected = active.includes(opt.value)
             return (
@@ -84,7 +67,7 @@ function FilterGroupPill({
         onClick={onToggle}
         aria-expanded={open}
         className={clsx(
-          "flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-300",
+          "group flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-300",
           count > 0
             ? "border-dark bg-dark text-white"
             : "border-dark/15 bg-canvas text-dark hover:border-dark/40",
@@ -92,49 +75,33 @@ function FilterGroupPill({
       >
         <span>{group.label}</span>
         {count > 0 && <span className="text-xs opacity-80">· {count}</span>}
-        <span className="text-base leading-none">{open ? "−" : "+"}</span>
+        <span className="text-base leading-none transition-transform duration-300 group-hover:rotate-90">
+          {open ? "−" : "+"}
+        </span>
       </button>
     </div>
   )
 }
 
-export function FilterControl({
-  open,
-  onToggleOpen,
+export function FilterPills({
   groups,
   active,
   onToggleOption,
   onClear,
-}: FilterControlProps) {
+  popoverSide = "top",
+}: FilterPillsProps) {
   const [openGroup, setOpenGroup] = useState<FilterKey | null>(null)
   const total = activeFilterCount(active)
 
-  const handleToggleOpen = () => {
-    setOpenGroup(null)
-    onToggleOpen()
-  }
-
-  if (!open) {
-    return (
-      <button onClick={handleToggleOpen} className={CAPSULE} aria-label="Open filters">
-        <SlidersIcon />
-        <span>filter</span>
-        {total > 0 && <span className="text-xs opacity-70">· {total}</span>}
-      </button>
-    )
-  }
-
   return (
-    <div className="flex items-center gap-2">
-      <button onClick={handleToggleOpen} className={ROUND_CLOSE} aria-label="Close filters">
-        <XIcon />
-      </button>
+    <>
       {groups.map((group) => (
         <FilterGroupPill
           key={group.key}
           group={group}
           active={active[group.key]}
           open={openGroup === group.key}
+          side={popoverSide}
           onToggle={() => setOpenGroup((g) => (g === group.key ? null : group.key))}
           onToggleOption={(value) => onToggleOption(group.key, value)}
         />
@@ -147,6 +114,6 @@ export function FilterControl({
           Clear
         </button>
       )}
-    </div>
+    </>
   )
 }
