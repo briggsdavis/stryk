@@ -679,7 +679,9 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
                 </p>
                 <button
                   type="button"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={() =>
+                    product && transitionNavigate(`/collection/${product.collectionSlug}`)
+                  }
                   className="group mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-3.5 py-2 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
                 >
                   <HoverLabel>Explore collection</HoverLabel>
