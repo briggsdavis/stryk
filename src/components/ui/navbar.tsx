@@ -1,20 +1,30 @@
 import { clsx } from "clsx"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useLocation } from "react-router"
+import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
+import { FilterControl } from "./filter-control"
+import { CAPSULE, ROUND_CLOSE } from "./pill"
 
 interface NavbarProps {
   viewMode?: ViewMode
   onToggleView?: () => void
   showViewToggle?: boolean
   showCta?: boolean
+  // Canvas filter — only supplied on the home/canvas view.
+  showFilter?: boolean
+  filterGroups?: FilterGroup[]
+  activeFilters?: ActiveFilters
+  onToggleFilter?: (key: FilterKey, value: string) => void
+  onClearFilters?: () => void
 }
 
 const LINKS = [
+  { label: "Collections", to: "/" },
   { label: "About", to: "/about" },
   { label: "Contact", to: "/contact" },
-  { label: "Collections", to: "/" },
 ]
 
 // Even 3×3 grid of dots — represents the grid view.
@@ -44,23 +54,50 @@ function DotIcon({ dots }: { dots: ReadonlyArray<readonly [number, number]> }) {
   )
 }
 
-// Shared capsule styling for the top view-toggle and the bottom menu button,
-// so they read as the same component. Hover inverts to dark.
-const CAPSULE =
-  "group flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-lg border border-dark/15 bg-canvas px-4 py-2.5 text-sm font-medium text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+function HamburgerIcon() {
+  return (
+    <span className="flex flex-col items-center gap-1.5">
+      <span className="block h-px w-5 bg-current" />
+      <span className="block h-px w-5 bg-current" />
+      <span className="block h-px w-5 bg-current" />
+    </span>
+  )
+}
 
-export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: NavbarProps) {
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none">
+      <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="1.5" />
+      <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+type Panel = "none" | "menu" | "filter"
+
+export function Navbar({
+  viewMode,
+  onToggleView,
+  showViewToggle,
+  showCta,
+  showFilter,
+  filterGroups,
+  activeFilters,
+  onToggleFilter,
+  onClearFilters,
+}: NavbarProps) {
   const transitionNavigate = useTransitionNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const location = useLocation()
+  const [panel, setPanel] = useState<Panel>("none")
+  const menuOpen = panel === "menu"
   const menuRef = useRef<HTMLDivElement>(null)
   const topPillRef = useRef<HTMLButtonElement>(null)
-  const bottomPillRef = useRef<HTMLButtonElement>(null)
   const togglerContentRef = useRef<HTMLSpanElement>(null)
   const prevWidthRef = useRef<number | null>(null)
   const firstRunRef = useRef(true)
   const ctaFirstRunRef = useRef(true)
 
-  // ── Mini-menu open/close ───────────────────────────────────────────────
+  // ── Mini-menu open/close — items slide in horizontally to the right ────────
   useEffect(() => {
     const menu = menuRef.current
     if (!menu) return
@@ -70,13 +107,13 @@ export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: Navb
       const items = menu.querySelectorAll<HTMLElement>("a, button")
       gsap.fromTo(
         items,
-        { y: 16, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.35, stagger: 0.05, ease: "power3.out" },
+        { x: -16, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.35, stagger: 0.05, ease: "power3.out" },
       )
     } else {
       const items = menu.querySelectorAll<HTMLElement>("a, button")
       gsap.to(items, {
-        y: 10,
+        x: -10,
         opacity: 0,
         duration: 0.2,
         stagger: 0.03,
@@ -86,36 +123,25 @@ export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: Navb
     }
   }, [menuOpen])
 
-  // ── Capsule width sync + morph on view toggle ──────────────────────────
-  // The top toggle changes label ("grid view" ↔ "experience view"), so its
-  // natural width changes. We morph the top pill to its new width and morph the
-  // bottom "menu" pill to match it, and crossfade the toggle's contents.
+  // ── Morph the top view-toggle on label change ──────────────────────────────
+  // The top toggle changes label ("grid view" ↔ "canvas view"), so its natural
+  // width changes. Morph the pill to its new width and crossfade its contents.
   useLayoutEffect(() => {
     const top = topPillRef.current
     if (!top) return
-    const bottom = bottomPillRef.current
 
     const prevW = prevWidthRef.current
     top.style.width = "auto"
     const targetW = Math.ceil(top.getBoundingClientRect().width)
     prevWidthRef.current = targetW
 
-    // First time the toggle appears: set widths instantly, no morph.
     if (firstRunRef.current || prevW == null) {
       firstRunRef.current = false
       top.style.width = `${targetW}px`
-      if (bottom) bottom.style.width = `${targetW}px`
       return
     }
 
     gsap.fromTo(top, { width: prevW }, { width: targetW, duration: 0.5, ease: "expo.out" })
-    if (bottom) {
-      gsap.fromTo(
-        bottom,
-        { width: bottom.offsetWidth },
-        { width: targetW, duration: 0.5, ease: "expo.out" },
-      )
-    }
     if (togglerContentRef.current) {
       gsap.fromTo(
         togglerContentRef.current,
@@ -125,47 +151,21 @@ export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: Navb
     }
   }, [viewMode, showViewToggle])
 
-  // ── Hide / show the menu pill when a product is focused ──────────────────
+  // ── Collapse panels when a product is focused ──────────────────────────────
   useEffect(() => {
-    const menu = bottomPillRef.current
-    if (!menu) return
-
     if (ctaFirstRunRef.current) {
       ctaFirstRunRef.current = false
       return
     }
-
-    if (showCta) {
-      setMenuOpen(false)
-      gsap.to(menu, {
-        opacity: 0,
-        y: 6,
-        duration: 0.2,
-        ease: "power2.in",
-        onComplete: () => gsap.set(menu, { pointerEvents: "none" }),
-      })
-    } else {
-      gsap.set(menu, { pointerEvents: "auto" })
-      gsap.fromTo(
-        menu,
-        { opacity: 0, y: 8 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.35,
-          ease: "power3.out",
-          delay: 0.1,
-        },
-      )
-    }
+    if (showCta) setPanel("none")
   }, [showCta])
 
-  const close = () => setMenuOpen(false)
-
   const handleLinkClick = (to: string) => {
-    close()
+    setPanel("none")
     transitionNavigate(to)
   }
+
+  const hideForFocus = showCta
 
   return (
     <>
@@ -197,55 +197,70 @@ export function Navbar({ viewMode, onToggleView, showViewToggle, showCta }: Navb
         </div>
       )}
 
-      {/* Bottom-center: menu capsule + expanding mini-menu above it */}
-      <div className="fixed bottom-8 left-1/2 z-[600] flex -translate-x-1/2 flex-col items-center gap-2">
-        {/* Mini-menu items — slide up above the capsule */}
-        <div
-          ref={menuRef}
-          className="flex flex-col items-center gap-1.5 pb-1"
-          style={{ display: "none" }}
-        >
-          {LINKS.map(({ label, to }) => (
+      {/* Bottom-center: menu + filter controls */}
+      <div
+        className={clsx(
+          "fixed bottom-8 left-1/2 z-[600] flex -translate-x-1/2 items-center gap-2 transition-opacity duration-300",
+          hideForFocus && "pointer-events-none opacity-0",
+        )}
+      >
+        {/* Menu group — trigger morphs to a round X, links expand to the right */}
+        <div className="flex items-center gap-2">
+          {menuOpen ? (
             <button
-              key={to}
-              onClick={() => handleLinkClick(to)}
-              className="block rounded-lg border border-dark/20 bg-canvas px-5 py-2 text-[9px] font-medium tracking-widest text-dark uppercase transition-colors duration-200 hover:bg-dark hover:text-white"
+              onClick={() => setPanel("none")}
+              className={ROUND_CLOSE}
+              aria-label="Close menu"
             >
-              {label}
+              <XIcon />
             </button>
-          ))}
+          ) : (
+            <button
+              onClick={() => setPanel("menu")}
+              className={CAPSULE}
+              aria-label="Open menu"
+              aria-expanded={false}
+            >
+              <HamburgerIcon />
+              <span>menu</span>
+            </button>
+          )}
+
+          <div ref={menuRef} className="flex items-center gap-2" style={{ display: "none" }}>
+            {LINKS.map(({ label, to }) => {
+              const isActive = location.pathname === to
+              return (
+                <button
+                  key={to}
+                  onClick={() => handleLinkClick(to)}
+                  className="flex items-center gap-1.5 rounded-lg bg-dark px-5 py-3 text-sm font-medium whitespace-nowrap text-white transition-colors duration-200 hover:bg-dark/80"
+                >
+                  {isActive && <span className="block h-1.5 w-1.5 rounded-full bg-white" />}
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        {/* Menu capsule — matches the top toggle's capsule + width */}
-        <button
-          ref={bottomPillRef}
-          onClick={() => setMenuOpen((o) => !o)}
-          className={CAPSULE}
-          aria-label="Toggle menu"
-          aria-expanded={menuOpen}
-        >
-          <span className="flex flex-col items-center gap-1.5">
-            <span
-              className={clsx(
-                "block h-px w-5 bg-current transition-all duration-300",
-                menuOpen && "translate-y-[7px] rotate-45",
-              )}
+        {/* Filter group — canvas view only; hidden while the menu is open */}
+        {showFilter && filterGroups && activeFilters && onToggleFilter && onClearFilters && (
+          <div
+            className={clsx(
+              "transition-opacity duration-300",
+              menuOpen && "pointer-events-none opacity-0",
+            )}
+          >
+            <FilterControl
+              open={panel === "filter"}
+              onToggleOpen={() => setPanel((p) => (p === "filter" ? "none" : "filter"))}
+              groups={filterGroups}
+              active={activeFilters}
+              onToggleOption={onToggleFilter}
+              onClear={onClearFilters}
             />
-            <span
-              className={clsx(
-                "block h-px w-5 bg-current transition-opacity duration-300",
-                menuOpen && "opacity-0",
-              )}
-            />
-            <span
-              className={clsx(
-                "block h-px w-5 bg-current transition-all duration-300",
-                menuOpen && "-translate-y-[7px] -rotate-45",
-              )}
-            />
-          </span>
-          <span>menu</span>
-        </button>
+          </div>
+        )}
       </div>
     </>
   )

@@ -1,4 +1,9 @@
-import type { Product } from "./types"
+import type { Product, ProductCategory } from "./types"
+
+// Named colour buckets for the canvas colour filter. Spread across pieces so a
+// single collection contains a mix of colours rather than one flat tone.
+const COLOR_NAMES = ["Black", "Cream", "Green", "Blue", "Terracotta", "Grey"]
+const CATEGORIES: ProductCategory[] = ["hotel", "misc", "restaurant", "empties"]
 
 // Verified ceramic/pottery/tableware Unsplash images (IDs extracted from photo pages)
 const IMAGES = [
@@ -65,6 +70,8 @@ export const DEMO_PRODUCTS: Product[] = COLLECTIONS.flatMap((col) =>
       ],
       price: 28 + pi * 10,
       color: col.color,
+      colorName: COLOR_NAMES[idx % COLOR_NAMES.length],
+      category: CATEGORIES[idx % CATEGORIES.length],
       size: ["5.5 × 3.5 cm", "4.5 × 4.5 cm", "31 × 31 cm", "5.5 × 3.5 cm", "14 × 9 cm"][pi],
       available: true,
     }

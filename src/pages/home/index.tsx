@@ -8,18 +8,32 @@ import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
 import { DEMO_PRODUCTS } from "../../lib/demo-data"
+import type { ActiveFilters, FilterKey } from "../../lib/filters"
+import { buildFilterGroups, EMPTY_FILTERS } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
 import type { Product, ViewMode } from "../../lib/types"
 
 const CANVAS_SHIFT = "60vw"
 const PROXIMITY_RADIUS = 220
 const GRID_PRODUCTS = DEMO_PRODUCTS.slice(0, 9)
+const FILTER_GROUPS = buildFilterGroups(DEMO_PRODUCTS)
 
 type WithVTA = Document & { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
 
 export function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("xp")
   const [focusedProduct, setFocusedProduct] = useState<Product | null>(null)
+  const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
+
+  const toggleFilter = useCallback((key: FilterKey, value: string) => {
+    setFilters((prev) => {
+      const set = prev[key]
+      const next = set.includes(value) ? set.filter((v) => v !== value) : [...set, value]
+      return { ...prev, [key]: next }
+    })
+  }, [])
+
+  const clearFilters = useCallback(() => setFilters(EMPTY_FILTERS), [])
 
   const xpItemRefs = useRef<Map<string, HTMLElement>>(new Map())
   const gridItemRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -55,6 +69,8 @@ export function HomePage() {
 
       items.forEach((item) => {
         const rect = item.getBoundingClientRect()
+        // Filtered-out items are display:none → zero-size; skip them.
+        if (rect.width === 0) return
         if (
           rect.right < 0 ||
           rect.left > window.innerWidth ||
@@ -281,6 +297,11 @@ export function HomePage() {
         onToggleView={toggleView}
         showViewToggle={!focusedProduct}
         showCta={!!focusedProduct}
+        showFilter={viewMode === "xp" && !focusedProduct}
+        filterGroups={FILTER_GROUPS}
+        activeFilters={filters}
+        onToggleFilter={toggleFilter}
+        onClearFilters={clearFilters}
       />
 
       {/* XP Canvas */}
@@ -297,6 +318,7 @@ export function HomePage() {
           collectionRef={collectionRef}
           itemRefs={xpItemRefs}
           visible
+          filters={filters}
         />
       </div>
 

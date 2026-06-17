@@ -1,4 +1,6 @@
 import { forwardRef } from "react"
+import type { ActiveFilters } from "../../lib/filters"
+import { productMatches } from "../../lib/filters"
 import type { Product } from "../../lib/types"
 import { XpProductItem } from "./xp-product-item"
 
@@ -6,6 +8,7 @@ interface XpCollectionProps {
   products: Product[]
   onItemClick: (product: Product, el: HTMLElement) => void
   itemRefs: React.MutableRefObject<Map<string, HTMLElement>>
+  filters: ActiveFilters
 }
 
 const COL_COUNT = 6
@@ -18,7 +21,7 @@ function buildColumns(products: Product[]): Product[][] {
 }
 
 export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(function XpCollection(
-  { products, onItemClick, itemRefs },
+  { products, onItemClick, itemRefs, filters },
   ref,
 ) {
   const columns = buildColumns(products)
@@ -43,6 +46,7 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
                 product={product}
                 index={idx}
                 onClick={onItemClick}
+                hidden={!productMatches(product, filters)}
                 itemRef={(el) => {
                   if (el) itemRefs.current.set(product.id, el)
                   else itemRefs.current.delete(product.id)

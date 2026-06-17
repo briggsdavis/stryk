@@ -1,4 +1,5 @@
 import { forwardRef } from "react"
+import type { ActiveFilters } from "../../lib/filters"
 import type { Product } from "../../lib/types"
 import { XpCollection } from "./xp-collection"
 
@@ -8,10 +9,11 @@ interface XpWrapperProps {
   collectionRef: React.RefObject<HTMLDivElement | null>
   itemRefs: React.MutableRefObject<Map<string, HTMLElement>>
   visible: boolean
+  filters: ActiveFilters
 }
 
 export const XpWrapper = forwardRef<HTMLDivElement, XpWrapperProps>(function XpWrapper(
-  { products, onItemClick, collectionRef, itemRefs },
+  { products, onItemClick, collectionRef, itemRefs, filters },
   ref,
 ) {
   // Always rendered so GSAP refs stay alive; visibility controlled by parent opacity
@@ -22,6 +24,7 @@ export const XpWrapper = forwardRef<HTMLDivElement, XpWrapperProps>(function XpW
         products={products}
         onItemClick={onItemClick}
         itemRefs={itemRefs}
+        filters={filters}
       />
     </div>
   )

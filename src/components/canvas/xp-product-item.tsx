@@ -22,9 +22,10 @@ interface XpProductItemProps {
   index: number
   onClick: (product: Product, el: HTMLElement) => void
   itemRef?: (el: HTMLElement | null) => void
+  hidden?: boolean
 }
 
-export function XpProductItem({ product, index, onClick, itemRef }: XpProductItemProps) {
+export function XpProductItem({ product, index, onClick, itemRef, hidden }: XpProductItemProps) {
   const width = WIDTH_VARIANTS[index % WIDTH_VARIANTS.length]
 
   return (
@@ -41,6 +42,9 @@ export function XpProductItem({ product, index, onClick, itemRef }: XpProductIte
         border: "none",
         background: "none",
         appearance: "none",
+        // Filtered-out pieces stay mounted (so the one-shot entrance animation
+        // isn't disrupted) but drop out of the canvas layout.
+        display: hidden ? "none" : undefined,
       }}
       data-cursor={product.name}
       data-product-id={product.id}
