@@ -16,7 +16,12 @@ interface ExpandingControlProps {
 
 function XIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 transition-transform duration-500 [transition-timing-function:var(--ease-ui)] group-hover:rotate-90"
+      aria-hidden="true"
+      fill="none"
+    >
       <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="1.5" />
       <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="1.5" />
     </svg>

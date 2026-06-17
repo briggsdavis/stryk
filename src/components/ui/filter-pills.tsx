@@ -1,7 +1,8 @@
 import { clsx } from "clsx"
-import { useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { activeFilterCount } from "../../lib/filters"
+import { gsap } from "../../lib/gsap"
 
 interface FilterPillsProps {
   groups: FilterGroup[]
@@ -28,11 +29,33 @@ function FilterGroupPill({
   onToggleOption: (value: string) => void
 }) {
   const count = active.length
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Animate the options panel in: the panel grows from the pill while the
+  // options fade + slide up in a stagger.
+  useLayoutEffect(() => {
+    if (!open) return
+    const el = popoverRef.current
+    if (!el) return
+    const dir = side === "top" ? 1 : -1
+    gsap.fromTo(
+      el,
+      { opacity: 0, scale: 0.94, y: dir * 6 },
+      { opacity: 1, scale: 1, y: 0, duration: 0.32, ease: "power3.out" },
+    )
+    gsap.fromTo(
+      el.querySelectorAll<HTMLElement>(":scope > button"),
+      { opacity: 0, y: dir * 8 },
+      { opacity: 1, y: 0, duration: 0.3, stagger: 0.035, ease: "power3.out", delay: 0.05 },
+    )
+  }, [open, side])
 
   return (
     <div className="relative">
       {open && (
         <div
+          ref={popoverRef}
+          style={{ transformOrigin: side === "top" ? "bottom center" : "top center" }}
           className={clsx(
             "absolute left-0 z-10 flex min-w-[150px] flex-col gap-1 rounded-xl border border-dark/15 bg-canvas p-1.5 shadow-lg shadow-dark/5",
             side === "top" ? "bottom-full mb-2" : "top-full mt-2",

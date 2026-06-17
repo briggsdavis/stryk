@@ -56,23 +56,29 @@ function DotIcon({ dots }: { dots: ReadonlyArray<readonly [number, number]> }) {
   )
 }
 
+// Hover: the bars retract to staggered lengths for a subtle "reflow".
 function HamburgerIcon() {
+  const bar =
+    "block h-px w-5 bg-current transition-all duration-300 [transition-timing-function:var(--ease-ui)]"
   return (
     <span className="flex flex-col items-center gap-1.5">
-      <span className="block h-px w-5 bg-current" />
-      <span className="block h-px w-5 bg-current" />
-      <span className="block h-px w-5 bg-current" />
+      <span className={`${bar} group-hover:w-3`} />
+      <span className={`${bar} group-hover:w-5`} />
+      <span className={`${bar} group-hover:w-3.5`} />
     </span>
   )
 }
 
+// Hover: the two knobs slide across their tracks and swap sides.
 function SlidersIcon() {
+  const knob =
+    "fill-current transition-transform duration-300 [transform-box:fill-box] [transition-timing-function:var(--ease-ui)]"
   return (
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true" fill="none">
       <line x1="4" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.5" />
       <line x1="4" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="9" cy="8" r="2.6" fill="currentColor" />
-      <circle cx="15" cy="16" r="2.6" fill="currentColor" />
+      <circle cx="9" cy="8" r="2.6" className={`${knob} group-hover:translate-x-[6px]`} />
+      <circle cx="15" cy="16" r="2.6" className={`${knob} group-hover:-translate-x-[6px]`} />
     </svg>
   )
 }
