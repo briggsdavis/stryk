@@ -154,9 +154,12 @@ export function ExpandingControl({
         )}
       </button>
 
-      {/* Items track — width-animated so the centred bar re-centres smoothly */}
+      {/* Items track — width-animated so the centred bar re-centres smoothly.
+          The inner is w-max (content-sized) so it isn't squeezed to the track's
+          collapsed width; otherwise its measured width is 0 and the open tween
+          animates 0→0 while the real growth snaps in at the end (a teleport). */}
       <div ref={trackRef} style={{ width: 0, overflow: "hidden" }}>
-        <div ref={trackInnerRef} className="flex items-center gap-2 pl-2">
+        <div ref={trackInnerRef} className="flex w-max items-center gap-2 pl-2">
           {children}
         </div>
       </div>
