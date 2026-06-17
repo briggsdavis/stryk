@@ -65,26 +65,30 @@ export function ExpandingControl({
       return
     }
 
-    gsap.fromTo(trigger, { width: prev }, { width: triggerTarget, duration: 0.5, ease: "expo.out" })
-
     const items = gsap.utils.toArray<HTMLElement>(inner.children)
     if (open) {
       // The centred bar re-centres (the trigger + items glide left) the whole
-      // time the track is widening. So open the track FIRST — let that glide
-      // finish — and only then pop the items in, at their final resting spot.
-      // Otherwise the items appear mid-glide and keep sliding afterwards (the
-      // "awkward shift"). Items stay invisible during the widening, so there's
-      // nothing to clip and the entrance fade is never masked.
-      gsap.killTweensOf([track, ...items])
+      // time the track widens. The bar's width is trigger.width + track.width, so
+      // the trigger and track MUST share the same ease + duration — otherwise the
+      // two curves fight and the trigger lurches sideways (the "teleport").
+      // Open the track first, let that glide finish, then pop the items in at
+      // their final resting spot so there's no trailing shift. Items stay
+      // invisible while widening, so nothing is clipped and the fade isn't masked.
+      gsap.killTweensOf([trigger, track, ...items])
       gsap.set(items, { opacity: 0, y: 10, scale: 0.9 })
       track.style.overflow = "visible"
+      gsap.fromTo(
+        trigger,
+        { width: prev },
+        { width: triggerTarget, duration: 0.55, ease: "power2.inOut" },
+      )
       gsap.fromTo(
         track,
         { width: 0 },
         {
           width: innerWidth,
-          duration: 0.45,
-          ease: "power3.out",
+          duration: 0.55,
+          ease: "power2.inOut",
           onComplete: () => {
             // Settle to auto so later content changes (badges/clear) reflow.
             track.style.width = "auto"
@@ -101,11 +105,16 @@ export function ExpandingControl({
       )
     } else {
       // Clip while collapsing so the fading items don't spill past the shrinking
-      // track.
+      // track. Trigger + track share the same ease/duration here too.
       track.style.overflow = "hidden"
-      gsap.killTweensOf([track, ...items])
-      gsap.fromTo(track, { width: innerWidth }, { width: 0, duration: 0.5, ease: "expo.out" })
+      gsap.killTweensOf([trigger, track, ...items])
       gsap.to(items, { opacity: 0, y: 8, scale: 0.9, duration: 0.2, ease: "power2.in" })
+      gsap.fromTo(
+        trigger,
+        { width: prev },
+        { width: triggerTarget, duration: 0.5, ease: "expo.out" },
+      )
+      gsap.fromTo(track, { width: innerWidth }, { width: 0, duration: 0.5, ease: "expo.out" })
     }
   }, [open])
 
