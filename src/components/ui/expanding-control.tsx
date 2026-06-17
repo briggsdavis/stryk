@@ -76,7 +76,12 @@ export function ExpandingControl({
       // invisible while widening, so nothing is clipped and the fade isn't masked.
       gsap.killTweensOf([trigger, track, ...items])
       gsap.set(items, { opacity: 0, y: 10, scale: 0.9 })
-      track.style.overflow = "visible"
+      // Keep overflow hidden WHILE widening. A flex item with `overflow: visible`
+      // has `min-width: auto` (= its content width), which would force the track
+      // to full width in a single frame — jumping the bar and teleporting the
+      // trigger. Hidden makes min-width resolve to 0, so the width tween actually
+      // drives the glide. Switch to visible only once it's already content-sized.
+      track.style.overflow = "hidden"
       gsap.fromTo(
         trigger,
         { width: prev },
@@ -90,8 +95,10 @@ export function ExpandingControl({
           duration: 0.55,
           ease: "power2.inOut",
           onComplete: () => {
-            // Settle to auto so later content changes (badges/clear) reflow.
+            // Settle to auto + visible (no jump: already at content width) so the
+            // popovers can overflow and later content changes (badges/clear) reflow.
             track.style.width = "auto"
+            track.style.overflow = "visible"
             gsap.to(items, {
               opacity: 1,
               y: 0,
