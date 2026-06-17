@@ -25,7 +25,7 @@
 
   --color-dark: #222222;
   --color-light: #f5f6ee;
-  /* Beige used for the infinite canvas — now the site-wide background. */
+  /* Beige used for the infinite canvas - now the site-wide background. */
   --color-canvas: #f0ede6;
   --color-grey: #a1a19c;
   --color-loam: #506157;
@@ -296,7 +296,7 @@
   }
   .focus-wrapper.active {
     pointer-events: all;
-    /* No background — page bg (#f0ede6) is revealed naturally as canvas slides right */
+    /* No background - page bg (#f0ede6) is revealed naturally as canvas slides right */
   }
 
   /* ── Grid view ── */
@@ -304,7 +304,7 @@
     @apply relative block w-full appearance-none overflow-hidden rounded-xl border border-dark/15 bg-canvas p-0 text-left;
     aspect-ratio: 1 / 1;
   }
-  /* Horizontal, snap-scrolling image track — drag or swipe to the next image. */
+  /* Horizontal, snap-scrolling image track - drag or swipe to the next image. */
   .grid-card-track {
     @apply absolute inset-0 flex cursor-pointer;
     overflow-x: auto;

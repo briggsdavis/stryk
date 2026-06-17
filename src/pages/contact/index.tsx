@@ -2,11 +2,11 @@ import { clsx } from "clsx"
 import { useMutation } from "convex/react"
 import { useState } from "react"
 import { useSearchParams } from "react-router"
+import { api } from "../../../convex/_generated/api"
 import { Accordion } from "../../components/ui/accordion"
 import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
-import { api } from "../../../convex/_generated/api"
 
 const INQUIRY_TYPES = [
   { key: "general", label: "General" },
@@ -25,12 +25,12 @@ const FAQ_ITEMS = [
   {
     question: "Do you ship internationally?",
     answer:
-      "Yes — we ship worldwide. All pieces are wrapped in archival tissue and packed in rigid board mailers to survive the journey. Tracking is included on every order.",
+      "Yes - we ship worldwide. All pieces are wrapped in archival tissue and packed in rigid board mailers to survive the journey. Tracking is included on every order.",
   },
   {
     question: "Can I request a piece from a specific country or era?",
     answer:
-      "Absolutely. Use the contact form to describe what you're after — city, decade, style — and we'll search our current stock and upcoming sourcing trips for a match.",
+      "Absolutely. Use the contact form to describe what you're after - city, decade, style - and we'll search our current stock and upcoming sourcing trips for a match.",
   },
 ]
 
@@ -124,7 +124,7 @@ export function ContactPage() {
       <Navbar />
 
       <div className="grid min-h-screen gap-16 px-6 pt-36 pb-24 md:grid-cols-2 md:px-10 md:pt-40">
-        {/* Left — info */}
+        {/* Left - info */}
         <div className="flex flex-col justify-between">
           <div>
             <p className="mb-4 text-xs font-medium tracking-widest text-dark/50 uppercase">
@@ -156,7 +156,7 @@ export function ContactPage() {
           </div>
         </div>
 
-        {/* Right — form */}
+        {/* Right - form */}
         <div className="flex items-start justify-center pt-4 md:pt-0">
           {submitted ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
@@ -175,7 +175,10 @@ export function ContactPage() {
               <p className="text-sm text-dark/50">We'll be in touch within 1–2 business days.</p>
             </div>
           ) : (
-            <form onSubmit={(event) => void handleSubmit(event)} className="w-full max-w-lg space-y-5">
+            <form
+              onSubmit={(event) => void handleSubmit(event)}
+              className="w-full max-w-lg space-y-5"
+            >
               {/* Inquiry type */}
               <div>
                 <p className="mb-1.5 block text-xs font-medium tracking-widest text-dark/50 uppercase">

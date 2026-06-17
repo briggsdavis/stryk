@@ -28,7 +28,7 @@ export function Footer() {
           </nav>
         </div>
 
-        {/* Right — copyright + credit */}
+        {/* Right - copyright + credit */}
         <div className="flex flex-col items-start gap-1.5 md:items-end">
           <span className="text-xs text-dark/30">© {new Date().getFullYear()} Stryk</span>
           <a

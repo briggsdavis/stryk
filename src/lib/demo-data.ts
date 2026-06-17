@@ -43,7 +43,7 @@ const PIECES = ["Matchbox", "Matchbook", "Album Cover", "Brand Archive", "Limite
 const PIECE_DESCS = [
   "A striking matchbox label sourced from the streets of a city that knew how to make an impression.",
   "A slim matchbook whose cover art distils an era's graphic energy into a single folded moment.",
-  "Reimagined as album artwork — this label channels the mood of a record that defined its decade.",
+  "Reimagined as album artwork - this label channels the mood of a record that defined its decade.",
   "Pulled from brand archives, this piece bears the mark of a company that shaped its city's visual culture.",
   "A limited-run reprint of a rare label, hand-selected for its rarity, colour, and extraordinary design.",
 ]

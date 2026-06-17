@@ -16,7 +16,7 @@ const SUSTAINABILITY_ITEMS = [
   {
     question: "Historical accuracy",
     answer:
-      "We research every label — dating it, identifying the brand, and tracing its regional context. What you receive comes with a record of its story, not just its image.",
+      "We research every label - dating it, identifying the brand, and tracing its regional context. What you receive comes with a record of its story, not just its image.",
   },
   {
     question: "Responsible preservation",
@@ -37,7 +37,7 @@ const VALUES = [
   },
   {
     label: "Discovery",
-    body: "Every matchbox is a portal — to a city, a decade, a brand that no longer exists. We live for that feeling.",
+    body: "Every matchbox is a portal - to a city, a decade, a brand that no longer exists. We live for that feeling.",
   },
   {
     label: "Craft",
@@ -111,7 +111,7 @@ export function AboutPage() {
       {/* ── Horizontal scroll ── */}
       <div ref={horizontalRef} className="h-screen overflow-hidden">
         <div ref={trackRef} className="flex h-full" style={{ width: `${NUM_PANELS * 100}vw` }}>
-          {/* Panel 1 — Philosophy */}
+          {/* Panel 1 - Philosophy */}
           <div className="flex h-full w-screen flex-shrink-0 items-center gap-16 px-6 md:px-10">
             <div className="flex flex-1 flex-col justify-center">
               <p className="mb-8 text-xs font-medium tracking-widest text-dark/40 uppercase">
@@ -123,10 +123,10 @@ export function AboutPage() {
               </blockquote>
               <p className="mt-10 max-w-sm text-sm leading-relaxed text-dark/55">
                 Stryk sources matchboxes and matchbooks from flea markets, estate sales, and
-                specialist dealers across four continents — and brings the best of them home as art.
+                specialist dealers across four continents - and brings the best of them home as art.
               </p>
               <p className="mt-8 text-xs tracking-widest text-dark/25 uppercase">
-                Est. 2021 — New York
+                Est. 2021 - New York
               </p>
             </div>
             <div className="flex w-[38%] flex-col gap-4">
@@ -147,7 +147,7 @@ export function AboutPage() {
             </div>
           </div>
 
-          {/* Panel 2 — Vision & Mission */}
+          {/* Panel 2 - Vision & Mission */}
           <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center gap-12 px-6 md:px-10">
             <p className="text-xs font-medium tracking-widest text-dark/40 uppercase">
               What drives us
@@ -179,7 +179,7 @@ export function AboutPage() {
             </div>
           </div>
 
-          {/* Panel 3 — Our Story */}
+          {/* Panel 3 - Our Story */}
           <div className="flex h-full w-screen flex-shrink-0">
             <div className="group w-[55%] overflow-hidden">
               <img
@@ -198,12 +198,12 @@ export function AboutPage() {
                 </h2>
                 <p className="text-sm leading-relaxed text-dark/60">
                   Stryk started in 2021 when our founder found a box of mid-century Japanese
-                  matchbooks at a market in Shimokitazawa. The labels — tiny, perfect, forgotten —
+                  matchbooks at a market in Shimokitazawa. The labels - tiny, perfect, forgotten -
                   looked like nothing they'd seen in any gallery.
                 </p>
               </div>
               <p className="text-sm leading-relaxed text-dark/60">
-                We've been hunting ever since. Tokyo, Nairobi, Paris, Berlin, Lyon, New York —
+                We've been hunting ever since. Tokyo, Nairobi, Paris, Berlin, Lyon, New York -
                 wherever brands once needed a flame, they needed a label. We find the best ones and
                 bring them to you.
               </p>
@@ -217,7 +217,7 @@ export function AboutPage() {
             </div>
           </div>
 
-          {/* Panel 4 — Values */}
+          {/* Panel 4 - Values */}
           <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center px-6 md:px-10">
             <p className="mb-14 text-xs font-medium tracking-widest text-dark/40 uppercase">
               What we stand for

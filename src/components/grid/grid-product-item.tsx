@@ -19,8 +19,18 @@ export function GridProductItem({ product, onClick, itemRef }: GridProductItemPr
 
   const images = product.images && product.images.length > 0 ? product.images : [product.image]
 
+  // Morph only the image that's currently in view, not the whole card frame.
   const focus = () => {
-    if (cardRef.current) onClick(product, cardRef.current)
+    const track = trackRef.current
+    const slide = track?.children[
+      Math.min(
+        Math.max(Math.round(track.scrollLeft / (track.clientWidth || 1)), 0),
+        track.children.length - 1,
+      )
+    ] as HTMLElement | undefined
+    const img = slide?.querySelector("img") as HTMLElement | null
+    const target = img ?? cardRef.current
+    if (target) onClick(product, target)
   }
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -60,7 +70,7 @@ export function GridProductItem({ product, onClick, itemRef }: GridProductItemPr
         }}
         className="grid-card"
         data-product-id={product.id}
-        aria-label={`${product.name} — view`}
+        aria-label={`${product.name} - view`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -72,7 +82,14 @@ export function GridProductItem({ product, onClick, itemRef }: GridProductItemPr
         <div ref={trackRef} className="grid-card-track">
           {images.map((src, i) => (
             <div key={i} className="grid-card-slide">
-              <img src={src} alt={`${product.name} ${i + 1}`} draggable={false} />
+              {/* object-contain inline so the image keeps its aspect once it is
+                  lifted out of the card into the focus slot during the morph. */}
+              <img
+                src={src}
+                alt={`${product.name} ${i + 1}`}
+                draggable={false}
+                className="max-h-full max-w-full object-contain"
+              />
             </div>
           ))}
         </div>

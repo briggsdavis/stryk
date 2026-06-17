@@ -75,9 +75,9 @@ export function GridCollection({
         <h1 className="text-128 max-w-[15ch] text-dark">Matchbox art from around the world</h1>
         <p className="mt-8 max-w-md text-sm leading-relaxed text-dark/60">
           Vintage matchboxes and matchbooks sourced from Japan, Kenya, France, Germany, Italy, and
-          across the US — each one a miniature masterpiece of graphic design.
+          across the US - each one a miniature masterpiece of graphic design.
         </p>
-        {/* Filter — inline at the top of the grid */}
+        {/* Filter - inline at the top of the grid */}
         <div className="mt-9 flex flex-wrap items-center gap-2">
           <span className="mr-1 text-[11px] font-medium tracking-widest text-dark/40 uppercase">
             Filter

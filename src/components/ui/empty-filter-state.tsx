@@ -19,7 +19,7 @@ export function EmptyFilterState({ onContact, className }: EmptyFilterStateProps
         We don't have anything just like that
       </p>
       <p className="mt-6 max-w-md text-sm leading-relaxed text-dark/60">
-        But we'd love to track it down. Tell us what you're after — a colour, a city, a style — and
+        But we'd love to track it down. Tell us what you're after - a colour, a city, a style - and
         we'll search our stock and upcoming sourcing trips for a match.
       </p>
       <button

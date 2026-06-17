@@ -15,7 +15,7 @@ interface NavbarProps {
   onToggleView?: () => void
   showViewToggle?: boolean
   showCta?: boolean
-  // Canvas filter — only supplied on the home/canvas view.
+  // Canvas filter - only supplied on the home/canvas view.
   showFilter?: boolean
   filterGroups?: FilterGroup[]
   activeFilters?: ActiveFilters
@@ -29,9 +29,9 @@ const LINKS = [
   { label: "Contact", to: "/contact" },
 ]
 
-// Even 3×3 grid of dots — represents the grid view.
+// Even 3×3 grid of dots - represents the grid view.
 const GRID_DOTS = [5, 12, 19].flatMap((y) => [5, 12, 19].map((x) => [x, y] as const))
-// Loose, organic scatter — represents the infinite-canvas experience view.
+// Loose, organic scatter - represents the infinite-canvas experience view.
 const SCATTER_DOTS = [
   [6, 5],
   [13, 4],
@@ -151,14 +151,14 @@ export function Navbar({
       <div className="fixed top-6 left-6 z-[500] md:left-10">
         <button
           onClick={() => transitionNavigate("/")}
-          aria-label="Stryk — home"
+          aria-label="Stryk - home"
           className="opacity-80 transition-opacity hover:opacity-100"
         >
           <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
         </button>
       </div>
 
-      {/* Top-center: view toggle — single capsule, dots left of label */}
+      {/* Top-center: view toggle - single capsule, dots left of label */}
       {showViewToggle && viewMode && onToggleView && (
         <div className="fixed top-5 left-1/2 z-[500] -translate-x-1/2">
           <button
@@ -182,7 +182,7 @@ export function Navbar({
           hideForFocus && "pointer-events-none opacity-0",
         )}
       >
-        {/* Menu — links slide out to the right as the trigger glides aside */}
+        {/* Menu - links slide out to the right as the trigger glides aside */}
         <ExpandingControl
           open={menuOpen}
           onToggle={() => setPanel((p) => (p === "menu" ? "none" : "menu"))}
@@ -205,7 +205,7 @@ export function Navbar({
           })}
         </ExpandingControl>
 
-        {/* Filter — canvas view only; dimmed while the menu is open */}
+        {/* Filter - canvas view only; dimmed while the menu is open */}
         {hasFilter && (
           <ExpandingControl
             open={panel === "filter"}

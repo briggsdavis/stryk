@@ -12,7 +12,7 @@ interface FocusWrapperProps {
 }
 
 // Print size + framing options. Price is a fixed amount per size, plus a flat
-// surcharge when framed. "Custom" has no price — it routes to the contact page.
+// surcharge when framed. "Custom" has no price - it routes to the contact page.
 type SizeKey = "8x8" | "12x12" | "16x16"
 
 const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
@@ -40,7 +40,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const dividerContainerRef = useRef<HTMLDivElement>(null)
   const galleryOverlayRef = useRef<HTMLDivElement>(null)
 
-  // Collapsible "more details" dropdown — collapsed by default. Expanding it
+  // Collapsible "more details" dropdown - collapsed by default. Expanding it
   // grows the bottom strip and shrinks the image to make room.
   const [detailsOpen, setDetailsOpen] = useState(false)
   const detailsFirstRunRef = useRef(true)
@@ -61,7 +61,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const [currentIdx, setCurrentIdx] = useState(0)
   const [hasScrolled, setHasScrolled] = useState(false)
 
-  // Expanded (lightbox) view — current image morphs to a larger, centred
+  // Expanded (lightbox) view - current image morphs to a larger, centred
   // position over a white backdrop.
   const [expanded, setExpanded] = useState(false)
   const expandedActiveRef = useRef(false)
@@ -70,7 +70,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const expandOverlayRef = useRef<HTMLDivElement>(null)
   const closeExpandRef = useRef<HTMLButtonElement>(null)
 
-  // Purchase configuration — both must be chosen before adding to cart.
+  // Purchase configuration - both must be chosen before adding to cart.
   const [selectedSize, setSelectedSize] = useState<SizeKey | null>(null)
   const [withFrame, setWithFrame] = useState<boolean | null>(null)
 
@@ -80,7 +80,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     selectedSize !== null ? SIZE_PRICES[selectedSize] + (withFrame ? FRAME_SURCHARGE : 0) : null
   const canAddToCart = selectedSize !== null && withFrame !== null
 
-  // "Custom" size can't be priced here — hand off to the contact page with the
+  // "Custom" size can't be priced here - hand off to the contact page with the
   // custom-print inquiry preselected and the artwork name prefilled.
   const handleCustomSize = () => {
     if (!product) return
@@ -436,7 +436,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   // ── "More details" dropdown ────────────────────────────────────────────────
   // Resize + re-centre the image frame for a given bottom reserve. The slot
   // (and the morphing canvas image inside it) and the gallery overlay all sit at
-  // inset-0 of the frame, so they follow this resize — and the close-morph back
+  // inset-0 of the frame, so they follow this resize - and the close-morph back
   // to the canvas reads the frame's live rect, so it still lands correctly.
   const sizeFrame = useCallback((bottomReserve: number) => {
     const frame = document.getElementById("focus-image-frame")
@@ -470,7 +470,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     const inner = detailsInnerRef.current
     if (!details || !inner) return
 
-    // Skip the collapsed mount — the open-morph already sized the frame.
+    // Skip the collapsed mount - the open-morph already sized the frame.
     if (detailsFirstRunRef.current) {
       detailsFirstRunRef.current = false
       return
@@ -508,13 +508,13 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
   return (
     <div className={clsx("focus-wrapper", isOpen && "active")}>
-      {/* Left panel — 60vw */}
+      {/* Left panel - 60vw */}
       <div
         ref={panelRef}
         className="absolute inset-y-0 left-0 overflow-hidden"
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
-        {/* Collection name — top left */}
+        {/* Collection name - top left */}
         <h2
           ref={collectionNameRef}
           className="pointer-events-none absolute top-16 left-6 z-20 leading-none font-medium text-dark md:top-24 md:left-10"
@@ -527,7 +527,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         <div id="focus-image-frame" className="absolute" style={{ inset: 0, margin: "auto" }}>
           <div id="focus-image-slot" className="pointer-events-none absolute inset-0 z-[1]" />
 
-          {/* Gallery overlay — fades in after morph, canvas bg fills the gap between sliding images */}
+          {/* Gallery overlay - fades in after morph, canvas bg fills the gap between sliding images */}
           {isOpen && (
             <div
               ref={galleryOverlayRef}
@@ -559,7 +559,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
             </div>
           )}
 
-          {/* Hover affordance — click the image to open the expanded view */}
+          {/* Hover affordance - click the image to open the expanded view */}
           {galleryActive && (
             <button
               type="button"
@@ -585,9 +585,9 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           )}
         </div>
 
-        {/* Bottom strip — collapsed summary + expandable "more details" */}
+        {/* Bottom strip - collapsed summary + expandable "more details" */}
         <div className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
-          {/* Summary row — gallery indicator + title, with the details toggle */}
+          {/* Summary row - gallery indicator + title, with the details toggle */}
           <div ref={summaryRef} className="flex items-end justify-between gap-4">
             <div className="min-w-0">
               <div
@@ -665,7 +665,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
             </button>
           </div>
 
-          {/* Expandable details — description, options, explore collection */}
+          {/* Expandable details - description, options, explore collection */}
           <div ref={detailsRef} style={{ height: 0, overflow: "hidden" }}>
             <div ref={detailsInnerRef} className="flex items-end justify-between gap-6 pt-5">
               {/* Left: description + explore collection */}
@@ -792,7 +792,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           className="fixed inset-0 z-[2000] bg-white"
           style={{ opacity: 0 }}
         >
-          {/* Backdrop — click anywhere outside to close */}
+          {/* Backdrop - click anywhere outside to close */}
           <button
             type="button"
             onClick={closeExpanded}

@@ -69,7 +69,7 @@ export function ExpandingControl({
     if (open) {
       // The centred bar re-centres (the trigger + items glide left) the whole
       // time the track widens. The bar's width is trigger.width + track.width, so
-      // the trigger and track MUST share the same ease + duration — otherwise the
+      // the trigger and track MUST share the same ease + duration - otherwise the
       // two curves fight and the trigger lurches sideways (the "teleport").
       // Open the track first, let that glide finish, then pop the items in at
       // their final resting spot so there's no trailing shift. Items stay
@@ -78,7 +78,7 @@ export function ExpandingControl({
       gsap.set(items, { opacity: 0, y: 10, scale: 0.9 })
       // Keep overflow hidden WHILE widening. A flex item with `overflow: visible`
       // has `min-width: auto` (= its content width), which would force the track
-      // to full width in a single frame — jumping the bar and teleporting the
+      // to full width in a single frame - jumping the bar and teleporting the
       // trigger. Hidden makes min-width resolve to 0, so the width tween actually
       // drives the glide. Switch to visible only once it's already content-sized.
       track.style.overflow = "hidden"
@@ -154,7 +154,7 @@ export function ExpandingControl({
         )}
       </button>
 
-      {/* Items track — width-animated so the centred bar re-centres smoothly.
+      {/* Items track - width-animated so the centred bar re-centres smoothly.
           The inner is w-max (content-sized) so it isn't squeezed to the track's
           collapsed width; otherwise its measured width is 0 and the open tween
           animates 0→0 while the real growth snaps in at the end (a teleport). */}
