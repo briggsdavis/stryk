@@ -699,20 +699,20 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
                       onClick={() => setSelectedSize(key)}
                       aria-pressed={selectedSize === key}
                       className={clsx(
-                        "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                        "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
                         selectedSize === key
                           ? "border-dark bg-dark text-white"
                           : "border-dark/20 text-dark hover:border-dark/40",
                       )}
                     >
-                      {label}
+                      <HoverLabel>{label}</HoverLabel>
                     </button>
                   ))}
                   <button
                     onClick={handleCustomSize}
-                    className="rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
+                    className="group rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
                   >
-                    Custom
+                    <HoverLabel>Custom</HoverLabel>
                   </button>
                 </div>
 
@@ -729,26 +729,28 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
                       onClick={() => setWithFrame(value)}
                       aria-pressed={withFrame === value}
                       className={clsx(
-                        "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                        "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
                         withFrame === value
                           ? "border-dark bg-dark text-white"
                           : "border-dark/20 text-dark hover:border-dark/40",
                       )}
                     >
-                      {label}
+                      <HoverLabel>{label}</HoverLabel>
                     </button>
                   ))}
                   <button
                     disabled={!canAddToCart}
                     onClick={(e) => e.preventDefault()}
                     className={clsx(
-                      "ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
+                      "group ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
                       canAddToCart
                         ? "bg-dark text-white hover:opacity-70"
                         : "cursor-not-allowed bg-dark/20 text-dark/40",
                     )}
                   >
-                    {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
+                    <HoverLabel>
+                      {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
+                    </HoverLabel>
                   </button>
                 </div>
               </div>

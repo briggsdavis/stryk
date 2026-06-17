@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { activeFilterCount } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
+import { HoverLabel } from "./hover-label"
 
 interface FilterPillsProps {
   groups: FilterGroup[]
@@ -68,7 +69,7 @@ function FilterGroupPill({
                 key={opt.value}
                 onClick={() => onToggleOption(opt.value)}
                 className={clsx(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors",
+                  "group flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors",
                   selected ? "bg-dark text-white" : "text-dark hover:bg-dark/5",
                 )}
               >
@@ -78,7 +79,7 @@ function FilterGroupPill({
                     style={{ background: opt.swatch }}
                   />
                 )}
-                <span className="flex-1">{opt.label}</span>
+                <HoverLabel className="flex-1 justify-items-start">{opt.label}</HoverLabel>
                 {selected && <span className="text-[11px]">✓</span>}
               </button>
             )
@@ -96,7 +97,7 @@ function FilterGroupPill({
             : "border-dark/15 bg-canvas text-dark hover:border-dark/40",
         )}
       >
-        <span>{group.label}</span>
+        <HoverLabel>{group.label}</HoverLabel>
         {count > 0 && <span className="text-xs opacity-80">· {count}</span>}
         <span className="text-base leading-none transition-transform duration-300 group-hover:rotate-90">
           {open ? "−" : "+"}
@@ -132,9 +133,9 @@ export function FilterPills({
       {total > 0 && (
         <button
           onClick={onClear}
-          className="rounded-lg px-3 py-2.5 text-xs font-medium tracking-wide text-dark/50 uppercase transition-colors hover:text-dark"
+          className="group rounded-lg px-3 py-2.5 text-xs font-medium tracking-wide text-dark/50 uppercase transition-colors hover:text-dark"
         >
-          Clear
+          <HoverLabel>Clear</HoverLabel>
         </button>
       )}
     </>

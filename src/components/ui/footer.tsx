@@ -1,4 +1,5 @@
 import { useTransitionNavigate } from "../../lib/transition"
+import { HoverLabel } from "./hover-label"
 
 const NAV_LINKS = [
   { label: "Collections", to: "/" },
@@ -20,9 +21,9 @@ export function Footer() {
               <button
                 key={to}
                 onClick={() => navigate(to)}
-                className="text-xs tracking-widest text-dark/40 uppercase transition-colors hover:text-dark"
+                className="group text-xs tracking-widest text-dark/40 uppercase transition-colors hover:text-dark"
               >
-                {label}
+                <HoverLabel>{label}</HoverLabel>
               </button>
             ))}
           </nav>

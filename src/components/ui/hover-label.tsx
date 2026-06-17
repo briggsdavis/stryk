@@ -7,12 +7,12 @@ import type { ReactNode } from "react"
 export function HoverLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span className={clsx("relative inline-grid overflow-hidden", className)}>
-      <span className="col-start-1 row-start-1 block transition-transform duration-[650ms] [transition-timing-function:var(--ease-ui)] group-hover:-translate-y-[120%]">
+      <span className="col-start-1 row-start-1 block transition-transform duration-[850ms] [transition-timing-function:var(--ease-ui)] group-hover:-translate-y-[120%]">
         {children}
       </span>
       <span
         aria-hidden="true"
-        className="col-start-1 row-start-1 block translate-y-[120%] transition-transform duration-[650ms] [transition-timing-function:var(--ease-ui)] group-hover:translate-y-0"
+        className="col-start-1 row-start-1 block translate-y-[120%] transition-transform duration-[850ms] [transition-timing-function:var(--ease-ui)] group-hover:translate-y-0"
       >
         {children}
       </span>

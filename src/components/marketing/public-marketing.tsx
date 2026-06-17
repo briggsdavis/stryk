@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react"
 import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
+import { HoverLabel } from "../ui/hover-label"
 
 function popupStorageKey(frequency: string) {
   const day = new Date().toISOString().slice(0, 10)
@@ -96,8 +97,11 @@ export function PublicMarketing() {
                     placeholder="Email address"
                     className="min-w-0 flex-1 rounded-lg border border-dark/15 bg-light/45 px-4 py-3 text-sm outline-none"
                   />
-                  <button type="submit" className="rounded-lg bg-dark px-4 py-3 text-sm text-white">
-                    Join
+                  <button
+                    type="submit"
+                    className="group rounded-lg bg-dark px-4 py-3 text-sm text-white"
+                  >
+                    <HoverLabel>Join</HoverLabel>
                   </button>
                 </form>
               )}
@@ -106,9 +110,9 @@ export function PublicMarketing() {
                 <Link
                   to={popup.buttonLink}
                   onClick={dismissPopup}
-                  className="inline-flex rounded-lg border border-dark/20 px-5 py-3 text-sm font-medium transition-colors hover:bg-dark hover:text-white"
+                  className="group inline-flex rounded-lg border border-dark/20 px-5 py-3 text-sm font-medium transition-colors hover:bg-dark hover:text-white"
                 >
-                  {popup.buttonLabel}
+                  <HoverLabel>{popup.buttonLabel}</HoverLabel>
                 </Link>
               )}
             </div>

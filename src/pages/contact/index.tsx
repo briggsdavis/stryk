@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { Accordion } from "../../components/ui/accordion"
 import { Footer } from "../../components/ui/footer"
+import { HoverLabel } from "../../components/ui/hover-label"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 
@@ -192,13 +193,13 @@ export function ContactPage() {
                       onClick={() => setInquiryType(key)}
                       aria-pressed={inquiryType === key}
                       className={clsx(
-                        "rounded-lg border px-4 py-2 text-xs font-medium transition-colors",
+                        "group rounded-lg border px-4 py-2 text-xs font-medium transition-colors",
                         inquiryType === key
                           ? "border-dark bg-dark text-canvas"
                           : "border-dark/20 text-dark hover:border-dark/40",
                       )}
                     >
-                      {label}
+                      <HoverLabel>{label}</HoverLabel>
                     </button>
                   ))}
                 </div>
@@ -313,9 +314,9 @@ export function ContactPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-dark px-6 py-3 text-sm font-medium tracking-wide text-canvas transition-all duration-300 hover:bg-dark/80"
+                className="group inline-flex w-full items-center justify-center gap-2 rounded-lg bg-dark px-6 py-3 text-sm font-medium tracking-wide text-canvas transition-all duration-300 hover:bg-dark/80"
               >
-                {isSubmitting ? "Sending..." : "Send message"}
+                <HoverLabel>{isSubmitting ? "Sending..." : "Send message"}</HoverLabel>
               </button>
             </form>
           )}
