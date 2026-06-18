@@ -145,12 +145,12 @@ export function AboutPage() {
       <Navbar />
 
       {/* ── Hero ── */}
-      <section className="px-6 pt-36 pb-16 md:px-10 md:pt-40">
-        <div className="group mb-10 overflow-hidden">
+      <section className="px-6 pt-28 pb-12 md:px-10 md:pt-32">
+        <div className="group mb-8 overflow-hidden">
           <img
             src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1600&q=80"
             alt="Stryk studio"
-            className="h-[52vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+            className="h-[38vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
           />
         </div>
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
@@ -197,39 +197,37 @@ export function AboutPage() {
           </div>
 
           {/* Panel 2 - Vision & Mission */}
-          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center gap-12 px-6 md:px-10">
+          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center gap-8 px-6 md:px-10">
             <p className="text-xs font-medium tracking-widest text-dark/40 uppercase">
               What drives us
             </p>
-            <div className="grid grid-cols-2 gap-16 border-t border-dark/10 pt-12">
-              <div>
-                <h3 className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase">
+            <div className="grid grid-cols-2 gap-16 border-t border-dark/10 pt-8">
+              <div className="flex flex-col">
+                <h3 className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Vision
                 </h3>
-                <p className="text-48 leading-tight font-light">
+                <p className="text-32 leading-tight font-light">
                   A world that recognises everyday objects as the art they always were.
                 </p>
+                <RevealImage
+                  src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=1000&h=1000&fit=crop&q=80"
+                  alt="Stryk collection"
+                  className="mt-6 aspect-square max-h-[42vh] w-full"
+                />
               </div>
-              <div>
-                <h3 className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase">
+              <div className="flex flex-col">
+                <h3 className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Mission
                 </h3>
-                <p className="text-48 leading-tight font-light">
+                <p className="text-32 leading-tight font-light">
                   To surface the world's forgotten matchbox art and give it a permanent home.
                 </p>
+                <RevealImage
+                  src="https://images.unsplash.com/photo-1626897885636-dd68020cc52a?w=1000&h=1000&fit=crop&q=80"
+                  alt="Stryk detail"
+                  className="mt-6 aspect-square max-h-[42vh] w-full"
+                />
               </div>
-            </div>
-            <div className="flex gap-4">
-              <RevealImage
-                src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=800&h=800&fit=crop&q=80"
-                alt="Stryk collection"
-                className="aspect-square h-[24vh]"
-              />
-              <RevealImage
-                src="https://images.unsplash.com/photo-1626897885636-dd68020cc52a?w=800&h=800&fit=crop&q=80"
-                alt="Stryk detail"
-                className="aspect-square h-[24vh]"
-              />
             </div>
           </div>
 
@@ -263,9 +261,9 @@ export function AboutPage() {
                 bring them to you.
               </p>
               <RevealImage
-                src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=800&h=800&fit=crop&q=80"
+                src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=1000&h=1000&fit=crop&q=80"
                 alt="Stryk detail"
-                className="mt-4 aspect-square w-1/2"
+                className="mt-2 aspect-square max-h-[34vh] w-full"
               />
             </div>
           </div>
@@ -275,20 +273,22 @@ export function AboutPage() {
             <p className="mb-14 text-xs font-medium tracking-widest text-dark/40 uppercase">
               What we stand for
             </p>
-            <div className="grid grid-cols-4 divide-x divide-dark/10 border-t border-dark/10 pt-12">
+            <div className="grid grid-cols-4 items-stretch divide-x divide-dark/10 border-t border-dark/10 pt-12">
               {VALUES.map((v) => (
                 <div
                   key={v.label}
                   onMouseEnter={() => setHoveredValue(v.label)}
                   onMouseLeave={() => setHoveredValue(null)}
-                  className={clsx(
-                    "cursor-default px-8 py-6 transition-opacity duration-400 first:pl-0 last:pr-0",
-                    hoveredValue !== null && hoveredValue !== v.label
-                      ? "opacity-25"
-                      : "opacity-100",
-                  )}
+                  className="flex cursor-default flex-col px-8 py-6 first:pl-0 last:pr-0"
                 >
-                  <h3 className="text-48 mb-5 font-medium">{v.label}</h3>
+                  <h3
+                    className={clsx(
+                      "text-48 mb-5 font-medium transition-opacity duration-400",
+                      hoveredValue !== null && hoveredValue !== v.label ? "opacity-30" : "opacity-100",
+                    )}
+                  >
+                    {v.label}
+                  </h3>
                   <p
                     className={clsx(
                       "mb-8 text-sm leading-relaxed text-dark/55 transition-opacity duration-300",
@@ -297,7 +297,7 @@ export function AboutPage() {
                   >
                     {v.body}
                   </p>
-                  <RevealImage src={v.image} alt={v.label} className="aspect-square w-full" />
+                  <RevealImage src={v.image} alt={v.label} className="mt-auto aspect-square w-full" />
                 </div>
               ))}
             </div>
