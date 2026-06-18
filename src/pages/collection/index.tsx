@@ -61,7 +61,7 @@ export function CollectionPage() {
   const panel1Ref = useRef<HTMLDivElement>(null)
   const bigImgRef = useRef<HTMLImageElement>(null)
   const framedWrapRef = useRef<HTMLDivElement>(null)
-  const framedMaskRef = useRef<HTMLDivElement>(null)
+  const framedImgRef = useRef<HTMLImageElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef<HTMLElement>(null)
@@ -128,15 +128,17 @@ export function CollectionPage() {
         )
       }
 
-      // 3 ── Framed image: a mask that wipes upward to reveal it.
-      if (framedWrapRef.current && framedMaskRef.current) {
+      // 3 ── Framed image: clip-wipe upward so it appears from nothing
+      // (no dark overlay — the image itself reveals from the bottom up).
+      if (framedWrapRef.current && framedImgRef.current) {
+        gsap.set(framedImgRef.current, { clipPath: "inset(100% 0% 0% 0%)" })
         ScrollTrigger.create({
           trigger: framedWrapRef.current,
           containerAnimation: horizontal,
           start: "left 80%",
           onEnter: () =>
-            gsap.to(framedMaskRef.current, {
-              yPercent: -100,
+            gsap.to(framedImgRef.current, {
+              clipPath: "inset(0% 0% 0% 0%)",
               duration: 1.1,
               ease: "power3.inOut",
             }),
@@ -297,11 +299,11 @@ export function CollectionPage() {
               className="relative my-auto h-[68vh] w-[34vw] shrink-0 overflow-hidden rounded-sm shadow-2xl shadow-dark/15"
             >
               <img
+                ref={framedImgRef}
                 src={products[3]?.image ?? heroImage}
                 alt=""
                 className="h-full w-full object-cover"
               />
-              <div ref={framedMaskRef} className="image-mask" />
             </div>
             <div className="w-[8vw] shrink-0" />
           </div>
