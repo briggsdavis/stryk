@@ -274,7 +274,7 @@ export function AboutPage() {
                   key={v.label}
                   onMouseEnter={() => setHoveredValue(v.label)}
                   onMouseLeave={() => setHoveredValue(null)}
-                  className="flex cursor-default flex-col px-8 py-6 first:pl-0 last:pr-0"
+                  className="flex cursor-default flex-col px-8 py-6"
                 >
                   <h3
                     className={clsx(
