@@ -5,7 +5,21 @@ import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 import { useSplitReveal } from "../../hooks/use-scroll-reveal"
-import { gsap } from "../../lib/gsap"
+import { gsap, ScrollTrigger } from "../../lib/gsap"
+
+// Square image that reveals with an upward wipe as it scrolls into view.
+function RevealImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  return (
+    <div className={clsx("reveal group relative overflow-hidden", className)}>
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+      />
+      <div className="reveal-mask pointer-events-none absolute inset-0 bg-canvas" />
+    </div>
+  )
+}
 
 const SUSTAINABILITY_ITEMS = [
   {
@@ -34,18 +48,22 @@ const VALUES = [
   {
     label: "Curation",
     body: "We don't list everything we find. Only pieces that stop us in our tracks make it to the store.",
+    image: "https://images.unsplash.com/photo-1617784625140-515e220ba148?w=800&h=800&fit=crop&q=80",
   },
   {
     label: "Discovery",
     body: "Every matchbox is a portal - to a city, a decade, a brand that no longer exists. We live for that feeling.",
+    image: "https://images.unsplash.com/photo-1594368247117-6012a8acda3e?w=800&h=800&fit=crop&q=80",
   },
   {
     label: "Craft",
     body: "The designers who made these labels had no digital tools, only instinct and a tight deadline. That tension shows in every line.",
+    image: "https://images.unsplash.com/photo-1551807306-4bcd16b92a41?w=800&h=800&fit=crop&q=80",
   },
   {
     label: "Story",
     body: "No object without context. Every piece we sell comes with the history it earned.",
+    image: "https://images.unsplash.com/photo-1619367302084-3d07eb49159f?w=800&h=800&fit=crop&q=80",
   },
 ]
 
@@ -69,7 +87,7 @@ export function AboutPage() {
     const getTotal = () => (NUM_PANELS - 1) * window.innerWidth
 
     const ctx = gsap.context(() => {
-      gsap.to(track, {
+      const horizontalTween = gsap.to(track, {
         x: () => -getTotal(),
         ease: "none",
         scrollTrigger: {
@@ -82,6 +100,41 @@ export function AboutPage() {
           invalidateOnRefresh: true,
         },
       })
+
+      // Wipe-up reveal for each square image, driven by horizontal progress.
+      const masks = gsap.utils.toArray<HTMLElement>(".reveal-mask")
+      masks.forEach((mask) => {
+        const wrap = mask.parentElement
+        if (!wrap) return
+        gsap.set(mask, { yPercent: 0 })
+        ScrollTrigger.create({
+          trigger: wrap,
+          containerAnimation: horizontalTween,
+          start: "left 80%",
+          once: true,
+          onEnter: () => gsap.to(mask, { yPercent: -100, duration: 1.1, ease: "power3.inOut" }),
+        })
+      })
+
+      // Parallax drift on the Our Story image.
+      const parImg = horizontal.querySelector<HTMLElement>(".parallax-img")
+      if (parImg?.parentElement) {
+        gsap.fromTo(
+          parImg,
+          { xPercent: -8 },
+          {
+            xPercent: 8,
+            ease: "none",
+            scrollTrigger: {
+              trigger: parImg.parentElement,
+              containerAnimation: horizontalTween,
+              start: "left right",
+              end: "right left",
+              scrub: true,
+            },
+          },
+        )
+      }
     }, horizontal)
 
     return () => ctx.revert()
@@ -103,7 +156,7 @@ export function AboutPage() {
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
           About Stryk
         </p>
-        <h1 ref={h1Ref} className="text-128 max-w-4xl overflow-hidden leading-none font-medium">
+        <h1 ref={h1Ref} className="text-128 max-w-4xl overflow-hidden pb-3 leading-none font-medium">
           Vintage charm, modern walls
         </h1>
       </section>
@@ -129,21 +182,17 @@ export function AboutPage() {
                 Est. 2021 - New York
               </p>
             </div>
-            <div className="flex w-[38%] flex-col gap-4">
-              <div className="group overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=900&q=80"
-                  alt="Stryk ceramics"
-                  className="aspect-[3/4] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                />
-              </div>
-              <div className="group overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1597696929736-6d13bed8e6a8?w=900&q=80"
-                  alt="Stryk craft"
-                  className="aspect-[16/7] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                />
-              </div>
+            <div className="flex w-[34%] flex-col gap-4">
+              <RevealImage
+                src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=900&h=900&fit=crop&q=80"
+                alt="Stryk ceramics"
+                className="aspect-square w-full"
+              />
+              <RevealImage
+                src="https://images.unsplash.com/photo-1597696929736-6d13bed8e6a8?w=900&h=900&fit=crop&q=80"
+                alt="Stryk craft"
+                className="aspect-square w-full"
+              />
             </div>
           </div>
 
@@ -170,22 +219,28 @@ export function AboutPage() {
                 </p>
               </div>
             </div>
-            <div className="group overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=1400&q=80"
+            <div className="flex gap-4">
+              <RevealImage
+                src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=800&h=800&fit=crop&q=80"
                 alt="Stryk collection"
-                className="h-[22vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                className="aspect-square h-[24vh]"
+              />
+              <RevealImage
+                src="https://images.unsplash.com/photo-1626897885636-dd68020cc52a?w=800&h=800&fit=crop&q=80"
+                alt="Stryk detail"
+                className="aspect-square h-[24vh]"
               />
             </div>
           </div>
 
           {/* Panel 3 - Our Story */}
           <div className="flex h-full w-screen flex-shrink-0">
-            <div className="group w-[55%] overflow-hidden">
+            <div className="relative w-[55%] overflow-hidden">
               <img
-                src="https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?w=1000&q=80"
+                src="https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?w=1200&h=1600&fit=crop&q=80"
                 alt="Our story"
-                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                className="parallax-img absolute inset-0 h-full w-[120%] max-w-none object-cover"
+                style={{ left: "-10%" }}
               />
             </div>
             <div className="flex flex-1 flex-col justify-center gap-8 px-12 md:px-16">
@@ -207,13 +262,11 @@ export function AboutPage() {
                 wherever brands once needed a flame, they needed a label. We find the best ones and
                 bring them to you.
               </p>
-              <div className="group mt-4 overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=700&q=80"
-                  alt="Stryk detail"
-                  className="aspect-[16/6] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                />
-              </div>
+              <RevealImage
+                src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=800&h=800&fit=crop&q=80"
+                alt="Stryk detail"
+                className="mt-4 aspect-square w-1/2"
+              />
             </div>
           </div>
 
@@ -238,21 +291,15 @@ export function AboutPage() {
                   <h3 className="text-48 mb-5 font-medium">{v.label}</h3>
                   <p
                     className={clsx(
-                      "text-sm leading-relaxed text-dark/55 transition-opacity duration-300",
+                      "mb-8 text-sm leading-relaxed text-dark/55 transition-opacity duration-300",
                       hoveredValue === v.label ? "opacity-100" : "opacity-0",
                     )}
                   >
                     {v.body}
                   </p>
+                  <RevealImage src={v.image} alt={v.label} className="aspect-square w-full" />
                 </div>
               ))}
-            </div>
-            <div className="group mt-14 overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1617784625140-515e220ba148?w=1400&q=80"
-                alt="Stryk values"
-                className="h-[20vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-              />
             </div>
           </div>
         </div>
