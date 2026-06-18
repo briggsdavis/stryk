@@ -28,6 +28,26 @@ function Spec({ label, value }: { label: string; value: string }) {
   )
 }
 
+// Fixed spots arranging the closing artworks around the centred collection name.
+const SPOTS: {
+  top?: string
+  bottom?: string
+  left?: string
+  right?: string
+  w: string
+  r: number
+}[] = [
+  { top: "3%", left: "4%", w: "13vw", r: -4 },
+  { top: "-3%", left: "27%", w: "20vw", r: 2 },
+  { top: "5%", left: "53%", w: "14vw", r: -3 },
+  { top: "2%", right: "4%", w: "13vw", r: 5 },
+  { top: "40%", left: "1%", w: "15vw", r: 3 },
+  { top: "44%", right: "2%", w: "14vw", r: -2 },
+  { bottom: "3%", left: "9%", w: "16vw", r: -5 },
+  { bottom: "-3%", left: "45%", w: "18vw", r: 2 },
+  { bottom: "5%", right: "9%", w: "13vw", r: 4 },
+]
+
 export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
@@ -43,21 +63,8 @@ export function CollectionPage() {
   const heroImage = products[0]?.image ?? ""
   const galleryImages = useMemo(() => products.flatMap((p) => p.images ?? [p.image]), [products])
 
-  // Scatter positions for the closing vertical canvas (deterministic).
-  const scatter = useMemo(() => {
-    const cols = ["6%", "30%", "54%", "74%", "16%", "62%", "40%", "82%", "2%"]
-    const widths = [22, 16, 26, 14, 19, 24, 15, 20, 17]
-    return galleryImages.slice(0, 16).map((src, i) => ({
-      src,
-      left: cols[i % cols.length],
-      top: `${8 + i * 10.5}vh`,
-      width: `${widths[i % widths.length]}vw`,
-      rotate: (i % 2 === 0 ? 1 : -1) * ((i % 3) + 1),
-    }))
-  }, [galleryImages])
-
   // Horizontal scroll: pin the intro section and translate its track sideways
-  // as the user scrolls, then release into normal vertical scroll below.
+  // as the user scrolls, then release into the static closing screen below.
   useEffect(() => {
     if (!collection) return
     const pin = pinRef.current
@@ -143,93 +150,81 @@ export function CollectionPage() {
             </div>
           </div>
 
-          {/* Panel 2 — full-bleed imagery + description */}
-          <div className="flex h-screen shrink-0">
-            <div className="h-full w-[70vw] shrink-0 overflow-hidden">
+          {/* Panel 2 — full-bleed imagery */}
+          <div className="flex h-screen shrink-0 items-stretch">
+            <div className="h-full w-[58vw] shrink-0 overflow-hidden">
               <img
                 src={products[2]?.image ?? heroImage}
                 alt=""
                 className="h-full w-full object-cover"
               />
             </div>
-            <div className="relative flex h-full w-[55vw] shrink-0 items-end overflow-hidden p-12 md:p-20">
-              <p className="max-w-md text-xl leading-relaxed text-dark/80">
-                {collection.description}
-              </p>
-              {products[3] && (
-                <img
-                  src={products[3].image}
-                  alt=""
-                  className="absolute top-1/2 -right-24 aspect-square w-[34vw] -translate-y-1/2 rounded-sm object-cover shadow-2xl shadow-dark/15"
-                />
-              )}
+            <div className="w-[8vw] shrink-0" />
+            <div className="my-auto h-[68vh] w-[34vw] shrink-0 overflow-hidden rounded-sm shadow-2xl shadow-dark/15">
+              <img
+                src={products[3]?.image ?? heroImage}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             </div>
+            <div className="w-[8vw] shrink-0" />
           </div>
 
-          {/* Panel 3 — featured products */}
-          <div className="relative flex h-screen w-screen shrink-0 items-center">
-            {products[4] && (
-              <img
-                src={products[4].image}
-                alt=""
-                className="absolute top-1/3 -left-10 hidden aspect-square w-56 object-cover shadow-xl shadow-dark/10 lg:block"
-              />
-            )}
-            <div className="ml-auto flex w-full max-w-5xl items-center gap-12 px-8 md:px-16">
-              <h2 className="text-64 w-72 shrink-0 leading-tight font-medium text-dark">
-                Products from this collection
-              </h2>
-              <div className="grid flex-1 grid-cols-2 gap-5">
-                {products.map((product) => (
-                  <div key={product.id} className="flex flex-col">
-                    <button
-                      type="button"
-                      onClick={() => setLightbox(product.image)}
-                      aria-label={`Expand ${product.name}`}
-                      className="group relative flex aspect-square items-center justify-center rounded-xl border border-dark/15 p-[12%] transition-colors hover:border-dark/30"
-                    >
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
-                      />
-                      <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
-                        <ExpandIcon />
-                      </span>
-                    </button>
-                    <p className="mt-3 text-sm text-dark/70">{product.name}</p>
-                  </div>
-                ))}
+          {/* Panel 3 — featured products, laid out horizontally */}
+          <div className="flex h-screen w-screen shrink-0 items-center px-8 md:px-16">
+            <div className="mx-auto grid w-full max-w-6xl grid-cols-3 gap-x-8 gap-y-5">
+              <div className="flex items-start">
+                <h2 className="text-[2.2rem] leading-tight font-medium text-dark">
+                  Products from this collection
+                </h2>
               </div>
+              {products.map((product) => (
+                <div key={product.id} className="flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(product.image)}
+                    aria-label={`Expand ${product.name}`}
+                    className="group relative flex aspect-square items-center justify-center rounded-xl border border-dark/15 p-[14%] transition-colors hover:border-dark/30"
+                  >
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
+                    />
+                    <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
+                      <ExpandIcon />
+                    </span>
+                  </button>
+                  <p className="mt-3 text-sm text-dark/70">{product.name}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Closing vertical canvas ────────────────────────────────────── */}
-      <section className="relative px-6 pt-24 pb-40 md:px-10">
-        <div className="relative" style={{ height: `${scatter.length * 11 + 20}vh` }}>
-          {scatter.map((item, i) => (
-            <img
-              key={i}
-              src={item.src}
-              alt=""
-              loading="lazy"
-              className="absolute aspect-square rounded-sm object-cover shadow-xl shadow-dark/10"
-              style={{
-                left: item.left,
-                top: item.top,
-                width: item.width,
-                transform: `rotate(${item.rotate}deg)`,
-              }}
-            />
-          ))}
-          <div className="pointer-events-none sticky top-1/2 z-10 -translate-y-1/2 text-center">
-            <p className="mb-3 text-xs font-medium tracking-widest text-dark/40 uppercase">
-              The full collection
-            </p>
-            <h2 className="text-128 leading-[0.95] text-dark">{collection.name}</h2>
-          </div>
+      {/* ── Closing screen — static, artworks around the collection name ── */}
+      <section className="relative flex h-screen items-center justify-center overflow-hidden px-6">
+        {SPOTS.map((s, i) => (
+          <img
+            key={i}
+            src={galleryImages[i % Math.max(galleryImages.length, 1)]}
+            alt=""
+            loading="lazy"
+            className="absolute aspect-square rounded-sm object-cover shadow-xl shadow-dark/10"
+            style={{
+              top: s.top,
+              bottom: s.bottom,
+              left: s.left,
+              right: s.right,
+              width: s.w,
+              transform: `rotate(${s.r}deg)`,
+            }}
+          />
+        ))}
+        <div className="relative z-10 max-w-2xl text-center">
+          <h2 className="text-128 leading-[0.95] text-dark">{collection.name}</h2>
+          <p className="mx-auto mt-5 max-w-md text-base text-dark/60">{collection.tagline}</p>
         </div>
       </section>
 
