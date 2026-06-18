@@ -58,6 +58,13 @@ export function CollectionPage() {
 
   const pinRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
+  const panel1Ref = useRef<HTMLDivElement>(null)
+  const bigImgRef = useRef<HTMLImageElement>(null)
+  const framedWrapRef = useRef<HTMLDivElement>(null)
+  const framedImgRef = useRef<HTMLImageElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const closingRef = useRef<HTMLElement>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
 
   const products = useMemo(() => collection?.products ?? [], [collection])
@@ -66,20 +73,145 @@ export function CollectionPage() {
 
   // Horizontal scroll: pin the intro section and translate its track sideways
   // as the user scrolls, then release into the static closing screen below.
+  // The sideways motion is a scrubbed tween so the per-panel reveals can hook
+  // into its progress via `containerAnimation`.
   useEffect(() => {
     if (!collection) return
     const pin = pinRef.current
     const track = trackRef.current
     if (!pin || !track) return
 
-    const getDist = () => Math.max(track.scrollWidth - window.innerWidth, 0)
-    const st = ScrollTrigger.create({
-      trigger: pin,
-      start: "top top",
-      end: () => `+=${getDist()}`,
-      pin: true,
-      invalidateOnRefresh: true,
-      onUpdate: (self) => gsap.set(track, { x: -getDist() * self.progress }),
+    const ctx = gsap.context(() => {
+      const getDist = () => Math.max(track.scrollWidth - window.innerWidth, 0)
+
+      const horizontal = gsap.to(track, {
+        x: () => -getDist(),
+        ease: "none",
+        scrollTrigger: {
+          trigger: pin,
+          start: "top top",
+          end: () => `+=${getDist()}`,
+          pin: true,
+          scrub: true,
+          invalidateOnRefresh: true,
+        },
+      })
+
+      // 1 ── First panel: the familiar blur-in on entrance.
+      if (panel1Ref.current) {
+        gsap.from(panel1Ref.current, {
+          opacity: 0,
+          filter: "blur(14px)",
+          y: 24,
+          duration: 1.1,
+          ease: "power3.out",
+          delay: 0.15,
+        })
+      }
+
+      // 2 ── Big image: horizontal parallax drag as it scrolls past.
+      if (bigImgRef.current) {
+        gsap.fromTo(
+          bigImgRef.current,
+          { xPercent: 0 },
+          {
+            xPercent: -15,
+            ease: "none",
+            scrollTrigger: {
+              trigger: bigImgRef.current,
+              containerAnimation: horizontal,
+              start: "left right",
+              end: "right left",
+              scrub: true,
+            },
+          },
+        )
+      }
+
+      // 3 ── Framed image: clip-wipe upward so it appears from nothing
+      // (no dark overlay — the image itself reveals from the bottom up).
+      if (framedWrapRef.current && framedImgRef.current) {
+        gsap.set(framedImgRef.current, { clipPath: "inset(100% 0% 0% 0%)" })
+        ScrollTrigger.create({
+          trigger: framedWrapRef.current,
+          containerAnimation: horizontal,
+          start: "left 80%",
+          onEnter: () =>
+            gsap.to(framedImgRef.current, {
+              clipPath: "inset(0% 0% 0% 0%)",
+              duration: 1.1,
+              ease: "power3.inOut",
+            }),
+        })
+      }
+
+      // 4 ── "Products from this collection" heading: blur in.
+      if (headingRef.current) {
+        gsap.set(headingRef.current, { opacity: 0, filter: "blur(12px)", y: 20 })
+        ScrollTrigger.create({
+          trigger: headingRef.current,
+          containerAnimation: horizontal,
+          start: "left 82%",
+          onEnter: () =>
+            gsap.to(headingRef.current, {
+              opacity: 1,
+              filter: "blur(0px)",
+              y: 0,
+              duration: 0.9,
+              ease: "power3.out",
+            }),
+        })
+      }
+
+      // 5 ── Featured products: staggered blur-in, one by one.
+      if (gridRef.current) {
+        const cards = gridRef.current.querySelectorAll<HTMLElement>("[data-product-card]")
+        gsap.set(cards, { opacity: 0, filter: "blur(12px)", y: 24, scale: 0.97 })
+        ScrollTrigger.create({
+          trigger: gridRef.current,
+          containerAnimation: horizontal,
+          start: "left 72%",
+          onEnter: () =>
+            gsap.to(cards, {
+              opacity: 1,
+              filter: "blur(0px)",
+              y: 0,
+              scale: 1,
+              duration: 0.7,
+              ease: "power3.out",
+              stagger: 0.1,
+            }),
+        })
+      }
+
+      // 6 ── Closing screen: images blur in one by one, then the centre text.
+      if (closingRef.current) {
+        const imgs = closingRef.current.querySelectorAll<HTMLElement>("[data-closing-img]")
+        const text = closingRef.current.querySelector<HTMLElement>("[data-closing-text]")
+        gsap.set(imgs, { opacity: 0, filter: "blur(14px)", scale: 0.9 })
+        if (text) gsap.set(text, { opacity: 0, filter: "blur(12px)", y: 24 })
+        ScrollTrigger.create({
+          trigger: closingRef.current,
+          start: "top 72%",
+          onEnter: () => {
+            const tl = gsap.timeline()
+            tl.to(imgs, {
+              opacity: 1,
+              filter: "blur(0px)",
+              scale: 1,
+              duration: 0.7,
+              ease: "power3.out",
+              stagger: 0.12,
+            })
+            if (text)
+              tl.to(
+                text,
+                { opacity: 1, filter: "blur(0px)", y: 0, duration: 0.9, ease: "power3.out" },
+                "-=0.15",
+              )
+          },
+        })
+      }
     })
 
     const refresh = () => ScrollTrigger.refresh()
@@ -88,7 +220,7 @@ export function CollectionPage() {
     return () => {
       window.clearTimeout(t)
       window.removeEventListener("load", refresh)
-      st.kill()
+      ctx.revert()
     }
   }, [collection])
 
@@ -124,7 +256,7 @@ export function CollectionPage() {
       <section ref={pinRef} className="h-screen overflow-hidden">
         <div ref={trackRef} className="flex h-screen will-change-transform">
           {/* Panel 1 — collection identity + specs */}
-          <div className="relative flex h-screen w-screen shrink-0">
+          <div ref={panel1Ref} className="relative flex h-screen w-screen shrink-0">
             <div className="h-full w-1/2 shrink-0 overflow-hidden">
               <img src={heroImage} alt={collection.name} className="h-full w-full object-cover" />
             </div>
@@ -155,14 +287,19 @@ export function CollectionPage() {
           <div className="flex h-screen shrink-0 items-stretch">
             <div className="h-full w-[58vw] shrink-0 overflow-hidden">
               <img
+                ref={bigImgRef}
                 src={products[2]?.image ?? heroImage}
                 alt=""
-                className="h-full w-full object-cover"
+                className="h-full w-[120%] max-w-none object-cover will-change-transform"
               />
             </div>
             <div className="w-[8vw] shrink-0" />
-            <div className="my-auto h-[68vh] w-[34vw] shrink-0 overflow-hidden rounded-sm shadow-2xl shadow-dark/15">
+            <div
+              ref={framedWrapRef}
+              className="relative my-auto h-[68vh] w-[34vw] shrink-0 overflow-hidden rounded-sm shadow-2xl shadow-dark/15"
+            >
               <img
+                ref={framedImgRef}
                 src={products[3]?.image ?? heroImage}
                 alt=""
                 className="h-full w-full object-cover"
@@ -173,25 +310,30 @@ export function CollectionPage() {
 
           {/* Panel 3 — featured products, laid out horizontally */}
           <div className="flex h-screen w-screen shrink-0 items-center px-8 md:px-16">
-            <div className="mx-auto grid w-full max-w-5xl grid-cols-3 gap-x-8 gap-y-5">
+            <div ref={gridRef} className="mx-auto grid w-full max-w-5xl grid-cols-3 items-start gap-x-8 gap-y-5">
               <div className="flex items-start pt-10">
-                <h2 className="font-sans text-[2rem] leading-tight font-medium text-dark">
+                <h2
+                  ref={headingRef}
+                  className="font-sans text-[2rem] leading-tight font-medium text-dark"
+                >
                   Products from this collection
                 </h2>
               </div>
               {products.map((product) => (
-                <div key={product.id} className="flex flex-col">
+                <div key={product.id} data-product-card className="flex flex-col">
                   <button
                     type="button"
                     onClick={() => setLightbox(product.image)}
                     aria-label={`Expand ${product.name}`}
-                    className="group relative flex aspect-square items-center justify-center rounded-xl border border-dark/15 p-[14%] transition-colors hover:border-dark/30"
+                    className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
                   >
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
-                    />
+                    <span className="absolute inset-0 flex items-center justify-center p-[14%]">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
+                      />
+                    </span>
                     <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
                       <ExpandIcon />
                     </span>
@@ -208,10 +350,14 @@ export function CollectionPage() {
       <div className="h-[14vh]" />
 
       {/* ── Closing screen — static, artworks around the collection name ── */}
-      <section className="relative flex h-screen items-center justify-center overflow-hidden px-6">
+      <section
+        ref={closingRef}
+        className="relative flex h-screen items-center justify-center overflow-hidden px-6"
+      >
         {SPOTS.map((s, i) => (
           <img
             key={i}
+            data-closing-img
             src={galleryImages[i % Math.max(galleryImages.length, 1)]}
             alt=""
             loading="lazy"
@@ -225,11 +371,14 @@ export function CollectionPage() {
             }}
           />
         ))}
-        <div className="relative z-10 max-w-2xl text-center">
+        <div data-closing-text className="relative z-10 max-w-2xl text-center">
           <h2 className="text-128 leading-[0.95] text-dark">{collection.name}</h2>
           <p className="mx-auto mt-5 max-w-md text-base text-dark/60">{collection.tagline}</p>
         </div>
       </section>
+
+      {/* Breathing room between the closing imagery and the footer */}
+      <div className="h-[16vh]" />
 
       <Footer />
 
@@ -239,12 +388,12 @@ export function CollectionPage() {
           type="button"
           onClick={() => setLightbox(null)}
           aria-label="Close image"
-          className="fixed inset-0 z-[2000] flex items-center justify-center bg-dark/85 p-8 backdrop-blur-sm"
+          className="lightbox-backdrop fixed inset-0 z-[2000] flex items-center justify-center bg-dark/85 p-8 backdrop-blur-sm"
         >
           <img
             src={lightbox}
             alt=""
-            className="max-h-[85vh] max-w-[85vw] rounded-sm object-contain shadow-2xl"
+            className="lightbox-image max-h-[85vh] max-w-[85vw] rounded-sm object-contain shadow-2xl"
           />
         </button>
       )}
