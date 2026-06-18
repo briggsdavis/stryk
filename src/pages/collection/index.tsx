@@ -173,7 +173,7 @@ export function CollectionPage() {
 
           {/* Panel 3 — featured products, laid out horizontally */}
           <div className="flex h-screen w-screen shrink-0 items-center px-8 md:px-16">
-            <div className="mx-auto grid w-full max-w-5xl grid-cols-3 gap-x-8 gap-y-5">
+            <div className="mx-auto grid w-full max-w-5xl grid-cols-3 items-start gap-x-8 gap-y-5">
               <div className="flex items-start pt-10">
                 <h2 className="font-sans text-[2rem] leading-tight font-medium text-dark">
                   Products from this collection
@@ -231,6 +231,9 @@ export function CollectionPage() {
         </div>
       </section>
 
+      {/* Breathing room between the closing imagery and the footer */}
+      <div className="h-[16vh]" />
+
       <Footer />
 
       {/* ── Lightbox ───────────────────────────────────────────────────── */}
@@ -239,12 +242,12 @@ export function CollectionPage() {
           type="button"
           onClick={() => setLightbox(null)}
           aria-label="Close image"
-          className="fixed inset-0 z-[2000] flex items-center justify-center bg-dark/85 p-8 backdrop-blur-sm"
+          className="lightbox-backdrop fixed inset-0 z-[2000] flex items-center justify-center bg-dark/85 p-8 backdrop-blur-sm"
         >
           <img
             src={lightbox}
             alt=""
-            className="max-h-[85vh] max-w-[85vw] rounded-sm object-contain shadow-2xl"
+            className="lightbox-image max-h-[85vh] max-w-[85vw] rounded-sm object-contain shadow-2xl"
           />
         </button>
       )}

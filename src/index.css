@@ -330,6 +330,35 @@
     transform: scale(1.03);
   }
 
+  /* ── Lightbox (collection page) — blurs open ── */
+  @keyframes lightbox-backdrop-in {
+    from {
+      opacity: 0;
+      backdrop-filter: blur(0);
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes lightbox-image-in {
+    from {
+      opacity: 0;
+      filter: blur(24px);
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: scale(1);
+    }
+  }
+  .lightbox-backdrop {
+    animation: lightbox-backdrop-in 0.4s var(--ease-ui) both;
+  }
+  .lightbox-image {
+    animation: lightbox-image-in 0.55s var(--ease-ui) both;
+  }
+
   /* ── Focus panel ── */
   .focus-wrapper {
     position: fixed;
