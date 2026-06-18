@@ -9,8 +9,8 @@ export function CustomCursor() {
     const cursor = cursorRef.current
     if (!cursor) return
 
-    const xTo = gsap.quickTo(cursor, "x", { duration: 0.45, ease: "power3.out" })
-    const yTo = gsap.quickTo(cursor, "y", { duration: 0.45, ease: "power3.out" })
+    const xTo = gsap.quickTo(cursor, "x", { duration: 0.225, ease: "power3.out" })
+    const yTo = gsap.quickTo(cursor, "y", { duration: 0.225, ease: "power3.out" })
 
     const onMove = (e: MouseEvent) => {
       xTo(e.clientX)
