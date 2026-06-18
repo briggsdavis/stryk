@@ -172,9 +172,9 @@ export function CollectionPage() {
 
           {/* Panel 3 — featured products, laid out horizontally */}
           <div className="flex h-screen w-screen shrink-0 items-center px-8 md:px-16">
-            <div className="mx-auto grid w-full max-w-6xl grid-cols-3 gap-x-8 gap-y-5">
-              <div className="flex items-start">
-                <h2 className="text-[2.2rem] leading-tight font-medium text-dark">
+            <div className="mx-auto grid w-full max-w-5xl grid-cols-3 gap-x-8 gap-y-5">
+              <div className="flex items-start pt-10">
+                <h2 className="font-sans text-[2rem] leading-tight font-medium text-dark">
                   Products from this collection
                 </h2>
               </div>
@@ -203,6 +203,9 @@ export function CollectionPage() {
         </div>
       </section>
 
+      {/* Break before the closing screen */}
+      <div className="h-[14vh]" />
+
       {/* ── Closing screen — static, artworks around the collection name ── */}
       <section className="relative flex h-screen items-center justify-center overflow-hidden px-6">
         {SPOTS.map((s, i) => (
@@ -218,7 +221,6 @@ export function CollectionPage() {
               left: s.left,
               right: s.right,
               width: s.w,
-              transform: `rotate(${s.r}deg)`,
             }}
           />
         ))}
