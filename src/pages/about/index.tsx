@@ -206,26 +206,26 @@ export function AboutPage() {
                 <h3 className="mb-3 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Vision
                 </h3>
-                <p className="text-32 leading-tight font-light">
+                <p className="text-[1.2rem] leading-tight font-light">
                   Everyday objects, recognised as the art they always were.
                 </p>
                 <RevealImage
                   src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=1000&h=1000&fit=crop&q=80"
                   alt="Stryk collection"
-                  className="mt-5 aspect-square w-full shrink-0"
+                  className="mt-5 aspect-square w-[60%] shrink-0"
                 />
               </div>
               <div className="flex flex-col">
                 <h3 className="mb-3 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Mission
                 </h3>
-                <p className="text-32 leading-tight font-light">
+                <p className="text-[1.2rem] leading-tight font-light">
                   To surface the world's forgotten matchbox art and give it a home.
                 </p>
                 <RevealImage
                   src="https://images.unsplash.com/photo-1626897885636-dd68020cc52a?w=1000&h=1000&fit=crop&q=80"
                   alt="Stryk detail"
-                  className="mt-5 aspect-square w-full shrink-0"
+                  className="mt-5 aspect-square w-[60%] shrink-0"
                 />
               </div>
             </div>
