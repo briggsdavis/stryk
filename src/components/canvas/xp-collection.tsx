@@ -1,4 +1,7 @@
-import { forwardRef } from "react"
+import { forwardRef, useEffect, useRef } from "react"
+import type { ActiveFilters } from "../../lib/filters"
+import { productMatches } from "../../lib/filters"
+import { gsap } from "../../lib/gsap"
 import type { Product } from "../../lib/types"
 import { XpProductItem } from "./xp-product-item"
 
@@ -6,6 +9,7 @@ interface XpCollectionProps {
   products: Product[]
   onItemClick: (product: Product, el: HTMLElement) => void
   itemRefs: React.MutableRefObject<Map<string, HTMLElement>>
+  filters: ActiveFilters
 }
 
 const COL_COUNT = 6
@@ -18,11 +22,58 @@ function buildColumns(products: Product[]): Product[][] {
 }
 
 export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(function XpCollection(
-  { products, onItemClick, itemRefs },
+  { products, onItemClick, itemRefs, filters },
   ref,
 ) {
   const columns = buildColumns(products)
   let globalIndex = 0
+  const firstFilterRunRef = useRef(true)
+
+  // ── Filter transition ──────────────────────────────────────────────────────
+  // Pieces stay in the layout (no reflow / shifting). Matching pieces blur in;
+  // the rest blur and fade out. The canvas entrance owns the very first reveal,
+  // so skip that pass here.
+  useEffect(() => {
+    if (firstFilterRunRef.current) {
+      firstFilterRunRef.current = false
+      return
+    }
+
+    const matched: HTMLElement[] = []
+    products.forEach((p) => {
+      const el = itemRefs.current.get(p.id)
+      if (!el) return
+      const isMatch = productMatches(p, filters)
+      el.dataset.filtered = isMatch ? "false" : "true"
+      el.style.pointerEvents = isMatch ? "" : "none"
+      if (isMatch) {
+        matched.push(el)
+      } else {
+        gsap.to(el, {
+          opacity: 0,
+          scale: 0.92,
+          filter: "blur(8px)",
+          duration: 0.45,
+          ease: "power2.out",
+          overwrite: "auto",
+        })
+      }
+    })
+
+    gsap.fromTo(
+      matched,
+      { opacity: 0, scale: 0.96, filter: "blur(12px)" },
+      {
+        opacity: 1,
+        scale: 1,
+        filter: "blur(0px)",
+        duration: 0.7,
+        ease: "power2.out",
+        stagger: { each: 0.025, from: "random" },
+        overwrite: "auto",
+      },
+    )
+  }, [filters, products, itemRefs])
 
   return (
     <div ref={ref} className="xp-collection">

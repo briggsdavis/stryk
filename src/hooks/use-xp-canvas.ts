@@ -162,7 +162,7 @@ export function useXpCanvas(active: boolean) {
 
     const items = collection.querySelectorAll<HTMLElement>(".xp-item")
 
-    // Allow items at the edges to be visible during the zoomed-out entrance —
+    // Allow items at the edges to be visible during the zoomed-out entrance -
     // the wrapper's layout box is 100vw×100vh so overflow:hidden would clip them.
     gsap.set(wrapper, { scale: 0.85, transformOrigin: "center center", overflow: "visible" })
 

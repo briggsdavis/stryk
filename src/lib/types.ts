@@ -1,3 +1,5 @@
+export type ProductCategory = "hotel" | "misc" | "restaurant" | "empties"
+
 export interface Product {
   id: string
   slug: string
@@ -10,6 +12,10 @@ export interface Product {
   hoverImage?: string
   price: number
   color: string
+  // Named colour bucket used by the canvas colour filter (e.g. "Green").
+  colorName: string
+  // Piece category used by the canvas category filter.
+  category: ProductCategory
   size?: string
   available: boolean
 }

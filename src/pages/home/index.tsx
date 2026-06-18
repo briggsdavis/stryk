@@ -1,25 +1,58 @@
 import { clsx } from "clsx"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { XpWrapper } from "../../components/canvas/xp-wrapper"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { GridCollection } from "../../components/grid/grid-collection"
+import { EmptyFilterState } from "../../components/ui/empty-filter-state"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
 import { DEMO_PRODUCTS } from "../../lib/demo-data"
+import type { ActiveFilters, FilterKey } from "../../lib/filters"
+import {
+  activeFilterCount,
+  buildFilterGroups,
+  EMPTY_FILTERS,
+  productMatches,
+} from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
+import { useTransitionNavigate } from "../../lib/transition"
 import type { Product, ViewMode } from "../../lib/types"
 
 const CANVAS_SHIFT = "60vw"
 const PROXIMITY_RADIUS = 220
-const GRID_PRODUCTS = DEMO_PRODUCTS.slice(0, 9)
+const FILTER_GROUPS = buildFilterGroups(DEMO_PRODUCTS)
 
 type WithVTA = Document & { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
 
 export function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("xp")
   const [focusedProduct, setFocusedProduct] = useState<Product | null>(null)
+  const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
+
+  const toggleFilter = useCallback((key: FilterKey, value: string) => {
+    setFilters((prev) => {
+      const set = prev[key]
+      const next = set.includes(value) ? set.filter((v) => v !== value) : [...set, value]
+      return { ...prev, [key]: next }
+    })
+  }, [])
+
+  const clearFilters = useCallback(() => setFilters(EMPTY_FILTERS), [])
+
+  const transitionNavigate = useTransitionNavigate()
+  const goToSpecialRequest = useCallback(
+    () => transitionNavigate("/contact?inquiry=custom"),
+    [transitionNavigate],
+  )
+
+  const hasActiveFilters = activeFilterCount(filters) > 0
+  const matchCount = useMemo(
+    () => DEMO_PRODUCTS.filter((p) => productMatches(p, filters)).length,
+    [filters],
+  )
+  const noMatches = hasActiveFilters && matchCount === 0
 
   const xpItemRefs = useRef<Map<string, HTMLElement>>(new Map())
   const gridItemRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -54,6 +87,8 @@ export function HomePage() {
       let closestName = ""
 
       items.forEach((item) => {
+        // Skip pieces filtered out of the current view.
+        if (item.dataset.filtered === "true") return
         const rect = item.getBoundingClientRect()
         if (
           rect.right < 0 ||
@@ -155,11 +190,11 @@ export function HomePage() {
         const titleTop = isMd ? 96 : 64
         const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
         const topReserve = titleTop + titleFont + 28
-        // Sized to clear the tallest the bottom strip can get (dots +
-        // "scroll to explore", product name, and a description that wraps to
-        // ~4 lines at max-width 28ch) plus a comfortable gap, so the image
-        // never crowds the copy for any artwork.
-        const bottomReserve = 210
+        // The focus panel opens with its details collapsed, so the bottom strip
+        // is just the gallery indicator + product title. The details dropdown
+        // grows this reserve (and shrinks the image) on demand from within the
+        // focus panel. Keep this in sync with COLLAPSED_RESERVE there.
+        const bottomReserve = 150
 
         const maxW = Math.min(window.innerWidth * 0.36, 440)
         const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
@@ -281,6 +316,11 @@ export function HomePage() {
         onToggleView={toggleView}
         showViewToggle={!focusedProduct}
         showCta={!!focusedProduct}
+        showFilter={viewMode === "xp" && !focusedProduct}
+        filterGroups={FILTER_GROUPS}
+        activeFilters={filters}
+        onToggleFilter={toggleFilter}
+        onClearFilters={clearFilters}
       />
 
       {/* XP Canvas */}
@@ -297,6 +337,7 @@ export function HomePage() {
           collectionRef={collectionRef}
           itemRefs={xpItemRefs}
           visible
+          filters={filters}
         />
       </div>
 
@@ -309,8 +350,13 @@ export function HomePage() {
         )}
       >
         <GridCollection
-          products={GRID_PRODUCTS}
+          products={DEMO_PRODUCTS}
+          filters={filters}
+          filterGroups={FILTER_GROUPS}
+          onToggleFilter={toggleFilter}
+          onClearFilters={clearFilters}
           onItemClick={handleGridItemClick}
+          onContact={goToSpecialRequest}
           itemRefs={gridItemRefs}
           visible={viewMode === "grid"}
           scrollerRef={gridWrapperRef}
@@ -323,6 +369,13 @@ export function HomePage() {
         allProducts={DEMO_PRODUCTS}
         onClose={handleCloseFocus}
       />
+
+      {/* Empty-filter message on the canvas */}
+      {viewMode === "xp" && !focusedProduct && noMatches && (
+        <div className="pointer-events-none absolute inset-0 z-[150] flex items-center justify-center">
+          <EmptyFilterState onContact={goToSpecialRequest} />
+        </div>
+      )}
 
       {viewMode === "xp" && !focusedProduct && (
         <ZoomControls level={zoomLevel} onZoomIn={zoomIn} onZoomOut={zoomOut} />

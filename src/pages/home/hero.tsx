@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { HoverLabel } from "../../components/ui/hover-label"
 import { gsap, SplitText } from "../../lib/gsap"
 
 export function Hero() {
@@ -55,11 +56,12 @@ export function Hero() {
         Thoughtfully crafted dinnerware for moments worth remembering.
       </p>
       <div ref={ctasRef} className="pointer-events-auto flex gap-4" style={{ opacity: 0 }}>
-        <button type="button" className="btn-filled">
-          Shop Now →
+        <button type="button" className="btn-filled group">
+          <HoverLabel>Shop Now</HoverLabel>
+          <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
         </button>
-        <button type="button" className="btn-outline">
-          View Collection
+        <button type="button" className="btn-outline group">
+          <HoverLabel>View Collection</HoverLabel>
         </button>
       </div>
       <p

@@ -1,6 +1,6 @@
 import type { Product } from "../../lib/types"
 
-// Varied widths only — each image's natural aspect ratio decides its height,
+// Varied widths only - each image's natural aspect ratio decides its height,
 // so thumbnails are shown uncropped at their true proportions.
 const WIDTH_VARIANTS = [
   "18vw",
