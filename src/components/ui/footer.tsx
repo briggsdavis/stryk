@@ -36,9 +36,9 @@ export function Footer() {
             href="https://socialsatisfaction.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-dark/25 transition-colors hover:text-dark/50"
+            className="group text-xs text-dark/25 transition-colors hover:text-dark/50"
           >
-            Made by Social Satisfaction
+            <HoverLabel>Made by Social Satisfaction</HoverLabel>
           </a>
         </div>
       </div>

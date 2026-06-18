@@ -185,13 +185,15 @@ export function CollectionPage() {
                     type="button"
                     onClick={() => setLightbox(product.image)}
                     aria-label={`Expand ${product.name}`}
-                    className="group relative flex aspect-square items-center justify-center rounded-xl border border-dark/15 p-[14%] transition-colors hover:border-dark/30"
+                    className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
                   >
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
-                    />
+                    <span className="absolute inset-0 flex items-center justify-center p-[14%]">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
+                      />
+                    </span>
                     <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
                       <ExpandIcon />
                     </span>
