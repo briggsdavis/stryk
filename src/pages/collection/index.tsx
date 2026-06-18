@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router"
+import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 import { getCollection } from "../../lib/demo-data"
@@ -229,6 +230,8 @@ export function CollectionPage() {
           <p className="mx-auto mt-5 max-w-md text-base text-dark/60">{collection.tagline}</p>
         </div>
       </section>
+
+      <Footer />
 
       {/* ── Lightbox ───────────────────────────────────────────────────── */}
       {lightbox && (
