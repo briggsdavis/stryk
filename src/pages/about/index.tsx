@@ -197,35 +197,35 @@ export function AboutPage() {
           </div>
 
           {/* Panel 2 - Vision & Mission */}
-          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center gap-8 px-6 md:px-10">
+          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center gap-6 px-6 md:px-10">
             <p className="text-xs font-medium tracking-widest text-dark/40 uppercase">
               What drives us
             </p>
-            <div className="grid grid-cols-2 gap-16 border-t border-dark/10 pt-8">
+            <div className="grid grid-cols-2 gap-16 border-t border-dark/10 pt-6">
               <div className="flex flex-col">
-                <h3 className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                <h3 className="mb-3 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Vision
                 </h3>
                 <p className="text-32 leading-tight font-light">
-                  A world that recognises everyday objects as the art they always were.
+                  Everyday objects, recognised as the art they always were.
                 </p>
                 <RevealImage
                   src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=1000&h=1000&fit=crop&q=80"
                   alt="Stryk collection"
-                  className="mt-6 aspect-square max-h-[42vh] w-full"
+                  className="mt-5 aspect-square w-full shrink-0"
                 />
               </div>
               <div className="flex flex-col">
-                <h3 className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                <h3 className="mb-3 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Mission
                 </h3>
                 <p className="text-32 leading-tight font-light">
-                  To surface the world's forgotten matchbox art and give it a permanent home.
+                  To surface the world's forgotten matchbox art and give it a home.
                 </p>
                 <RevealImage
                   src="https://images.unsplash.com/photo-1626897885636-dd68020cc52a?w=1000&h=1000&fit=crop&q=80"
                   alt="Stryk detail"
-                  className="mt-6 aspect-square max-h-[42vh] w-full"
+                  className="mt-5 aspect-square w-full shrink-0"
                 />
               </div>
             </div>
@@ -241,29 +241,24 @@ export function AboutPage() {
                 style={{ left: "-10%" }}
               />
             </div>
-            <div className="flex flex-1 flex-col justify-center gap-8 px-12 md:px-16">
+            <div className="flex flex-1 flex-col justify-center gap-5 px-12 md:px-16">
               <div>
-                <p className="mb-5 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Our Story
                 </p>
-                <h2 className="text-48 mb-8 leading-tight font-medium">
+                <h2 className="text-48 mb-4 leading-tight font-medium">
                   Found in a Tokyo flea market
                 </h2>
                 <p className="text-sm leading-relaxed text-dark/60">
-                  Stryk started in 2021 when our founder found a box of mid-century Japanese
-                  matchbooks at a market in Shimokitazawa. The labels - tiny, perfect, forgotten -
-                  looked like nothing they'd seen in any gallery.
+                  It began in 2021 with a box of mid-century Japanese matchbooks from a Shimokitazawa
+                  market - tiny, perfect labels unlike anything in any gallery. We've been hunting
+                  ever since.
                 </p>
               </div>
-              <p className="text-sm leading-relaxed text-dark/60">
-                We've been hunting ever since. Tokyo, Nairobi, Paris, Berlin, Lyon, New York -
-                wherever brands once needed a flame, they needed a label. We find the best ones and
-                bring them to you.
-              </p>
               <RevealImage
                 src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=1000&h=1000&fit=crop&q=80"
                 alt="Stryk detail"
-                className="mt-2 aspect-square max-h-[34vh] w-full"
+                className="aspect-square w-full shrink-0"
               />
             </div>
           </div>
@@ -297,7 +292,11 @@ export function AboutPage() {
                   >
                     {v.body}
                   </p>
-                  <RevealImage src={v.image} alt={v.label} className="mt-auto aspect-square w-full" />
+                  <RevealImage
+                    src={v.image}
+                    alt={v.label}
+                    className="mt-auto aspect-square w-full shrink-0"
+                  />
                 </div>
               ))}
             </div>
