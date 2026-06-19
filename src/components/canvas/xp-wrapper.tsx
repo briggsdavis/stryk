@@ -10,10 +10,11 @@ interface XpWrapperProps {
   itemRefs: React.MutableRefObject<Map<string, HTMLElement>>
   visible: boolean
   filters: ActiveFilters
+  onLayoutChange?: () => void
 }
 
 export const XpWrapper = forwardRef<HTMLDivElement, XpWrapperProps>(function XpWrapper(
-  { products, onItemClick, collectionRef, itemRefs, filters },
+  { products, onItemClick, collectionRef, itemRefs, filters, onLayoutChange },
   ref,
 ) {
   // Always rendered so GSAP refs stay alive; visibility controlled by parent opacity
@@ -25,6 +26,7 @@ export const XpWrapper = forwardRef<HTMLDivElement, XpWrapperProps>(function XpW
         onItemClick={onItemClick}
         itemRefs={itemRefs}
         filters={filters}
+        onLayoutChange={onLayoutChange}
       />
     </div>
   )

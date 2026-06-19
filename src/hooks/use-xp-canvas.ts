@@ -13,6 +13,7 @@ export function useXpCanvas(active: boolean) {
   const draggableRef = useRef<Draggable[]>([])
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(2)
   const zoomRef = useRef<ZoomLevel>(2)
+  const [entranceComplete, setEntranceComplete] = useState(false)
 
   // smooth pan via lerp
   const positionRef = useRef({ x: 0, y: 0 })
@@ -137,6 +138,40 @@ export function useXpCanvas(active: boolean) {
     [initDraggable],
   )
 
+  // Snap the collection to the centred position for the new cluster and reset to
+  // the base zoom level. This is intentionally instant: the caller pairs it with
+  // a Flip tween that glides the pieces from their old on-screen positions to
+  // these new ones, so the centring is absorbed into a single smooth motion
+  // rather than a separate camera pan.
+  const recenter = useCallback(() => {
+    const wrapper = wrapperRef.current
+    const collection = collectionRef.current
+    if (!wrapper || !collection) return
+
+    if (zoomRef.current !== 2) {
+      const cfg = ZOOM_CONFIGS[2]
+      gsap.set(wrapper, {
+        scale: cfg.scale,
+        width: `${cfg.wFactor * 100}vw`,
+        height: `${cfg.hFactor * 100}vh`,
+        left: 0,
+        top: 0,
+      })
+      zoomRef.current = 2
+      setZoomLevel(2)
+    }
+
+    // Measure against the base viewport size: at rest the wrapper is 100vw×100vh.
+    const centerX = (window.innerWidth - collection.scrollWidth) / 2
+    const centerY = (window.innerHeight - collection.scrollHeight) / 2
+    positionRef.current = { x: centerX, y: centerY }
+    targetRef.current = { x: centerX, y: centerY }
+    cancelAnimationFrame(rafRef.current)
+    gsap.killTweensOf(collection)
+    gsap.set(collection, { x: centerX, y: centerY })
+    initDraggable()
+  }, [initDraggable])
+
   const zoomIn = useCallback(() => {
     if (zoomRef.current >= 2) return
     const prev = zoomRef.current as ZoomLevel
@@ -186,6 +221,7 @@ export function useXpCanvas(active: boolean) {
             initDraggable()
             zoomRef.current = 2
             setZoomLevel(2)
+            setEntranceComplete(true)
           },
         })
       },
@@ -216,5 +252,14 @@ export function useXpCanvas(active: boolean) {
     }
   }, [active, onWheel])
 
-  return { wrapperRef, collectionRef, zoomLevel, zoomIn, zoomOut, runEntrance }
+  return {
+    wrapperRef,
+    collectionRef,
+    zoomLevel,
+    zoomIn,
+    zoomOut,
+    runEntrance,
+    entranceComplete,
+    recenter,
+  }
 }

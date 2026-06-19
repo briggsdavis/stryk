@@ -15,7 +15,7 @@ export function EmptyFilterState({ onContact, className }: EmptyFilterStateProps
         (className ? ` ${className}` : "")
       }
     >
-      <p className="text-128 max-w-[14ch] leading-[0.95] text-dark">
+      <p className="text-96 max-w-[14ch] leading-[0.95] text-dark">
         We don't have anything just like that
       </p>
       <p className="mt-6 max-w-md text-sm leading-relaxed text-dark/60">

@@ -1,6 +1,8 @@
 import { clsx } from "clsx"
+import { useQuery } from "convex/react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useLocation } from "react-router"
+import { api } from "../../../convex/_generated/api"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
@@ -98,6 +100,12 @@ export function Navbar({
 }: NavbarProps) {
   const transitionNavigate = useTransitionNavigate()
   const location = useLocation()
+  // When the announcement bar is live it occupies the top edge, so nudge the
+  // logo and view toggle down to clear it (with a little breathing room).
+  const announcement = useQuery(api.marketing.activeAnnouncement, {
+    route: location.pathname === "/" ? "home" : "other",
+  })
+  const barActive = !!announcement
   const [panel, setPanel] = useState<Panel>("none")
   const menuOpen = panel === "menu"
   const topPillRef = useRef<HTMLButtonElement>(null)
@@ -154,7 +162,10 @@ export function Navbar({
   return (
     <>
       {/* Top-left logo */}
-      <div className="fixed top-6 left-6 z-[500] md:left-10">
+      <div
+        className="fixed top-6 left-6 z-[500] transition-[top] duration-300 md:left-10"
+        style={barActive ? { top: "3.5rem" } : undefined}
+      >
         <button
           onClick={() => transitionNavigate("/")}
           aria-label="Stryk - home"
@@ -166,7 +177,10 @@ export function Navbar({
 
       {/* Top-center: view toggle - single capsule, dots left of label */}
       {showViewToggle && viewMode && onToggleView && (
-        <div className="fixed top-5 left-1/2 z-[500] -translate-x-1/2">
+        <div
+          className="fixed top-5 left-1/2 z-[500] -translate-x-1/2 transition-[top] duration-300"
+          style={barActive ? { top: "3.5rem" } : undefined}
+        >
           <button
             ref={topPillRef}
             onClick={onToggleView}

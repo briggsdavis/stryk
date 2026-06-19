@@ -1,15 +1,33 @@
 import { v } from "convex/values"
-import type { Id } from "./_generated/dataModel"
-import type { MutationCtx } from "./_generated/server"
+import type { Doc, Id } from "./_generated/dataModel"
+import type { MutationCtx, QueryCtx } from "./_generated/server"
 import { mutation, query } from "./_generated/server"
 import { requireAdmin } from "./admin"
 
-const scopeValidator = v.union(v.literal("off"), v.literal("home"), v.literal("all"))
 const frequencyValidator = v.union(
   v.literal("everyVisit"),
   v.literal("oncePerSession"),
   v.literal("oncePerDay"),
 )
+const positionValidator = v.union(
+  v.literal("center"),
+  v.literal("top-left"),
+  v.literal("top-right"),
+  v.literal("bottom-left"),
+  v.literal("bottom-right"),
+  v.literal("top"),
+  v.literal("bottom"),
+  v.literal("left"),
+  v.literal("right"),
+)
+const mediaValidator = v.array(
+  v.object({
+    type: v.union(v.literal("image"), v.literal("video")),
+    storageId: v.id("_storage"),
+  }),
+)
+
+// ── Announcement bar ─────────────────────────────────────────────────────────
 
 async function deactivateActiveAnnouncements(
   ctx: MutationCtx,
@@ -22,7 +40,7 @@ async function deactivateActiveAnnouncements(
 
   for (const announcement of active) {
     if (announcement._id !== exceptId) {
-      await ctx.db.patch(announcement._id, { isActive: false, scope: "off", updatedAt: Date.now() })
+      await ctx.db.patch(announcement._id, { isActive: false, updatedAt: Date.now() })
     }
   }
 }
@@ -43,8 +61,10 @@ export const activeAnnouncement = query({
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
       .take(1)
     const announcement = active[0] ?? null
-    if (!announcement || announcement.scope === "off") return null
-    if (announcement.scope === "home" && args.route !== "home") return null
+    if (!announcement) return null
+    // "off" is legacy data; treat it as "all" so an active bar still shows.
+    const scope = announcement.scope === "off" ? "all" : announcement.scope
+    if (scope === "home" && args.route !== "home") return null
     return announcement
   },
 })
@@ -58,15 +78,17 @@ export const saveAnnouncement = mutation({
     buttonLink: v.optional(v.string()),
     backgroundColor: v.string(),
     textColor: v.string(),
-    scope: scopeValidator,
+    // Which pages the bar shows on. On/off is controlled separately via the
+    // active toggle, so "off" is no longer set here.
+    scope: v.union(v.literal("home"), v.literal("all")),
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
     const now = Date.now()
-    const isActive = args.isActive && args.scope !== "off"
 
-    if (isActive) {
+    // Only one announcement bar can be live at a time.
+    if (args.isActive) {
       await deactivateActiveAnnouncements(ctx, args.id)
     }
 
@@ -78,7 +100,7 @@ export const saveAnnouncement = mutation({
       backgroundColor: args.backgroundColor,
       textColor: args.textColor,
       scope: args.scope,
-      isActive,
+      isActive: args.isActive,
       updatedAt: now,
     }
 
@@ -91,44 +113,70 @@ export const saveAnnouncement = mutation({
   },
 })
 
-export const activateAnnouncement = mutation({
-  args: { id: v.id("announcementBars"), scope: scopeValidator },
+export const setAnnouncementActive = mutation({
+  args: { id: v.id("announcementBars"), isActive: v.boolean() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
-    await deactivateActiveAnnouncements(ctx, args.id)
-    await ctx.db.patch(args.id, {
-      isActive: args.scope !== "off",
-      scope: args.scope,
-      updatedAt: Date.now(),
-    })
+    if (args.isActive) {
+      await deactivateActiveAnnouncements(ctx, args.id)
+    }
+    await ctx.db.patch(args.id, { isActive: args.isActive, updatedAt: Date.now() })
   },
 })
 
-export const getPopup = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db
-      .query("popupSettings")
-      .withIndex("by_key", (q) => q.eq("key", "site"))
-      .unique()
+export const deleteAnnouncement = mutation({
+  args: { id: v.id("announcementBars") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    await ctx.db.delete(args.id)
   },
 })
 
-export const getPopupForAdmin = query({
+// ── Popups ───────────────────────────────────────────────────────────────────
+
+async function resolveMedia(ctx: QueryCtx, popup: Doc<"popups">) {
+  const media = await Promise.all(
+    popup.media.map(async (item) => ({
+      type: item.type,
+      storageId: item.storageId,
+      url: await ctx.storage.getUrl(item.storageId),
+    })),
+  )
+  return { ...popup, media }
+}
+
+export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx)
-    return await ctx.db
-      .query("popupSettings")
-      .withIndex("by_key", (q) => q.eq("key", "site"))
-      .unique()
+    return await ctx.storage.generateUploadUrl()
+  },
+})
+
+export const listPopups = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+    const popups = await ctx.db.query("popups").withIndex("by_updatedAt").order("desc").take(50)
+    return await Promise.all(popups.map((popup) => resolveMedia(ctx, popup)))
+  },
+})
+
+export const activePopups = query({
+  args: {},
+  handler: async (ctx) => {
+    const popups = await ctx.db
+      .query("popups")
+      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .take(20)
+    return await Promise.all(popups.map((popup) => resolveMedia(ctx, popup)))
   },
 })
 
 export const savePopup = mutation({
   args: {
-    isActive: v.boolean(),
-    imageUrl: v.string(),
+    id: v.optional(v.id("popups")),
+    title: v.string(),
     heading: v.string(),
     text: v.string(),
     buttonLabel: v.string(),
@@ -136,20 +184,54 @@ export const savePopup = mutation({
     emailCaptureEnabled: v.boolean(),
     delaySeconds: v.number(),
     frequency: frequencyValidator,
+    isActive: v.boolean(),
+    position: positionValidator,
+    blurBackground: v.boolean(),
+    media: mediaValidator,
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
-    const existing = await ctx.db
-      .query("popupSettings")
-      .withIndex("by_key", (q) => q.eq("key", "site"))
-      .unique()
-    const doc = { key: "site" as const, ...args, updatedAt: Date.now() }
+    const { id, ...rest } = args
+    const doc = { ...rest, updatedAt: Date.now() }
 
-    if (existing) {
-      await ctx.db.patch(existing._id, doc)
-      return existing._id
+    if (id) {
+      // Free any storage files that were dropped from the carousel.
+      const existing = await ctx.db.get(id)
+      if (existing) {
+        const keptIds = new Set(args.media.map((m) => m.storageId))
+        for (const item of existing.media) {
+          if (!keptIds.has(item.storageId)) {
+            await ctx.storage.delete(item.storageId)
+          }
+        }
+      }
+      await ctx.db.patch(id, doc)
+      return id
     }
 
-    return await ctx.db.insert("popupSettings", doc)
+    return await ctx.db.insert("popups", doc)
+  },
+})
+
+export const setPopupActive = mutation({
+  args: { id: v.id("popups"), isActive: v.boolean() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    // Multiple popups may be active at once, so just flip this one.
+    await ctx.db.patch(args.id, { isActive: args.isActive, updatedAt: Date.now() })
+  },
+})
+
+export const deletePopup = mutation({
+  args: { id: v.id("popups") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    const popup = await ctx.db.get(args.id)
+    if (popup) {
+      for (const item of popup.media) {
+        await ctx.storage.delete(item.storageId)
+      }
+    }
+    await ctx.db.delete(args.id)
   },
 })

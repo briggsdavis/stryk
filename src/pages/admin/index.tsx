@@ -1,19 +1,30 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react"
+import { clsx } from "clsx"
 import { useMutation, useQuery } from "convex/react"
-import { useEffect, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { Navbar } from "../../components/ui/navbar"
+import {
+  MAX_POPUP_MEDIA,
+  POPUP_FREQUENCY_OPTIONS,
+  POPUP_POSITION_OPTIONS,
+  type PopupFrequency,
+  type PopupMediaType,
+  type PopupPosition,
+} from "../../lib/marketing"
 
 type AuthMode = "signIn" | "signUp"
-type AdminSection = "about" | "global" | "marketing" | "inquiries"
-type AnnouncementScope = "off" | "home" | "all"
-type PopupFrequency = "everyVisit" | "oncePerSession" | "oncePerDay"
+type AdminSection = "about" | "global" | "announcements" | "popups" | "inquiries"
+type AnnouncementScope = "home" | "all"
+
+type PopupMediaItem = { type: PopupMediaType; storageId: Id<"_storage">; url: string | null }
 
 const SECTIONS: Array<{ key: AdminSection; label: string }> = [
   { key: "about", label: "About Page" },
   { key: "global", label: "Footer / Global" },
-  { key: "marketing", label: "Marketing" },
+  { key: "announcements", label: "Announcement Bar" },
+  { key: "popups", label: "Pop-ups" },
   { key: "inquiries", label: "Inquiries" },
 ]
 
@@ -30,8 +41,8 @@ const blankAnnouncement = {
 }
 
 const blankPopup = {
-  isActive: false,
-  imageUrl: "",
+  id: undefined as Id<"popups"> | undefined,
+  title: "",
   heading: "",
   text: "",
   buttonLabel: "",
@@ -39,6 +50,10 @@ const blankPopup = {
   emailCaptureEnabled: true,
   delaySeconds: 3,
   frequency: "oncePerSession" as PopupFrequency,
+  isActive: false,
+  position: "center" as PopupPosition,
+  blurBackground: true,
+  media: [] as PopupMediaItem[],
 }
 
 export function AdminPage() {
@@ -115,12 +130,12 @@ export function AdminPage() {
 }
 
 function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void }) {
-  const [section, setSection] = useState<AdminSection>("marketing")
+  const [section, setSection] = useState<AdminSection>("announcements")
 
   return (
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-dark/10 bg-light/60 px-5 py-6 backdrop-blur md:w-80">
-        <button type="button" className="mb-10 text-left" onClick={() => setSection("marketing")}>
+        <button type="button" className="mb-10 text-left" onClick={() => setSection("announcements")}>
           <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto" />
         </button>
         <nav className="flex flex-1 flex-col gap-2">
@@ -148,7 +163,8 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
         <div className="mx-auto w-full max-w-6xl px-8 py-10">
           {section === "about" && <Placeholder title="About Page" />}
           {section === "global" && <Placeholder title="Footer / Global" />}
-          {section === "marketing" && <MarketingPanel />}
+          {section === "announcements" && <AnnouncementsPanel />}
+          {section === "popups" && <PopupsPanel />}
           {section === "inquiries" && <InquiriesPanel />}
         </div>
       </section>
@@ -169,113 +185,96 @@ function Placeholder({ title }: { title: string }) {
   )
 }
 
-function MarketingPanel() {
+function AnnouncementsPanel() {
   const announcements = useQuery(api.marketing.listAnnouncements)
-  const popup = useQuery(api.marketing.getPopupForAdmin)
   const saveAnnouncement = useMutation(api.marketing.saveAnnouncement)
-  const activateAnnouncement = useMutation(api.marketing.activateAnnouncement)
-  const savePopup = useMutation(api.marketing.savePopup)
-  const [announcementForm, setAnnouncementForm] = useState(blankAnnouncement)
-  const [popupForm, setPopupForm] = useState(blankPopup)
+  const setActive = useMutation(api.marketing.setAnnouncementActive)
+  const deleteAnnouncement = useMutation(api.marketing.deleteAnnouncement)
+  const [form, setForm] = useState(blankAnnouncement)
   const [message, setMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (popup) {
-      setPopupForm({
-        isActive: popup.isActive,
-        imageUrl: popup.imageUrl,
-        heading: popup.heading,
-        text: popup.text,
-        buttonLabel: popup.buttonLabel,
-        buttonLink: popup.buttonLink,
-        emailCaptureEnabled: popup.emailCaptureEnabled,
-        delaySeconds: popup.delaySeconds,
-        frequency: popup.frequency,
-      })
-    }
-  }, [popup])
-
-  const submitAnnouncement = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     await saveAnnouncement({
-      ...announcementForm,
-      buttonLabel: announcementForm.buttonLabel || undefined,
-      buttonLink: announcementForm.buttonLink || undefined,
+      ...form,
+      buttonLabel: form.buttonLabel || undefined,
+      buttonLink: form.buttonLink || undefined,
     })
-    setAnnouncementForm(blankAnnouncement)
+    setForm(blankAnnouncement)
     setMessage("Announcement saved.")
-  }
-
-  const submitPopup = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    await savePopup(popupForm)
-    setMessage("Popup saved.")
   }
 
   return (
     <section className="space-y-8">
-      <AdminHeader title="Marketing" eyebrow="Announcement bar and home popup" />
+      <AdminHeader title="Announcement Bar" eyebrow="Site-wide banner" />
       {message && <p className="rounded-lg bg-loam/10 px-4 py-3 text-sm text-loam">{message}</p>}
 
       <div className="grid gap-8 xl:grid-cols-[1fr_0.9fr]">
-        <form onSubmit={(event) => void submitAnnouncement(event)} className="admin-card">
-          <PanelTitle title="Announcement bar" />
+        <form onSubmit={(event) => void submit(event)} className="admin-card">
+          <PanelTitle title={form.id ? "Edit announcement" : "New announcement"} />
           <TextInput
             label="Internal title"
-            value={announcementForm.title}
-            onChange={(title) => setAnnouncementForm((prev) => ({ ...prev, title }))}
+            value={form.title}
+            onChange={(title) => setForm((prev) => ({ ...prev, title }))}
             required
           />
           <TextInput
             label="Announcement text"
-            value={announcementForm.text}
-            onChange={(text) => setAnnouncementForm((prev) => ({ ...prev, text }))}
+            value={form.text}
+            onChange={(text) => setForm((prev) => ({ ...prev, text }))}
             required
           />
           <div className="grid gap-4 md:grid-cols-2">
             <TextInput
               label="Button label"
-              value={announcementForm.buttonLabel}
-              onChange={(buttonLabel) =>
-                setAnnouncementForm((prev) => ({ ...prev, buttonLabel }))
-              }
+              value={form.buttonLabel}
+              onChange={(buttonLabel) => setForm((prev) => ({ ...prev, buttonLabel }))}
             />
             <TextInput
               label="Button link"
-              value={announcementForm.buttonLink}
-              onChange={(buttonLink) => setAnnouncementForm((prev) => ({ ...prev, buttonLink }))}
+              value={form.buttonLink}
+              onChange={(buttonLink) => setForm((prev) => ({ ...prev, buttonLink }))}
             />
-            <TextInput
+            <ColorInput
               label="Background color"
-              value={announcementForm.backgroundColor}
-              onChange={(backgroundColor) =>
-                setAnnouncementForm((prev) => ({ ...prev, backgroundColor }))
-              }
+              value={form.backgroundColor}
+              onChange={(backgroundColor) => setForm((prev) => ({ ...prev, backgroundColor }))}
             />
-            <TextInput
+            <ColorInput
               label="Text color"
-              value={announcementForm.textColor}
-              onChange={(textColor) => setAnnouncementForm((prev) => ({ ...prev, textColor }))}
+              value={form.textColor}
+              onChange={(textColor) => setForm((prev) => ({ ...prev, textColor }))}
             />
           </div>
           <SelectInput
-            label="Display"
-            value={announcementForm.scope}
-            onChange={(scope) => setAnnouncementForm((prev) => ({ ...prev, scope }))}
+            label="Show on"
+            value={form.scope}
+            onChange={(scope) => setForm((prev) => ({ ...prev, scope }))}
             options={[
               { value: "home", label: "Home page only" },
               { value: "all", label: "Every page" },
-              { value: "off", label: "Off" },
             ]}
           />
-          <ToggleInput
-            label="Make this the active announcement"
-            checked={announcementForm.isActive}
-            onChange={(isActive) => setAnnouncementForm((prev) => ({ ...prev, isActive }))}
+          <SwitchInput
+            label="Active"
+            description="Only one announcement can be live at a time."
+            checked={form.isActive}
+            onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
           />
-          <button type="submit" className="admin-primary">
-            {announcementForm.id ? "Update announcement" : "Create announcement"}
-          </button>
+          <div className="flex gap-2">
+            <button type="submit" className="admin-primary">
+              {form.id ? "Update announcement" : "Create announcement"}
+            </button>
+            {form.id && (
+              <button
+                type="button"
+                className="admin-secondary"
+                onClick={() => setForm(blankAnnouncement)}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
 
         <div className="admin-card">
@@ -286,22 +285,37 @@ function MarketingPanel() {
               <p className="text-sm text-dark/55">No announcements yet.</p>
             )}
             {announcements?.map((announcement) => (
-              <div key={announcement._id} className="rounded-lg border border-dark/10 p-4">
+              <div
+                key={announcement._id}
+                className={clsx(
+                  "rounded-lg border p-4 transition-colors",
+                  announcement.isActive
+                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    : "border-dark/10",
+                )}
+              >
                 <div className="mb-3 flex items-start justify-between gap-4">
                   <div>
                     <p className="font-medium">{announcement.title}</p>
                     <p className="mt-1 text-sm text-dark/55">{announcement.text}</p>
+                    <p className="mt-1 text-xs text-dark/40">
+                      {announcement.scope === "home" ? "Home page only" : "Every page"}
+                    </p>
                   </div>
-                  <span className="rounded-full bg-dark/5 px-3 py-1 text-xs text-dark/60">
-                    {announcement.isActive ? announcement.scope : "inactive"}
-                  </span>
+                  <ToggleSwitch
+                    label="Active"
+                    checked={announcement.isActive}
+                    onChange={(isActive) =>
+                      void setActive({ id: announcement._id, isActive })
+                    }
+                  />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     className="admin-secondary"
                     onClick={() =>
-                      setAnnouncementForm({
+                      setForm({
                         id: announcement._id,
                         title: announcement.title,
                         text: announcement.text,
@@ -309,7 +323,7 @@ function MarketingPanel() {
                         buttonLink: announcement.buttonLink ?? "",
                         backgroundColor: announcement.backgroundColor,
                         textColor: announcement.textColor,
-                        scope: announcement.scope,
+                        scope: announcement.scope === "off" ? "home" : announcement.scope,
                         isActive: announcement.isActive,
                       })
                     }
@@ -319,21 +333,9 @@ function MarketingPanel() {
                   <button
                     type="button"
                     className="admin-secondary"
-                    onClick={() =>
-                      void activateAnnouncement({
-                        id: announcement._id,
-                        scope: announcement.scope === "off" ? "home" : announcement.scope,
-                      })
-                    }
+                    onClick={() => void deleteAnnouncement({ id: announcement._id })}
                   >
-                    Activate
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-secondary"
-                    onClick={() => void activateAnnouncement({ id: announcement._id, scope: "off" })}
-                  >
-                    Turn off
+                    Delete
                   </button>
                 </div>
               </div>
@@ -341,69 +343,336 @@ function MarketingPanel() {
           </div>
         </div>
       </div>
+    </section>
+  )
+}
 
-      <form onSubmit={(event) => void submitPopup(event)} className="admin-card">
-        <PanelTitle title="Home popup" />
-        <div className="grid gap-5 lg:grid-cols-2">
+function useMediaUploader() {
+  const generateUploadUrl = useMutation(api.marketing.generateUploadUrl)
+  return useCallback(
+    async (file: File) => {
+      const uploadUrl = await generateUploadUrl()
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+      if (!res.ok) throw new Error("Upload failed")
+      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> }
+      return storageId
+    },
+    [generateUploadUrl],
+  )
+}
+
+function PopupsPanel() {
+  const popups = useQuery(api.marketing.listPopups)
+  const savePopup = useMutation(api.marketing.savePopup)
+  const setActive = useMutation(api.marketing.setPopupActive)
+  const deletePopup = useMutation(api.marketing.deletePopup)
+  const upload = useMediaUploader()
+  const [form, setForm] = useState(blankPopup)
+  const [message, setMessage] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    await savePopup({
+      id: form.id,
+      title: form.title,
+      heading: form.heading,
+      text: form.text,
+      buttonLabel: form.buttonLabel,
+      buttonLink: form.buttonLink,
+      emailCaptureEnabled: form.emailCaptureEnabled,
+      delaySeconds: form.delaySeconds,
+      frequency: form.frequency,
+      isActive: form.isActive,
+      position: form.position,
+      blurBackground: form.blurBackground,
+      media: form.media.map(({ type, storageId }) => ({ type, storageId })),
+    })
+    setForm(blankPopup)
+    setMessage("Pop-up saved.")
+  }
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files?.length) return
+    setUploading(true)
+    try {
+      const room = MAX_POPUP_MEDIA - form.media.length
+      const picked = Array.from(files).slice(0, Math.max(0, room))
+      const uploaded: PopupMediaItem[] = []
+      for (const file of picked) {
+        const type: PopupMediaType = file.type.startsWith("video") ? "video" : "image"
+        const storageId = await upload(file)
+        uploaded.push({ type, storageId, url: URL.createObjectURL(file) })
+      }
+      setForm((prev) => ({ ...prev, media: [...prev.media, ...uploaded] }))
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  const moveMedia = (index: number, dir: -1 | 1) => {
+    setForm((prev) => {
+      const next = [...prev.media]
+      const target = index + dir
+      if (target < 0 || target >= next.length) return prev
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return { ...prev, media: next }
+    })
+  }
+
+  const removeMedia = (index: number) => {
+    setForm((prev) => ({ ...prev, media: prev.media.filter((_, i) => i !== index) }))
+  }
+
+  return (
+    <section className="space-y-8">
+      <AdminHeader title="Pop-ups" eyebrow="Saved pop-ups and slide-ins" />
+      {message && <p className="rounded-lg bg-loam/10 px-4 py-3 text-sm text-loam">{message}</p>}
+
+      <div className="grid gap-8 xl:grid-cols-[1fr_0.9fr]">
+        <form onSubmit={(event) => void submit(event)} className="admin-card">
+          <PanelTitle title={form.id ? "Edit pop-up" : "New pop-up"} />
+
+          <span className="mb-2 block text-xs tracking-[0.2em] text-dark/55 uppercase">
+            Carousel media (up to {MAX_POPUP_MEDIA})
+          </span>
+          <div className="mb-5 flex flex-wrap gap-3">
+            {form.media.map((item, index) => (
+              <div
+                key={`${item.storageId}-${index}`}
+                className="relative h-24 w-24 overflow-hidden rounded-lg border border-dark/15 bg-dark/5"
+              >
+                {item.type === "video" ? (
+                  <video
+                    src={item.url ?? undefined}
+                    aria-label="Video preview"
+                    className="h-full w-full object-cover"
+                    muted
+                  />
+                ) : (
+                  <img src={item.url ?? undefined} alt="" className="h-full w-full object-cover" />
+                )}
+                <span className="absolute top-1 left-1 rounded bg-dark/70 px-1.5 py-0.5 text-[10px] text-white uppercase">
+                  {item.type}
+                </span>
+                <div className="absolute inset-x-0 bottom-0 flex justify-between bg-dark/55 px-1 py-0.5">
+                  <button
+                    type="button"
+                    aria-label="Move earlier"
+                    className="text-xs text-white disabled:opacity-30"
+                    disabled={index === 0}
+                    onClick={() => moveMedia(index, -1)}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Remove media"
+                    className="text-xs text-white"
+                    onClick={() => removeMedia(index)}
+                  >
+                    ✕
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Move later"
+                    className="text-xs text-white disabled:opacity-30"
+                    disabled={index === form.media.length - 1}
+                    onClick={() => moveMedia(index, 1)}
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            ))}
+            {form.media.length < MAX_POPUP_MEDIA && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex h-24 w-24 flex-col items-center justify-center rounded-lg border border-dashed border-dark/25 text-xs text-dark/55 transition-colors hover:border-dark/45 disabled:opacity-50"
+              >
+                {uploading ? "Uploading..." : "+ Add"}
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            aria-label="Upload carousel media"
+            accept="image/*,video/mp4"
+            multiple
+            className="hidden"
+            onChange={(event) => void handleFiles(event.target.files)}
+          />
+
           <TextInput
-            label="Image URL"
-            value={popupForm.imageUrl}
-            onChange={(imageUrl) => setPopupForm((prev) => ({ ...prev, imageUrl }))}
+            label="Internal title"
+            value={form.title}
+            onChange={(title) => setForm((prev) => ({ ...prev, title }))}
+            required
           />
-          <TextInput
-            label="Heading"
-            value={popupForm.heading}
-            onChange={(heading) => setPopupForm((prev) => ({ ...prev, heading }))}
-          />
-          <TextInput
-            label="Text"
-            value={popupForm.text}
-            onChange={(text) => setPopupForm((prev) => ({ ...prev, text }))}
-          />
-          <TextInput
-            label="Button label"
-            value={popupForm.buttonLabel}
-            onChange={(buttonLabel) => setPopupForm((prev) => ({ ...prev, buttonLabel }))}
-          />
-          <TextInput
-            label="Button link"
-            value={popupForm.buttonLink}
-            onChange={(buttonLink) => setPopupForm((prev) => ({ ...prev, buttonLink }))}
-          />
-          <NumberInput
-            label="Show after seconds"
-            value={popupForm.delaySeconds}
-            onChange={(delaySeconds) => setPopupForm((prev) => ({ ...prev, delaySeconds }))}
-          />
-          <SelectInput
-            label="Display frequency"
-            value={popupForm.frequency}
-            onChange={(frequency) => setPopupForm((prev) => ({ ...prev, frequency }))}
-            options={[
-              { value: "everyVisit", label: "Every visit" },
-              { value: "oncePerSession", label: "Once per session" },
-              { value: "oncePerDay", label: "Once per day" },
-            ]}
-          />
+          <div className="grid gap-4 md:grid-cols-2">
+            <TextInput
+              label="Heading"
+              value={form.heading}
+              onChange={(heading) => setForm((prev) => ({ ...prev, heading }))}
+            />
+            <TextInput
+              label="Text"
+              value={form.text}
+              onChange={(text) => setForm((prev) => ({ ...prev, text }))}
+            />
+            <TextInput
+              label="Button label"
+              value={form.buttonLabel}
+              onChange={(buttonLabel) => setForm((prev) => ({ ...prev, buttonLabel }))}
+            />
+            <TextInput
+              label="Button link"
+              value={form.buttonLink}
+              onChange={(buttonLink) => setForm((prev) => ({ ...prev, buttonLink }))}
+            />
+            <SelectInput
+              label="Position"
+              value={form.position}
+              onChange={(position) => setForm((prev) => ({ ...prev, position }))}
+              options={POPUP_POSITION_OPTIONS}
+            />
+            <NumberInput
+              label="Show after seconds"
+              value={form.delaySeconds}
+              onChange={(delaySeconds) => setForm((prev) => ({ ...prev, delaySeconds }))}
+            />
+            <SelectInput
+              label="Display frequency"
+              value={form.frequency}
+              onChange={(frequency) => setForm((prev) => ({ ...prev, frequency }))}
+              options={POPUP_FREQUENCY_OPTIONS}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <SwitchInput
+              label="Active"
+              checked={form.isActive}
+              onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
+            />
+            <SwitchInput
+              label="Email capture"
+              checked={form.emailCaptureEnabled}
+              onChange={(emailCaptureEnabled) =>
+                setForm((prev) => ({ ...prev, emailCaptureEnabled }))
+              }
+            />
+            <SwitchInput
+              label="Blur / dim the page behind"
+              checked={form.blurBackground}
+              onChange={(blurBackground) => setForm((prev) => ({ ...prev, blurBackground }))}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="admin-primary" disabled={uploading}>
+              {form.id ? "Update pop-up" : "Create pop-up"}
+            </button>
+            {form.id && (
+              <button type="button" className="admin-secondary" onClick={() => setForm(blankPopup)}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="admin-card">
+          <PanelTitle title="Saved pop-ups" />
+          <div className="space-y-3">
+            {popups === undefined && <p className="text-sm text-dark/55">Loading...</p>}
+            {popups?.length === 0 && <p className="text-sm text-dark/55">No pop-ups yet.</p>}
+            {popups?.map((popup) => (
+              <div
+                key={popup._id}
+                className={clsx(
+                  "rounded-lg border p-4 transition-colors",
+                  popup.isActive ? "border-emerald-500/40 bg-emerald-500/5" : "border-dark/10",
+                )}
+              >
+                <div className="mb-3 flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    {popup.media[0] &&
+                      (popup.media[0].type === "video" ? (
+                        <video
+                          src={popup.media[0].url ?? undefined}
+                          aria-label="Video thumbnail"
+                          muted
+                          className="h-12 w-12 flex-shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={popup.media[0].url ?? undefined}
+                          alt=""
+                          className="h-12 w-12 flex-shrink-0 rounded object-cover"
+                        />
+                      ))}
+                    <div>
+                      <p className="font-medium">{popup.title || popup.heading || "Untitled"}</p>
+                      <p className="mt-1 text-xs text-dark/40">
+                        {popup.position} · {popup.media.length} slide
+                        {popup.media.length === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                  </div>
+                  <ToggleSwitch
+                    label="Active"
+                    checked={popup.isActive}
+                    onChange={(isActive) => void setActive({ id: popup._id, isActive })}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="admin-secondary"
+                    onClick={() =>
+                      setForm({
+                        id: popup._id,
+                        title: popup.title,
+                        heading: popup.heading,
+                        text: popup.text,
+                        buttonLabel: popup.buttonLabel,
+                        buttonLink: popup.buttonLink,
+                        emailCaptureEnabled: popup.emailCaptureEnabled,
+                        delaySeconds: popup.delaySeconds,
+                        frequency: popup.frequency,
+                        isActive: popup.isActive,
+                        position: popup.position,
+                        blurBackground: popup.blurBackground,
+                        media: popup.media.map((m) => ({
+                          type: m.type,
+                          storageId: m.storageId,
+                          url: m.url,
+                        })),
+                      })
+                    }
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-secondary"
+                    onClick={() => void deletePopup({ id: popup._id })}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <ToggleInput
-            label="Popup active"
-            checked={popupForm.isActive}
-            onChange={(isActive) => setPopupForm((prev) => ({ ...prev, isActive }))}
-          />
-          <ToggleInput
-            label="Email capture enabled"
-            checked={popupForm.emailCaptureEnabled}
-            onChange={(emailCaptureEnabled) =>
-              setPopupForm((prev) => ({ ...prev, emailCaptureEnabled }))
-            }
-          />
-        </div>
-        <button type="submit" className="admin-primary">
-          Save popup
-        </button>
-      </form>
+      </div>
     </section>
   )
 }
@@ -621,7 +890,42 @@ function SelectInput<TValue extends string>({
   )
 }
 
-function ToggleInput({
+function ColorInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  const id = `admin-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
+  return (
+    <label htmlFor={id} className="mb-5 block">
+      <span className="mb-2 block text-xs tracking-[0.2em] text-dark/55 uppercase">{label}</span>
+      <div className="flex items-center gap-2">
+        <input
+          id={id}
+          type="color"
+          aria-label={label}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-11 w-12 flex-shrink-0 cursor-pointer rounded-lg border border-dark/15 bg-canvas"
+        />
+        <input
+          type="text"
+          aria-label={`${label} hex`}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm outline-none transition-colors focus:border-dark/45"
+        />
+      </div>
+    </label>
+  )
+}
+
+// A coloured on/off switch: green when active, grey when off.
+function ToggleSwitch({
   label,
   checked,
   onChange,
@@ -631,15 +935,45 @@ function ToggleInput({
   onChange: (checked: boolean) => void
 }) {
   return (
-    <label className="mb-5 flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-dark/10 px-4 py-3">
-      <span className="text-sm font-medium">{label}</span>
-      <input
-        type="checkbox"
-        aria-label={label}
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="h-5 w-5 accent-dark"
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={clsx(
+        "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors",
+        checked ? "bg-emerald-500" : "bg-dark/20",
+      )}
+    >
+      <span
+        className={clsx(
+          "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-[22px]" : "translate-x-0.5",
+        )}
       />
-    </label>
+    </button>
+  )
+}
+
+function SwitchInput({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string
+  description?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="mb-5 flex items-center justify-between gap-4 rounded-lg border border-dark/10 px-4 py-3">
+      <div>
+        <span className="text-sm font-medium">{label}</span>
+        {description && <p className="mt-0.5 text-xs text-dark/45">{description}</p>}
+      </div>
+      <ToggleSwitch label={label} checked={checked} onChange={onChange} />
+    </div>
   )
 }

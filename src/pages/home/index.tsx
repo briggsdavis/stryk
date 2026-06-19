@@ -64,9 +64,16 @@ export function HomePage() {
   const gridWrapperRef = useRef<HTMLDivElement>(null)
   const focusSourceRef = useRef<"canvas" | "grid">("canvas")
 
-  const { wrapperRef, collectionRef, zoomLevel, zoomIn, zoomOut, runEntrance } = useXpCanvas(
-    viewMode === "xp",
-  )
+  const {
+    wrapperRef,
+    collectionRef,
+    zoomLevel,
+    zoomIn,
+    zoomOut,
+    runEntrance,
+    entranceComplete,
+    recenter,
+  } = useXpCanvas(viewMode === "xp")
 
   // Run canvas entrance animation on mount
   useEffect(() => {
@@ -247,8 +254,13 @@ export function HomePage() {
   )
 
   const handleXpItemClick = useCallback(
-    (product: Product, el: HTMLElement) => beginFocus(product, el, "canvas"),
-    [beginFocus],
+    (product: Product, el: HTMLElement) => {
+      // Ignore clicks until the intro pop-in/zoom sequence has finished, so the
+      // focus morph doesn't fire mid-animation with the canvas still in motion.
+      if (!entranceComplete) return
+      beginFocus(product, el, "canvas")
+    },
+    [beginFocus, entranceComplete],
   )
 
   const handleGridItemClick = useCallback(
@@ -338,6 +350,7 @@ export function HomePage() {
           itemRefs={xpItemRefs}
           visible
           filters={filters}
+          onLayoutChange={recenter}
         />
       </div>
 
