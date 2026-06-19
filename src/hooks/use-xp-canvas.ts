@@ -138,9 +138,11 @@ export function useXpCanvas(active: boolean) {
     [initDraggable],
   )
 
-  // Re-centre the collection on the viewport and reset to the base zoom level.
-  // Used after a filter change reflows the canvas into a new cluster, so the
-  // fresh layout lands centred regardless of where the user had panned/zoomed.
+  // Snap the collection to the centred position for the new cluster and reset to
+  // the base zoom level. This is intentionally instant: the caller pairs it with
+  // a Flip tween that glides the pieces from their old on-screen positions to
+  // these new ones, so the centring is absorbed into a single smooth motion
+  // rather than a separate camera pan.
   const recenter = useCallback(() => {
     const wrapper = wrapperRef.current
     const collection = collectionRef.current
@@ -148,34 +150,26 @@ export function useXpCanvas(active: boolean) {
 
     if (zoomRef.current !== 2) {
       const cfg = ZOOM_CONFIGS[2]
-      gsap.to(wrapper, {
+      gsap.set(wrapper, {
         scale: cfg.scale,
         width: `${cfg.wFactor * 100}vw`,
         height: `${cfg.hFactor * 100}vh`,
         left: 0,
         top: 0,
-        duration: 1.1,
-        ease: "expo.inOut",
       })
       zoomRef.current = 2
       setZoomLevel(2)
     }
 
-    // Measure against the base viewport size: at rest the wrapper is 100vw×100vh,
-    // and we've just queued it back to that above.
+    // Measure against the base viewport size: at rest the wrapper is 100vw×100vh.
     const centerX = (window.innerWidth - collection.scrollWidth) / 2
     const centerY = (window.innerHeight - collection.scrollHeight) / 2
     positionRef.current = { x: centerX, y: centerY }
     targetRef.current = { x: centerX, y: centerY }
     cancelAnimationFrame(rafRef.current)
     gsap.killTweensOf(collection)
-    gsap.to(collection, {
-      x: centerX,
-      y: centerY,
-      duration: 1.1,
-      ease: "expo.inOut",
-      onComplete: initDraggable,
-    })
+    gsap.set(collection, { x: centerX, y: centerY })
+    initDraggable()
   }, [initDraggable])
 
   const zoomIn = useCallback(() => {

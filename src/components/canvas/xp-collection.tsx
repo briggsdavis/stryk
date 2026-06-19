@@ -1,7 +1,7 @@
 import { forwardRef, useLayoutEffect, useMemo, useRef } from "react"
 import type { ActiveFilters } from "../../lib/filters"
 import { activeFilterCount, productMatches } from "../../lib/filters"
-import { gsap } from "../../lib/gsap"
+import { Flip, gsap } from "../../lib/gsap"
 import type { Product } from "../../lib/types"
 import { XpProductItem } from "./xp-product-item"
 
@@ -93,13 +93,28 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   const renderColumns = isFiltering ? columns.filter((c) => c.length > 0) : columns
 
   // ── Filter transition ──────────────────────────────────────────────────────
-  // A filter change reflows the rendered set into a new cluster (React commits
-  // the new columns synchronously). We then reveal it deterministically: pieces
-  // that persist stay fully visible (no flash), while newly matched pieces fade
-  // in. Pieces that no longer match are simply unmounted by React. The canvas
-  // entrance owns the very first reveal, so the initial commit is skipped.
+  // A filter change reflows the rendered set into a new cluster. We make the
+  // change a single smooth motion:
+  //   1. capture each piece's current on-screen position (render phase, before
+  //      React commits the new columns),
+  //   2. snap the collection to the new centred position (instant, in recenter),
+  //   3. Flip-tween the persisting pieces from their old positions to the new
+  //      ones so the reflow + recentre read as one glide,
+  //   4. fade newly matched pieces in and keep persisting pieces visible.
+  // Opacity is handled here (not via Flip enter/leave) so pieces can never be
+  // left invisible. The canvas entrance owns the first reveal, so it's skipped.
+  const flipStateRef = useRef<ReturnType<typeof Flip.getState> | null>(null)
+  const prevKeyRef = useRef<string | null>(null)
   const prevIdsRef = useRef<Set<string>>(new Set())
   const firstRunRef = useRef(true)
+
+  const layoutKey = `${isFiltering ? "f" : "a"}:${JSON.stringify(filters)}`
+  if (prevKeyRef.current !== null && prevKeyRef.current !== layoutKey) {
+    // Pre-commit: the DOM still shows the old layout, so this records the
+    // positions the pieces will glide away from.
+    flipStateRef.current = Flip.getState(".xp-item")
+  }
+  prevKeyRef.current = layoutKey
 
   useLayoutEffect(() => {
     const renderedIds = new Set(layoutProducts.map((p) => p.id))
@@ -107,10 +122,15 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
     if (firstRunRef.current) {
       firstRunRef.current = false
       prevIdsRef.current = renderedIds
+      flipStateRef.current = null
       return
     }
 
-    // Re-centre the freshly reflowed cluster in the viewport.
+    const state = flipStateRef.current
+    flipStateRef.current = null
+
+    // Snap the collection to the new centred position; Flip then provides the
+    // visible motion, so there's no separate camera pan to fight the reflow.
     onLayoutChange?.()
 
     const entering: HTMLElement[] = []
@@ -122,9 +142,13 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
     })
     prevIdsRef.current = renderedIds
 
-    // Persisting pieces just moved to new slots via the re-render; keep them
-    // visible so the cluster reshapes without flashing.
-    gsap.set(persisting, { opacity: 1, scale: 1, filter: "blur(0px)" })
+    // Glide persisting pieces from their old positions to the new centred ones.
+    if (state) {
+      Flip.from(state, { duration: 0.8, ease: "power3.inOut" })
+    }
+    // Keep persisting pieces visible (Flip owns their transform, so only touch
+    // opacity/filter here), and fade newly matched pieces in.
+    gsap.set(persisting, { opacity: 1, filter: "blur(0px)" })
     gsap.killTweensOf(entering)
     gsap.fromTo(
       entering,
