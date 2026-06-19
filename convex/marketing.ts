@@ -210,7 +210,7 @@ export const savePopup = mutation({
       const existing = await ctx.db.get(id)
       if (existing) {
         const keptIds = new Set(args.media.map((m) => m.storageId))
-        for (const item of existing.media) {
+        for (const item of existing.media ?? []) {
           if (!keptIds.has(item.storageId)) {
             await ctx.storage.delete(item.storageId)
           }
@@ -239,7 +239,7 @@ export const deletePopup = mutation({
     await requireAdmin(ctx)
     const popup = await ctx.db.get(args.id)
     if (popup) {
-      for (const item of popup.media) {
+      for (const item of popup.media ?? []) {
         await ctx.storage.delete(item.storageId)
       }
     }

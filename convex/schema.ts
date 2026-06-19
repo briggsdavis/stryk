@@ -56,12 +56,17 @@ export default defineSchema({
     ),
     // When false the rest of the page stays visible/interactive (no backdrop).
     blurBackground: v.boolean(),
-    // Up to 5 carousel slides; images and video may be mixed.
-    media: v.array(
-      v.object({
-        type: v.union(v.literal("image"), v.literal("video")),
-        storageId: v.id("_storage"),
-      }),
+    // Up to 5 carousel slides; images and video may be mixed. Optional because
+    // rows created before this field existed have no media array — a required
+    // validator would make the schema push reject those rows and block the
+    // whole deploy. Writers always set it; readers tolerate it being absent.
+    media: v.optional(
+      v.array(
+        v.object({
+          type: v.union(v.literal("image"), v.literal("video")),
+          storageId: v.id("_storage"),
+        }),
+      ),
     ),
     updatedAt: v.number(),
   })

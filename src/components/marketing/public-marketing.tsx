@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { type PopupPosition } from "../../lib/marketing"
+import { ErrorBoundary } from "../ui/error-boundary"
 import { HoverLabel } from "../ui/hover-label"
 
 type PublicPopup = {
@@ -25,33 +26,53 @@ function popupStorageKey(id: string, frequency: string) {
   return frequency === "oncePerDay" ? `stryk-popup:${id}:${day}` : `stryk-popup:${id}:session`
 }
 
+// The announcement bar and the popups are independent widgets that just happen
+// to live in the same layer. Each gets its own error boundary so a failure in
+// one (e.g. a popup whose media query throws) can never blank the other — a
+// regression that previously made the announcement bar "disappear" whenever the
+// popup side errored.
 export function PublicMarketing() {
-  const location = useLocation()
-  const isHome = location.pathname === "/"
-  const route = isHome ? "home" : "other"
-  const announcement = useQuery(api.marketing.activeAnnouncement, { route })
-  const popups = useQuery(api.marketing.activePopups)
-
   return (
     <>
-      {announcement && (
-        <div
-          className="fixed top-0 right-0 left-0 z-[700] flex min-h-11 items-center justify-center gap-4 px-5 py-3 text-center text-sm"
-          style={{ backgroundColor: announcement.backgroundColor, color: announcement.textColor }}
-        >
-          <span>{announcement.text}</span>
-          {announcement.buttonLabel && announcement.buttonLink && (
-            <Link to={announcement.buttonLink} className="underline underline-offset-4">
-              {announcement.buttonLabel}
-            </Link>
-          )}
-        </div>
-      )}
-
-      {isHome &&
-        popups?.map((popup) => <PopupCard key={popup._id} popup={popup as PublicPopup} />)}
+      <ErrorBoundary>
+        <AnnouncementBar />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <Popups />
+      </ErrorBoundary>
     </>
   )
+}
+
+function AnnouncementBar() {
+  const location = useLocation()
+  const route = location.pathname === "/" ? "home" : "other"
+  const announcement = useQuery(api.marketing.activeAnnouncement, { route })
+
+  if (!announcement) return null
+
+  return (
+    <div
+      className="fixed top-0 right-0 left-0 z-[700] flex min-h-11 items-center justify-center gap-4 px-5 py-3 text-center text-sm"
+      style={{ backgroundColor: announcement.backgroundColor, color: announcement.textColor }}
+    >
+      <span>{announcement.text}</span>
+      {announcement.buttonLabel && announcement.buttonLink && (
+        <Link to={announcement.buttonLink} className="underline underline-offset-4">
+          {announcement.buttonLabel}
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function Popups() {
+  const location = useLocation()
+  const isHome = location.pathname === "/"
+  const popups = useQuery(api.marketing.activePopups)
+
+  if (!isHome) return null
+  return <>{popups?.map((popup) => <PopupCard key={popup._id} popup={popup as PublicPopup} />)}</>
 }
 
 // Anchor position for the popup wrapper. Center is a true modal; the rest are
