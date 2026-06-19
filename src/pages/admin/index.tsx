@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react"
 import { useCallback, useRef, useState } from "react"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { ErrorBoundary } from "../../components/ui/error-boundary"
 import { Navbar } from "../../components/ui/navbar"
 import {
   MAX_POPUP_MEDIA,
@@ -161,14 +162,38 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
       </aside>
       <section className="min-h-screen flex-1 pl-72 md:pl-80">
         <div className="mx-auto w-full max-w-6xl px-8 py-10">
-          {section === "about" && <Placeholder title="About Page" />}
-          {section === "global" && <Placeholder title="Footer / Global" />}
-          {section === "announcements" && <AnnouncementsPanel />}
-          {section === "popups" && <PopupsPanel />}
-          {section === "inquiries" && <InquiriesPanel />}
+          {/* Keyed by section so switching tabs clears a previously caught
+              error and retries the panel. Without this, a throw in one panel
+              (e.g. a failing Convex query) would unmount the whole dashboard. */}
+          <ErrorBoundary key={section} fallback={(error) => <PanelError error={error} />}>
+            {section === "about" && <Placeholder title="About Page" />}
+            {section === "global" && <Placeholder title="Footer / Global" />}
+            {section === "announcements" && <AnnouncementsPanel />}
+            {section === "popups" && <PopupsPanel />}
+            {section === "inquiries" && <InquiriesPanel />}
+          </ErrorBoundary>
         </div>
       </section>
     </div>
+  )
+}
+
+// Shown when a dashboard panel throws (most often a Convex query that failed
+// because functions aren't deployed, or stored data that no longer matches the
+// schema). Surfaces the message instead of letting the panel vanish.
+function PanelError({ error }: { error: Error }) {
+  return (
+    <section>
+      <AdminHeader title="Something went wrong" eyebrow="Panel error" />
+      <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-6">
+        <p className="mb-3 text-sm text-dark/75">
+          This panel hit an error and couldn't load. The details below usually point at the cause.
+        </p>
+        <pre className="overflow-x-auto rounded-lg bg-dark/5 p-4 text-xs leading-5 text-red-700">
+          {error.message}
+        </pre>
+      </div>
+    </section>
   )
 }
 
