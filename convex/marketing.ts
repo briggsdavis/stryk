@@ -139,11 +139,19 @@ async function resolveMedia(ctx: QueryCtx, popup: Doc<"popups">) {
   // carousel so the editor can still load (and let the admin re-save) instead
   // of the whole query throwing a masked "Server Error".
   const media = await Promise.all(
-    (popup.media ?? []).map(async (item) => ({
-      type: item.type,
-      storageId: item.storageId,
-      url: await ctx.storage.getUrl(item.storageId),
-    })),
+    (popup.media ?? []).map(async (item) => {
+      // A single bad/deleted/malformed storageId must not take down the whole
+      // query (which would crash both the admin editor and the public popup +
+      // announcement bar, since they share this resolver behind an error
+      // boundary). Fall back to a null url so the carousel just skips it.
+      let url: string | null = null
+      try {
+        url = await ctx.storage.getUrl(item.storageId)
+      } catch {
+        url = null
+      }
+      return { type: item.type, storageId: item.storageId, url }
+    }),
   )
   return { ...popup, media }
 }
