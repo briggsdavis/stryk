@@ -1,5 +1,8 @@
 # dependencies
 node_modules
+# this is a Bun project (bun.lock); ignore stray npm/yarn lockfiles
+package-lock.json
+yarn.lock
 
 # build output
 dist
