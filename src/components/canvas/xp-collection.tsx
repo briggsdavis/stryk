@@ -1,7 +1,15 @@
-import { forwardRef, useLayoutEffect, useMemo, useRef } from "react"
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import type { ActiveFilters } from "../../lib/filters"
 import { activeFilterCount, productMatches } from "../../lib/filters"
-import { Flip, gsap } from "../../lib/gsap"
+import { gsap } from "../../lib/gsap"
 import type { Product } from "../../lib/types"
 import { XpProductItem } from "./xp-product-item"
 
@@ -69,10 +77,27 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   { products, onItemClick, itemRefs, filters, onLayoutChange },
   ref,
 ) {
-  const isFiltering = activeFilterCount(filters) > 0
+  // Keep a local handle on the collection element alongside the forwarded ref so
+  // we can drive the crossfade.
+  const innerRef = useRef<HTMLDivElement | null>(null)
+  const setCollectionRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      innerRef.current = node
+      if (typeof ref === "function") ref(node)
+      else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node
+    },
+    [ref],
+  )
+
+  // The layout is rendered from `displayedFilters`, which lags the incoming
+  // `filters` prop: a filter change first blurs the current cluster out, and only
+  // once it's hidden do we swap to the new layout (see the crossfade below). That
+  // way the reflow + recentre never happen on screen.
+  const [displayedFilters, setDisplayedFilters] = useState(filters)
+  const isFiltering = activeFilterCount(displayedFilters) > 0
 
   // Each piece keeps a stable width regardless of which column it lands in, so
-  // reclustering doesn't make thumbnails resize mid-flight.
+  // reclustering doesn't make thumbnails resize.
   const widthIndexById = useMemo(() => {
     const m = new Map<string, number>()
     products.forEach((p, i) => m.set(p.id, i))
@@ -80,8 +105,9 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   }, [products])
 
   const layoutProducts = useMemo(
-    () => (isFiltering ? products.filter((p) => productMatches(p, filters)) : products),
-    [products, filters, isFiltering],
+    () =>
+      isFiltering ? products.filter((p) => productMatches(p, displayedFilters)) : products,
+    [products, displayedFilters, isFiltering],
   )
 
   const columns = useMemo(
@@ -92,106 +118,67 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   // symmetry, so drop them from the filtered layout.
   const renderColumns = isFiltering ? columns.filter((c) => c.length > 0) : columns
 
-  // ── Filter transition ──────────────────────────────────────────────────────
-  // A filter change reflows the rendered set into a new cluster. We make the
-  // change a single smooth motion:
-  //   1. capture each piece's current on-screen position (render phase, before
-  //      React commits the new columns),
-  //   2. snap the collection to the new centred position (instant, in recenter),
-  //   3. Flip-tween the persisting pieces from their old positions to the new
-  //      ones so the reflow + recentre read as one glide,
-  //   4. fade newly matched pieces in and keep persisting pieces visible.
-  // Opacity is handled here (not via Flip enter/leave) so pieces can never be
-  // left invisible. The canvas entrance owns the first reveal, so it's skipped.
-  const flipStateRef = useRef<ReturnType<typeof Flip.getState> | null>(null)
-  const prevKeyRef = useRef<string | null>(null)
-  const prevIdsRef = useRef<Set<string>>(new Set())
-  const firstRunRef = useRef(true)
+  // ── Filter crossfade ─────────────────────────────────────────────────────────
+  // A filter change is a calm whole-cluster blur crossfade rather than per-piece
+  // motion: blur/fade the current cluster out, swap to the new layout and recentre
+  // *while it's invisible* (so nothing is seen sliding around), then blur/fade the
+  // new cluster in. The canvas entrance owns the very first reveal, so both phases
+  // skip the initial mount.
+  const fadeOutFirstRef = useRef(true)
+  const fadeInFirstRef = useRef(true)
 
-  const layoutKey = `${isFiltering ? "f" : "a"}:${JSON.stringify(filters)}`
-  if (prevKeyRef.current !== null && prevKeyRef.current !== layoutKey) {
-    // Pre-commit: the DOM still shows the old layout, so this records the
-    // positions the pieces will glide away from.
-    flipStateRef.current = Flip.getState(".xp-item")
-  }
-  prevKeyRef.current = layoutKey
-
-  useLayoutEffect(() => {
-    const renderedIds = new Set(layoutProducts.map((p) => p.id))
-
-    if (firstRunRef.current) {
-      firstRunRef.current = false
-      prevIdsRef.current = renderedIds
-      flipStateRef.current = null
+  // Phase 1: incoming filter differs -> blur the old cluster out, then swap.
+  useEffect(() => {
+    if (fadeOutFirstRef.current) {
+      fadeOutFirstRef.current = false
       return
     }
+    if (filters === displayedFilters) return
+    const collection = innerRef.current
+    if (!collection) {
+      setDisplayedFilters(filters)
+      return
+    }
+    const incoming = filters
+    gsap.killTweensOf(collection)
+    gsap.to(collection, {
+      opacity: 0,
+      filter: "blur(12px)",
+      duration: 0.35,
+      ease: "power2.inOut",
+      onComplete: () => setDisplayedFilters(incoming),
+    })
+  }, [filters, displayedFilters])
 
-    const state = flipStateRef.current
-    flipStateRef.current = null
+  // Phase 2: the swapped layout has committed and is still hidden -> make its
+  // pieces visible, recentre, then blur the whole cluster back in.
+  useLayoutEffect(() => {
+    if (fadeInFirstRef.current) {
+      fadeInFirstRef.current = false
+      return
+    }
+    const collection = innerRef.current
+    if (!collection) return
 
-    // Snap the collection to the new centred position; Flip then provides the
-    // visible motion, so there's no separate camera pan to fight the reflow.
+    const items = collection.querySelectorAll<HTMLElement>(".xp-item")
+    gsap.set(items, { opacity: 1, scale: 1, filter: "blur(0px)" })
+
     onLayoutChange?.()
 
-    const entering: HTMLElement[] = []
-    const persisting: HTMLElement[] = []
-    itemRefs.current.forEach((el, id) => {
-      if (!renderedIds.has(id)) return
-      if (prevIdsRef.current.has(id)) persisting.push(el)
-      else entering.push(el)
-    })
-    prevIdsRef.current = renderedIds
-
-    // Glide persisting pieces from their old positions to the new centred ones.
-    // Pieces that no longer match were unmounted by React; Flip re-inserts them
-    // at their old spot via onLeave so they can blur out instead of vanishing.
-    if (state) {
-      Flip.from(state, {
-        duration: 0.8,
-        ease: "power3.inOut",
-        onLeave: (els) =>
-          gsap.to(els, {
-            opacity: 0,
-            scale: 0.9,
-            filter: "blur(12px)",
-            duration: 0.5,
-            ease: "power2.out",
-          }),
-      })
-    }
-    // Matching pieces blur in. Persisting pieces keep their Flip position-glide,
-    // so only their blur is animated (opacity stays 1 -> no flash, overwrite:false
-    // so this doesn't cancel Flip's transform tween). Newly matched pieces fade +
-    // blur in from nothing.
+    gsap.killTweensOf(collection)
     gsap.fromTo(
-      persisting,
-      { filter: "blur(12px)" },
-      {
-        opacity: 1,
-        filter: "blur(0px)",
-        duration: 0.6,
-        ease: "power2.out",
-        overwrite: false,
-      },
+      collection,
+      { opacity: 0, filter: "blur(12px)" },
+      { opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "power2.out" },
     )
-    gsap.killTweensOf(entering)
-    gsap.fromTo(
-      entering,
-      { opacity: 0, scale: 0.9, filter: "blur(12px)" },
-      {
-        opacity: 1,
-        scale: 1,
-        filter: "blur(0px)",
-        duration: 0.6,
-        ease: "power2.out",
-        stagger: { each: 0.03, from: "random" },
-        overwrite: "auto",
-      },
-    )
-  }, [layoutProducts, onLayoutChange, itemRefs])
+  }, [displayedFilters, onLayoutChange])
 
   return (
-    <div ref={ref} className="xp-collection" style={isFiltering ? { alignItems: "center" } : undefined}>
+    <div
+      ref={setCollectionRef}
+      className="xp-collection"
+      style={isFiltering ? { alignItems: "center" } : undefined}
+    >
       {renderColumns.map((col, ci) => (
         <div
           key={ci}
