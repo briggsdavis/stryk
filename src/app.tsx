@@ -1,6 +1,7 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router"
 import { PublicMarketing } from "./components/marketing/public-marketing"
 import { CustomCursor } from "./components/ui/custom-cursor"
+import { ErrorBoundary } from "./components/ui/error-boundary"
 import { TransitionProvider } from "./lib/transition"
 import { AboutPage } from "./pages/about/index"
 import { AdminPage } from "./pages/admin/index"
@@ -13,7 +14,10 @@ export default function App() {
     <Router>
       <TransitionProvider>
         <CustomCursor />
-        <PublicMarketing />
+        {/* Marketing is non-critical: never let a failure here blank the site. */}
+        <ErrorBoundary>
+          <PublicMarketing />
+        </ErrorBoundary>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
