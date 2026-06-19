@@ -13,6 +13,7 @@ export function useXpCanvas(active: boolean) {
   const draggableRef = useRef<Draggable[]>([])
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(2)
   const zoomRef = useRef<ZoomLevel>(2)
+  const [entranceComplete, setEntranceComplete] = useState(false)
 
   // smooth pan via lerp
   const positionRef = useRef({ x: 0, y: 0 })
@@ -186,6 +187,7 @@ export function useXpCanvas(active: boolean) {
             initDraggable()
             zoomRef.current = 2
             setZoomLevel(2)
+            setEntranceComplete(true)
           },
         })
       },
@@ -216,5 +218,5 @@ export function useXpCanvas(active: boolean) {
     }
   }, [active, onWheel])
 
-  return { wrapperRef, collectionRef, zoomLevel, zoomIn, zoomOut, runEntrance }
+  return { wrapperRef, collectionRef, zoomLevel, zoomIn, zoomOut, runEntrance, entranceComplete }
 }
