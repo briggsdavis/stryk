@@ -135,8 +135,11 @@ export const deleteAnnouncement = mutation({
 // ── Popups ───────────────────────────────────────────────────────────────────
 
 async function resolveMedia(ctx: QueryCtx, popup: Doc<"popups">) {
+  // Legacy/in-progress rows may predate the `media` field; default to an empty
+  // carousel so the editor can still load (and let the admin re-save) instead
+  // of the whole query throwing a masked "Server Error".
   const media = await Promise.all(
-    popup.media.map(async (item) => ({
+    (popup.media ?? []).map(async (item) => ({
       type: item.type,
       storageId: item.storageId,
       url: await ctx.storage.getUrl(item.storageId),
