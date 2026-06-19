@@ -310,7 +310,10 @@ export function CollectionPage() {
 
           {/* Panel 3 — featured products, laid out horizontally */}
           <div className="flex h-screen w-screen shrink-0 items-center px-8 md:px-16">
-            <div ref={gridRef} className="mx-auto grid w-full max-w-5xl grid-cols-3 items-start gap-x-8 gap-y-5">
+            <div
+              ref={gridRef}
+              className="mx-auto grid w-full max-w-5xl grid-cols-3 items-start gap-x-8 gap-y-5"
+            >
               <div className="flex items-start pt-10">
                 <h2
                   ref={headingRef}

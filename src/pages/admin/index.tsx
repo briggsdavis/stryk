@@ -136,7 +136,11 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
   return (
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-dark/10 bg-light/60 px-5 py-6 backdrop-blur md:w-80">
-        <button type="button" className="mb-10 text-left" onClick={() => setSection("announcements")}>
+        <button
+          type="button"
+          className="mb-10 text-left"
+          onClick={() => setSection("announcements")}
+        >
           <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto" />
         </button>
         <nav className="flex flex-1 flex-col gap-2">
@@ -154,7 +158,7 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
           ))}
         </nav>
         <div className="border-t border-dark/10 pt-5">
-          <p className="mb-3 break-words text-xs text-dark/50">{email}</p>
+          <p className="mb-3 text-xs break-words text-dark/50">{email}</p>
           <button type="button" onClick={onSignOut} className="admin-secondary w-full">
             Sign out
           </button>
@@ -280,12 +284,6 @@ function AnnouncementsPanel() {
               { value: "all", label: "Every page" },
             ]}
           />
-          <SwitchInput
-            label="Active"
-            description="Only one announcement can be live at a time."
-            checked={form.isActive}
-            onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
-          />
           <div className="flex gap-2">
             <button type="submit" className="admin-primary">
               {form.id ? "Update announcement" : "Create announcement"}
@@ -330,9 +328,7 @@ function AnnouncementsPanel() {
                   <ToggleSwitch
                     label="Active"
                     checked={announcement.isActive}
-                    onChange={(isActive) =>
-                      void setActive({ id: announcement._id, isActive })
-                    }
+                    onChange={(isActive) => void setActive({ id: announcement._id, isActive })}
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -584,11 +580,6 @@ function PopupsPanel() {
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <SwitchInput
-              label="Active"
-              checked={form.isActive}
-              onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
-            />
-            <SwitchInput
               label="Email capture"
               checked={form.emailCaptureEnabled}
               onChange={(emailCaptureEnabled) =>
@@ -713,14 +704,16 @@ function InquiriesPanel() {
         <PanelTitle title="Contact form submissions" />
         <div className="space-y-3">
           {contactInquiries === undefined && <p className="text-sm text-dark/55">Loading...</p>}
-          {contactInquiries?.length === 0 && <p className="text-sm text-dark/55">No messages yet.</p>}
+          {contactInquiries?.length === 0 && (
+            <p className="text-sm text-dark/55">No messages yet.</p>
+          )}
           {contactInquiries?.map((item) => (
             <article key={item._id} className="rounded-lg border border-dark/10 p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                 <p className="font-medium">
                   {item.firstName} {item.lastName}
                 </p>
-                <span className="rounded-full bg-dark/5 px-3 py-1 text-xs uppercase text-dark/55">
+                <span className="rounded-full bg-dark/5 px-3 py-1 text-xs text-dark/55 uppercase">
                   {item.inquiryType}
                 </span>
               </div>
@@ -859,7 +852,7 @@ function TextInput({
         required={required}
         autoComplete={autoComplete}
         minLength={minLength}
-        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm outline-none transition-colors focus:border-dark/45"
+        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm transition-colors outline-none focus:border-dark/45"
       />
     </label>
   )
@@ -903,7 +896,7 @@ function SelectInput<TValue extends string>({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value as TValue)}
-        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm outline-none transition-colors focus:border-dark/45"
+        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm transition-colors outline-none focus:border-dark/45"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -942,7 +935,7 @@ function ColorInput({
           aria-label={`${label} hex`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm outline-none transition-colors focus:border-dark/45"
+          className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm transition-colors outline-none focus:border-dark/45"
         />
       </div>
     </label>

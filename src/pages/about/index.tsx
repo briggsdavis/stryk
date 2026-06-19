@@ -156,7 +156,10 @@ export function AboutPage() {
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
           About Stryk
         </p>
-        <h1 ref={h1Ref} className="text-128 max-w-4xl overflow-hidden pb-3 leading-none font-medium">
+        <h1
+          ref={h1Ref}
+          className="text-128 max-w-4xl overflow-hidden pb-3 leading-none font-medium"
+        >
           Vintage charm, modern walls
         </h1>
       </section>
@@ -250,9 +253,9 @@ export function AboutPage() {
                   Found in a Tokyo flea market
                 </h2>
                 <p className="text-sm leading-relaxed text-dark/60">
-                  It began in 2021 with a box of mid-century Japanese matchbooks from a Shimokitazawa
-                  market - tiny, perfect labels unlike anything in any gallery. We've been hunting
-                  ever since.
+                  It began in 2021 with a box of mid-century Japanese matchbooks from a
+                  Shimokitazawa market - tiny, perfect labels unlike anything in any gallery. We've
+                  been hunting ever since.
                 </p>
               </div>
               <RevealImage
@@ -279,7 +282,9 @@ export function AboutPage() {
                   <h3
                     className={clsx(
                       "text-48 mb-5 font-medium transition-opacity duration-400",
-                      hoveredValue !== null && hoveredValue !== v.label ? "opacity-30" : "opacity-100",
+                      hoveredValue !== null && hoveredValue !== v.label
+                        ? "opacity-30"
+                        : "opacity-100",
                     )}
                   >
                     {v.label}

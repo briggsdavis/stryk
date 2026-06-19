@@ -29,7 +29,11 @@ export default defineSchema({
     buttonLink: v.string(),
     emailCaptureEnabled: v.boolean(),
     delaySeconds: v.number(),
-    frequency: v.union(v.literal("everyVisit"), v.literal("oncePerSession"), v.literal("oncePerDay")),
+    frequency: v.union(
+      v.literal("everyVisit"),
+      v.literal("oncePerSession"),
+      v.literal("oncePerDay"),
+    ),
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
   popups: defineTable({
@@ -40,7 +44,11 @@ export default defineSchema({
     buttonLink: v.string(),
     emailCaptureEnabled: v.boolean(),
     delaySeconds: v.number(),
-    frequency: v.union(v.literal("everyVisit"), v.literal("oncePerSession"), v.literal("oncePerDay")),
+    frequency: v.union(
+      v.literal("everyVisit"),
+      v.literal("oncePerSession"),
+      v.literal("oncePerDay"),
+    ),
     isActive: v.boolean(),
     // Where the popup is anchored on screen and how it slides in.
     position: v.union(

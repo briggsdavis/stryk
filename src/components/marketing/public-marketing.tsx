@@ -72,7 +72,13 @@ function Popups() {
   const popups = useQuery(api.marketing.activePopups)
 
   if (!isHome) return null
-  return <>{popups?.map((popup) => <PopupCard key={popup._id} popup={popup as PublicPopup} />)}</>
+  return (
+    <>
+      {popups?.map((popup) => (
+        <PopupCard key={popup._id} popup={popup as PublicPopup} />
+      ))}
+    </>
+  )
 }
 
 // Anchor position for the popup wrapper. Center is a true modal; the rest are
@@ -156,10 +162,10 @@ function PopupCard({ popup }: { popup: PublicPopup }) {
         isModal ? "p-10 md:p-16" : "p-7",
       )}
     >
-      {popup.heading && <h2 className={clsx("mb-4", isModal ? "text-48" : "text-2xl")}>{popup.heading}</h2>}
-      {popup.text && (
-        <p className="mb-7 max-w-xs text-sm leading-6 text-dark/65">{popup.text}</p>
+      {popup.heading && (
+        <h2 className={clsx("mb-4", isModal ? "text-48" : "text-2xl")}>{popup.heading}</h2>
       )}
+      {popup.text && <p className="mb-7 max-w-xs text-sm leading-6 text-dark/65">{popup.text}</p>}
       {popup.emailCaptureEnabled && (
         <form
           onSubmit={(event) => void submitEmail(event)}
@@ -244,13 +250,7 @@ function PopupCard({ popup }: { popup: PublicPopup }) {
   )
 }
 
-function Carousel({
-  media,
-  className,
-}: {
-  media: PublicPopup["media"]
-  className?: string
-}) {
+function Carousel({ media, className }: { media: PublicPopup["media"]; className?: string }) {
   const [index, setIndex] = useState(0)
 
   useEffect(() => {

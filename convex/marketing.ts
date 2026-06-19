@@ -29,10 +29,7 @@ const mediaValidator = v.array(
 
 // ── Announcement bar ─────────────────────────────────────────────────────────
 
-async function deactivateActiveAnnouncements(
-  ctx: MutationCtx,
-  exceptId?: Id<"announcementBars">,
-) {
+async function deactivateActiveAnnouncements(ctx: MutationCtx, exceptId?: Id<"announcementBars">) {
   const active = await ctx.db
     .query("announcementBars")
     .withIndex("by_isActive", (q) => q.eq("isActive", true))
