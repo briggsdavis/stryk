@@ -159,9 +159,21 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
           }),
       })
     }
-    // Keep persisting pieces visible (Flip owns their transform, so only touch
-    // opacity/filter here), and fade newly matched pieces in.
-    gsap.set(persisting, { opacity: 1, filter: "blur(0px)" })
+    // Matching pieces blur in. Persisting pieces keep their Flip position-glide,
+    // so only their blur is animated (opacity stays 1 -> no flash, overwrite:false
+    // so this doesn't cancel Flip's transform tween). Newly matched pieces fade +
+    // blur in from nothing.
+    gsap.fromTo(
+      persisting,
+      { filter: "blur(12px)" },
+      {
+        opacity: 1,
+        filter: "blur(0px)",
+        duration: 0.6,
+        ease: "power2.out",
+        overwrite: false,
+      },
+    )
     gsap.killTweensOf(entering)
     gsap.fromTo(
       entering,
