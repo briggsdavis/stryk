@@ -64,8 +64,16 @@ export function HomePage() {
   const gridWrapperRef = useRef<HTMLDivElement>(null)
   const focusSourceRef = useRef<"canvas" | "grid">("canvas")
 
-  const { wrapperRef, collectionRef, zoomLevel, zoomIn, zoomOut, runEntrance, entranceComplete } =
-    useXpCanvas(viewMode === "xp")
+  const {
+    wrapperRef,
+    collectionRef,
+    zoomLevel,
+    zoomIn,
+    zoomOut,
+    runEntrance,
+    entranceComplete,
+    recenter,
+  } = useXpCanvas(viewMode === "xp")
 
   // Run canvas entrance animation on mount
   useEffect(() => {
@@ -342,6 +350,7 @@ export function HomePage() {
           itemRefs={xpItemRefs}
           visible
           filters={filters}
+          onLayoutChange={recenter}
         />
       </div>
 

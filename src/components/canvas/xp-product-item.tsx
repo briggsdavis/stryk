@@ -44,6 +44,7 @@ export function XpProductItem({ product, index, onClick, itemRef }: XpProductIte
       }}
       data-cursor={product.name}
       data-product-id={product.id}
+      data-flip-id={product.id}
       ref={itemRef}
       onClick={(e) => onClick(product, e.currentTarget)}
     >
