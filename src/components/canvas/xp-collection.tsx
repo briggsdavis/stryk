@@ -143,8 +143,21 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
     prevIdsRef.current = renderedIds
 
     // Glide persisting pieces from their old positions to the new centred ones.
+    // Pieces that no longer match were unmounted by React; Flip re-inserts them
+    // at their old spot via onLeave so they can blur out instead of vanishing.
     if (state) {
-      Flip.from(state, { duration: 0.8, ease: "power3.inOut" })
+      Flip.from(state, {
+        duration: 0.8,
+        ease: "power3.inOut",
+        onLeave: (els) =>
+          gsap.to(els, {
+            opacity: 0,
+            scale: 0.9,
+            filter: "blur(12px)",
+            duration: 0.5,
+            ease: "power2.out",
+          }),
+      })
     }
     // Keep persisting pieces visible (Flip owns their transform, so only touch
     // opacity/filter here), and fade newly matched pieces in.
