@@ -184,12 +184,12 @@ function PopupCard({ popup }: { popup: PublicPopup }) {
           type="button"
           aria-label="Close pop-up"
           onClick={dismiss}
-          className="fixed inset-0 z-[790] cursor-default bg-dark/35 backdrop-blur-sm"
+          className="fixed inset-0 z-[2090] cursor-default bg-dark/35 backdrop-blur-sm"
         />
       )}
       <div
         className={clsx(
-          "fixed z-[800]",
+          "fixed z-[2100]",
           WRAPPER_ANCHOR[popup.position],
           !popup.blurBackground && "pointer-events-none",
         )}
