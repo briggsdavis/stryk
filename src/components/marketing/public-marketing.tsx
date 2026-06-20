@@ -3,7 +3,14 @@ import { useMutation, useQuery } from "convex/react"
 import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
-import { type PopupPosition } from "../../lib/marketing"
+import {
+  onPopupAction,
+  pageFromPath,
+  type PopupAction,
+  type PopupPage,
+  type PopupPosition,
+  type PopupTriggerType,
+} from "../../lib/marketing"
 import { HoverLabel } from "../ui/hover-label"
 
 type PublicPopup = {
@@ -18,6 +25,9 @@ type PublicPopup = {
   position: PopupPosition
   blurBackground: boolean
   media: Array<{ type: "image" | "video"; url: string | null }>
+  triggerType?: PopupTriggerType
+  pages?: PopupPage[]
+  action?: PopupAction
 }
 
 function popupStorageKey(id: string, frequency: string) {
@@ -29,8 +39,39 @@ export function PublicMarketing() {
   const location = useLocation()
   const isHome = location.pathname === "/"
   const route = isHome ? "home" : "other"
+  const page = pageFromPath(location.pathname)
   const announcement = useQuery(api.marketing.activeAnnouncement, { route })
-  const popups = useQuery(api.marketing.activePopups)
+  const popups = useQuery(api.marketing.activePopups) as PublicPopup[] | undefined
+
+  // Pop-ups armed by a user action (filter/product/collection click). Stored by
+  // id so each fires independently and its card manages its own dismissal.
+  const [armed, setArmed] = useState<Set<string>>(new Set())
+
+  const actionPopups = useMemo(
+    () => (popups ?? []).filter((p) => p.triggerType === "action"),
+    [popups],
+  )
+
+  useEffect(() => {
+    if (actionPopups.length === 0) return
+    return onPopupAction((action) => {
+      setArmed((prev) => {
+        const next = new Set(prev)
+        for (const popup of actionPopups) {
+          if (popup.action === action) next.add(popup._id)
+        }
+        return next
+      })
+    })
+  }, [actionPopups])
+
+  // Time-triggered pop-ups show on their targeted pages. Legacy rows without a
+  // trigger default to time/home so existing pop-ups keep their behaviour.
+  const timePopups = (popups ?? []).filter((popup) => {
+    if (popup.triggerType === "action") return false
+    const pages = popup.pages ?? ["home"]
+    return page !== null && pages.includes(page)
+  })
 
   return (
     <>
@@ -48,8 +89,15 @@ export function PublicMarketing() {
         </div>
       )}
 
-      {isHome &&
-        popups?.map((popup) => <PopupCard key={popup._id} popup={popup as PublicPopup} />)}
+      {timePopups.map((popup) => (
+        <PopupCard key={popup._id} popup={popup} />
+      ))}
+
+      {actionPopups
+        .filter((popup) => armed.has(popup._id))
+        .map((popup) => (
+          <PopupCard key={popup._id} popup={popup} immediate />
+        ))}
     </>
   )
 }
@@ -84,7 +132,7 @@ function cardTransform(position: PopupPosition, entered: boolean): string {
   return `translate(calc(${cx} + ${ox}), calc(${cy} + ${oy}))`
 }
 
-function PopupCard({ popup }: { popup: PublicPopup }) {
+function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate?: boolean }) {
   const capturePopupEmail = useMutation(api.inquiries.capturePopupEmail)
   const [visible, setVisible] = useState(false)
   const [entered, setEntered] = useState(false)
@@ -101,13 +149,16 @@ function PopupCard({ popup }: { popup: PublicPopup }) {
 
   useEffect(() => {
     if (!shouldRender) return
+    // Action-triggered pop-ups appear the moment they're armed; time-triggered
+    // ones wait out their configured delay.
+    const delay = immediate ? 0 : popup.delaySeconds * 1000
     const showId = window.setTimeout(() => {
       setVisible(true)
       // Next frame: flip `entered` so the CSS transition animates the slide-in.
       requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)))
-    }, popup.delaySeconds * 1000)
+    }, delay)
     return () => window.clearTimeout(showId)
-  }, [shouldRender, popup.delaySeconds])
+  }, [shouldRender, popup.delaySeconds, immediate])
 
   const dismiss = () => {
     if (popup.frequency !== "everyVisit") {

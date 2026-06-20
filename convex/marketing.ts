@@ -26,6 +26,20 @@ const mediaValidator = v.array(
     storageId: v.id("_storage"),
   }),
 )
+const triggerTypeValidator = v.union(v.literal("time"), v.literal("action"))
+const pagesValidator = v.array(
+  v.union(
+    v.literal("home"),
+    v.literal("about"),
+    v.literal("contact"),
+    v.literal("collection"),
+  ),
+)
+const actionValidator = v.union(
+  v.literal("filter"),
+  v.literal("product"),
+  v.literal("collection"),
+)
 
 // ── Announcement bar ─────────────────────────────────────────────────────────
 
@@ -156,6 +170,26 @@ async function resolveMedia(ctx: QueryCtx, popup: Doc<"popups">) {
   return { ...popup, media }
 }
 
+// Only one active pop-up may occupy a given on-screen position, otherwise two
+// cards (e.g. two "center" modals) would stack and overlap. Activating one
+// deactivates any other active pop-up sharing its position.
+async function deactivateSamePosition(
+  ctx: MutationCtx,
+  position: Doc<"popups">["position"],
+  exceptId?: Id<"popups">,
+) {
+  const active = await ctx.db
+    .query("popups")
+    .withIndex("by_isActive", (q) => q.eq("isActive", true))
+    .take(50)
+
+  for (const popup of active) {
+    if (popup._id !== exceptId && popup.position === position) {
+      await ctx.db.patch(popup._id, { isActive: false, updatedAt: Date.now() })
+    }
+  }
+}
+
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
@@ -199,10 +233,19 @@ export const savePopup = mutation({
     position: positionValidator,
     blurBackground: v.boolean(),
     media: mediaValidator,
+    triggerType: triggerTypeValidator,
+    pages: pagesValidator,
+    action: v.optional(actionValidator),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
     const { id, ...rest } = args
+
+    // One active pop-up per position: clear any other holding this spot.
+    if (args.isActive) {
+      await deactivateSamePosition(ctx, args.position, id)
+    }
+
     const doc = { ...rest, updatedAt: Date.now() }
 
     if (id) {
@@ -228,7 +271,12 @@ export const setPopupActive = mutation({
   args: { id: v.id("popups"), isActive: v.boolean() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx)
-    // Multiple popups may be active at once, so just flip this one.
+    // Multiple pop-ups may be active at once (in different positions), but only
+    // one per position — clear any other holding this spot when turning on.
+    if (args.isActive) {
+      const popup = await ctx.db.get(args.id)
+      if (popup) await deactivateSamePosition(ctx, popup.position, args.id)
+    }
     await ctx.db.patch(args.id, { isActive: args.isActive, updatedAt: Date.now() })
   },
 })

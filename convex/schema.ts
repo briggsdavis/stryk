@@ -56,6 +56,24 @@ export default defineSchema({
     ),
     // When false the rest of the page stays visible/interactive (no backdrop).
     blurBackground: v.boolean(),
+    // Trigger model. A pop-up is EITHER time-triggered (shown after a delay on
+    // the targeted `pages`) OR action-triggered (shown when `action` fires).
+    // The two are mutually exclusive. Optional so pre-trigger rows stay valid;
+    // those default to time/["home"] in code.
+    triggerType: v.optional(v.union(v.literal("time"), v.literal("action"))),
+    pages: v.optional(
+      v.array(
+        v.union(
+          v.literal("home"),
+          v.literal("about"),
+          v.literal("contact"),
+          v.literal("collection"),
+        ),
+      ),
+    ),
+    action: v.optional(
+      v.union(v.literal("filter"), v.literal("product"), v.literal("collection")),
+    ),
     // Up to 5 carousel slides; images and video may be mixed.
     media: v.array(
       v.object({

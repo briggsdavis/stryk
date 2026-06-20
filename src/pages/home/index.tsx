@@ -17,6 +17,7 @@ import {
   productMatches,
 } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
+import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { Product, ViewMode } from "../../lib/types"
 
@@ -32,6 +33,7 @@ export function HomePage() {
   const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
 
   const toggleFilter = useCallback((key: FilterKey, value: string) => {
+    emitPopupAction("filter")
     setFilters((prev) => {
       const set = prev[key]
       const next = set.includes(value) ? set.filter((v) => v !== value) : [...set, value]
@@ -161,6 +163,7 @@ export function HomePage() {
   const beginFocus = useCallback(
     (product: Product, el: HTMLElement, source: "canvas" | "grid") => {
       if (isFocusedRef.current) return
+      emitPopupAction("product")
       isFocusedRef.current = true
       focusSourceRef.current = source
 
