@@ -1,6 +1,7 @@
 import { clsx } from "clsx"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { gsap } from "../../lib/gsap"
+import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { Product } from "../../lib/types"
 import { HoverLabel } from "../ui/hover-label"
@@ -679,9 +680,11 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
                 </p>
                 <button
                   type="button"
-                  onClick={() =>
-                    product && transitionNavigate(`/collection/${product.collectionSlug}`)
-                  }
+                  onClick={() => {
+                    if (!product) return
+                    emitPopupAction("collection")
+                    transitionNavigate(`/collection/${product.collectionSlug}`)
+                  }}
                   className="group mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-3.5 py-2 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
                 >
                   <HoverLabel>Explore collection</HoverLabel>
