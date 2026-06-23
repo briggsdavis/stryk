@@ -103,12 +103,14 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
             <span className="text-dark/55">Subtotal</span>
             <span className="font-medium text-dark">$0</span>
           </div>
-          <button
-            type="button"
+          <a
+            href="https://www.toasttab.com/local/order/pre-amp-new-5840-forbes-avenue"
+            target="_blank"
+            rel="noopener noreferrer"
             className="group flex w-full items-center justify-center rounded-lg bg-dark px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300 hover:opacity-80"
           >
             <HoverLabel>Proceed to checkout</HoverLabel>
-          </button>
+          </a>
         </div>
       </aside>
     </>
