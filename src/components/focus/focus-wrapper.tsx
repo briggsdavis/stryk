@@ -59,6 +59,10 @@ export function FocusWrapper({
   const lockedRef = useRef(false)
   const lastWheelTimeRef = useRef(0)
   const galleryActiveRef = useRef(false)
+  // Left/right drag (mouse or touch) to advance the gallery.
+  const pointerActiveRef = useRef(false)
+  const pointerStartXRef = useRef(0)
+  const draggedRef = useRef(false)
   const [galleryActive, setGalleryActive] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [hasScrolled, setHasScrolled] = useState(false)
@@ -215,7 +219,10 @@ export function FocusWrapper({
       if (now - lastWheelTimeRef.current > 180) accDeltaRef.current = 0
       lastWheelTimeRef.current = now
 
-      accDeltaRef.current += e.deltaY
+      // Accept either axis: vertical scroll or a horizontal/trackpad swipe. Use
+      // whichever delta dominates this event (down or right = next).
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+      accDeltaRef.current += delta
       if (Math.abs(accDeltaRef.current) >= 60) {
         navigate(accDeltaRef.current > 0 ? 1 : -1)
         accDeltaRef.current = 0
@@ -230,6 +237,32 @@ export function FocusWrapper({
     panel.addEventListener("wheel", onWheel, { passive: false })
     return () => panel.removeEventListener("wheel", onWheel)
   }, [onWheel])
+
+  // ── Drag to navigate (mouse / touch) ──────────────────────────────────────
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!galleryActiveRef.current || expandedActiveRef.current) return
+    pointerActiveRef.current = true
+    pointerStartXRef.current = e.clientX
+    draggedRef.current = false
+  }, [])
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!pointerActiveRef.current) return
+    // Past a small threshold this is a drag, not a click - used to suppress the
+    // click-to-expand that would otherwise fire on release.
+    if (Math.abs(e.clientX - pointerStartXRef.current) > 8) draggedRef.current = true
+  }, [])
+
+  const onPointerEnd = useCallback(
+    (e: React.PointerEvent) => {
+      if (!pointerActiveRef.current) return
+      pointerActiveRef.current = false
+      const dx = e.clientX - pointerStartXRef.current
+      // Swipe left (content moves left) -> next; swipe right -> previous.
+      if (Math.abs(dx) >= 50) navigate(dx < 0 ? 1 : -1)
+    },
+    [navigate],
+  )
 
   // ── Panel entrance animation ──────────────────────────────────────────────
   useEffect(() => {
@@ -335,6 +368,11 @@ export function FocusWrapper({
 
   // ── Expanded (lightbox) view ──────────────────────────────────────────────
   const openExpanded = () => {
+    // A drag that ends on the image shouldn't also open the lightbox.
+    if (draggedRef.current) {
+      draggedRef.current = false
+      return
+    }
     if (!galleryActiveRef.current || expandedActiveRef.current) return
     const el = imgRefs.current[currentIdxRef.current]
     if (!el) return
@@ -490,6 +528,11 @@ export function FocusWrapper({
           morph shows through; opaque only when opening over static page content. */}
       <div
         ref={panelRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onPointerLeave={onPointerEnd}
         className={clsx("absolute inset-y-0 left-0 overflow-hidden", solidBackdrop && "bg-canvas")}
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
