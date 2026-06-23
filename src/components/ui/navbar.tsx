@@ -31,55 +31,61 @@ const LINKS = [
   { label: "Contact", to: "/contact" },
 ]
 
-// Two 9-dot icons that morph into one another. The 3×3 grid represents the grid
-// view; the diamond scatter represents the infinite-canvas experience view. Both
-// share a dot count and a paired order so each dot glides to its counterpart.
-const GRID_DOTS = [
-  [5, 5],
-  [12, 5],
-  [19, 5],
-  [5, 12],
-  [12, 12],
-  [19, 12],
-  [5, 19],
-  [12, 19],
-  [19, 19],
-] as const
-const SCATTER_DOTS = [
-  [12, 4],
-  [8, 8],
-  [16, 8],
-  [4, 12],
-  [12, 12],
-  [20, 12],
-  [8, 16],
-  [16, 16],
-  [12, 20],
-] as const
+// Two icons that morph into one another. The grid view is an even 3×3 grid of 9
+// dots; the canvas view is a 7-dot circle of three columns (2 · 3 · 2). Each row
+// pairs a grid position with its circle position; the grid's two side-middle dots
+// have no circle counterpart, so they fade out (opacity 0) when morphing to the
+// circle (and fade back in toward the grid). Columns: x 5/6, 12, 18/19.
+type DotMorph = readonly [
+  gridX: number,
+  gridY: number,
+  circX: number,
+  circY: number,
+  circVisible: 0 | 1,
+]
+const DOTS: readonly DotMorph[] = [
+  [5, 5, 6, 8, 1], // top-left → circle left-top
+  [12, 5, 12, 4, 1], // top-center → circle center-top
+  [19, 5, 18, 8, 1], // top-right → circle right-top
+  [5, 12, 6, 12, 0], // mid-left → fades out
+  [12, 12, 12, 12, 1], // center → circle center-mid
+  [19, 12, 18, 12, 0], // mid-right → fades out
+  [5, 19, 6, 16, 1], // bottom-left → circle left-bottom
+  [12, 19, 12, 20, 1], // bottom-center → circle center-bottom
+  [19, 19, 18, 16, 1], // bottom-right → circle right-bottom
+]
 
 // Shows the destination view's icon at rest and morphs to the other on hover, so
 // hovering previews the switch. `toGrid` = the destination is the grid view.
 function MorphDotIcon({ toGrid }: { toGrid: boolean }) {
-  const rest = toGrid ? GRID_DOTS : SCATTER_DOTS
-  const hover = toGrid ? SCATTER_DOTS : GRID_DOTS
   return (
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
-      {rest.map(([x, y], i) => (
-        <circle
-          key={i}
-          cx={x}
-          cy={y}
-          r="1.7"
-          fill="currentColor"
-          className="transition-transform duration-500 [transition-timing-function:var(--ease-ui)] group-hover:[transform:translate(var(--dx),var(--dy))]"
-          style={
-            {
-              "--dx": `${hover[i][0] - x}px`,
-              "--dy": `${hover[i][1] - y}px`,
-            } as CSSProperties
-          }
-        />
-      ))}
+      {DOTS.map(([gx, gy, cx, cy, circVisible], i) => {
+        const restX = toGrid ? gx : cx
+        const restY = toGrid ? gy : cy
+        const restO = toGrid ? 1 : circVisible
+        const hoverX = toGrid ? cx : gx
+        const hoverY = toGrid ? cy : gy
+        const hoverO = toGrid ? circVisible : 1
+        return (
+          <circle
+            key={i}
+            cx={restX}
+            cy={restY}
+            r="1.7"
+            fill="currentColor"
+            className="transition-[transform,opacity] duration-500 [transition-timing-function:var(--ease-ui)] group-hover:[transform:translate(var(--dx),var(--dy))] group-hover:opacity-[var(--o)]"
+            style={
+              {
+                "--dx": `${hoverX - restX}px`,
+                "--dy": `${hoverY - restY}px`,
+                "--o": `${hoverO}`,
+                opacity: restO,
+              } as CSSProperties
+            }
+          />
+        )
+      })}
     </svg>
   )
 }
