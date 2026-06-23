@@ -1,6 +1,6 @@
 import { clsx } from "clsx"
 import { useQuery } from "convex/react"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
@@ -31,28 +31,54 @@ const LINKS = [
   { label: "Contact", to: "/contact" },
 ]
 
-// Even 3×3 grid of dots - represents the grid view.
-const GRID_DOTS = [5, 12, 19].flatMap((y) => [5, 12, 19].map((x) => [x, y] as const))
-// Loose, organic scatter - represents the infinite-canvas experience view.
+// Two 9-dot icons that morph into one another. The 3×3 grid represents the grid
+// view; the diamond scatter represents the infinite-canvas experience view. Both
+// share a dot count and a paired order so each dot glides to its counterpart.
+const GRID_DOTS = [
+  [5, 5],
+  [12, 5],
+  [19, 5],
+  [5, 12],
+  [12, 12],
+  [19, 12],
+  [5, 19],
+  [12, 19],
+  [19, 19],
+] as const
 const SCATTER_DOTS = [
-  [6, 5],
-  [13, 4],
-  [19, 8],
-  [9, 12],
-  [16, 13],
-  [7, 18],
-  [14, 19],
+  [12, 4],
+  [8, 8],
+  [16, 8],
+  [4, 12],
+  [12, 12],
+  [20, 12],
+  [8, 16],
+  [16, 16],
+  [12, 20],
 ] as const
 
-function DotIcon({ dots }: { dots: ReadonlyArray<readonly [number, number]> }) {
+// Shows the destination view's icon at rest and morphs to the other on hover, so
+// hovering previews the switch. `toGrid` = the destination is the grid view.
+function MorphDotIcon({ toGrid }: { toGrid: boolean }) {
+  const rest = toGrid ? GRID_DOTS : SCATTER_DOTS
+  const hover = toGrid ? SCATTER_DOTS : GRID_DOTS
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px] transition-transform duration-700 ease-out group-hover:rotate-90"
-      aria-hidden="true"
-    >
-      {dots.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="1.7" fill="currentColor" />
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+      {rest.map(([x, y], i) => (
+        <circle
+          key={i}
+          cx={x}
+          cy={y}
+          r="1.7"
+          fill="currentColor"
+          className="transition-transform duration-500 [transition-timing-function:var(--ease-ui)] group-hover:[transform:translate(var(--dx),var(--dy))]"
+          style={
+            {
+              "--dx": `${hover[i][0] - x}px`,
+              "--dy": `${hover[i][1] - y}px`,
+            } as CSSProperties
+          }
+        />
       ))}
     </svg>
   )
@@ -188,7 +214,7 @@ export function Navbar({
             className={CAPSULE}
           >
             <span ref={togglerContentRef} className="flex items-center gap-2.5">
-              <DotIcon dots={viewMode === "xp" ? GRID_DOTS : SCATTER_DOTS} />
+              <MorphDotIcon toGrid={viewMode === "xp"} />
               <HoverLabel>{viewMode === "xp" ? "grid view" : "canvas view"}</HoverLabel>
             </span>
           </button>

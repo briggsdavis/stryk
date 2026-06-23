@@ -699,6 +699,17 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         </div>
       </div>
 
+      {/* Click the exposed canvas to the right of the panel to close (same as ×) */}
+      {isOpen && (
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Back to canvas"
+          className="absolute inset-y-0 right-0 cursor-none"
+          style={{ left: "60vw" }}
+        />
+      )}
+
       {/* Divider line + × button */}
       {isOpen && (
         <div
