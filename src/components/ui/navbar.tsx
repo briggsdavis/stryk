@@ -264,7 +264,7 @@ export function Navbar({
             open={panel === "filter"}
             onToggle={() => setPanel((p) => (p === "filter" ? "none" : "filter"))}
             icon={<SlidersIcon />}
-            label="filter"
+            label="Filter"
             ariaLabel={panel === "filter" ? "Close filters" : "Open filters"}
             dimmed={menuOpen}
           >
