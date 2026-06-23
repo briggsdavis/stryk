@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { useNavigate, useParams } from "react-router"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { Footer } from "../../components/ui/footer"
+import { HoverLabel } from "../../components/ui/hover-label"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 import { useProductFocus } from "../../hooks/use-product-focus"
@@ -383,7 +384,7 @@ export function CollectionPage() {
             onClick={() => transitionNavigate("/collections")}
             className="group mt-8 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium text-dark transition-colors hover:border-dark/40"
           >
-            Explore collections
+            <HoverLabel>Explore collections</HoverLabel>
             <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
           </button>
         </div>

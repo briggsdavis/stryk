@@ -5,7 +5,7 @@ import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
-import { useTransitionNavigate } from "../../lib/transition"
+import { useTransitionBack, useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
 import { ExpandingControl } from "./expanding-control"
 import { FilterPills } from "./filter-pills"
@@ -132,7 +132,9 @@ export function Navbar({
   onClearFilters,
 }: NavbarProps) {
   const transitionNavigate = useTransitionNavigate()
+  const transitionBack = useTransitionBack()
   const location = useLocation()
+  const isHome = location.pathname === "/"
   // When the announcement bar is live it occupies the top edge, so nudge the
   // logo and view toggle down to clear it (with a little breathing room).
   const announcement = useQuery(api.marketing.activeAnnouncement, {
@@ -194,9 +196,9 @@ export function Navbar({
 
   return (
     <>
-      {/* Top-left logo */}
+      {/* Top-left: logo + (off-home) a back button so users are never stranded */}
       <div
-        className="fixed top-6 left-6 z-[500] transition-[top] duration-300 md:left-10"
+        className="fixed top-6 left-6 z-[500] flex items-center gap-3 transition-[top] duration-300 md:left-10"
         style={barActive ? { top: "3.5rem" } : undefined}
       >
         <button
@@ -206,6 +208,29 @@ export function Navbar({
         >
           <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
         </button>
+        {!isHome && (
+          <button
+            onClick={transitionBack}
+            aria-label="Go back"
+            className="group flex items-center gap-1.5 rounded-lg border border-dark/15 bg-canvas px-3 py-2 text-sm font-medium text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-0.5"
+              aria-hidden="true"
+            >
+              <path
+                d="M10 3l-5 5 5 5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <HoverLabel>Back</HoverLabel>
+          </button>
+        )}
       </div>
 
       {/* Top-center: view toggle - single capsule, dots left of label */}
