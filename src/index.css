@@ -344,6 +344,21 @@
     transform: scale(1.03);
   }
 
+  /* Upsell "complete your set" recommendation slots - horizontal snap track,
+     drag or arrow to cycle through other recommended pieces. */
+  .rec-track {
+    @apply flex h-full w-full;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    touch-action: pan-y;
+    scrollbar-width: none;
+  }
+  .rec-track::-webkit-scrollbar {
+    display: none;
+  }
+
   /* ── Lightbox (collection page) — blurs open ── */
   @keyframes lightbox-backdrop-in {
     from {

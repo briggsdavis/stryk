@@ -22,11 +22,9 @@ interface FocusWrapperProps {
   solidBackdrop?: boolean
 }
 
-// Up to `count` other pieces to suggest alongside the one added to cart, scored
-// by what they share - same collection first, then colour, then category. Always
-// returns `count` items when enough products exist (lower-scoring pieces backfill
-// the remaining slots) so the panel stays complete.
-function getRecommendations(current: Product, all: Product[], count: number): Product[] {
+// Other pieces to suggest alongside the one added to cart, ranked by what they
+// share - same collection first, then colour, then category.
+function rankRecommendations(current: Product, all: Product[]): Product[] {
   return all
     .filter((p) => p.id !== current.id)
     .map((p) => {
@@ -37,8 +35,179 @@ function getRecommendations(current: Product, all: Product[], count: number): Pr
       return { p, score }
     })
     .sort((a, b) => b.score - a.score)
-    .slice(0, count)
     .map((s) => s.p)
+}
+
+// Cap on how many pieces each slot cycles through, so the carousels (and their
+// position dots) stay manageable on a large catalogue.
+const REC_PER_LANE = 6
+
+// Deal the top-ranked recommendations round-robin into `lanes` slots so the best
+// picks fill the slots first and no piece ever appears in two slots at once. Each
+// lane is its own carousel the visitor can cycle through.
+function buildRecommendationLanes(current: Product, all: Product[], lanes: number): Product[][] {
+  const ranked = rankRecommendations(current, all).slice(0, lanes * REC_PER_LANE)
+  const result: Product[][] = Array.from({ length: lanes }, () => [])
+  ranked.forEach((p, i) => result[i % lanes].push(p))
+  return result
+}
+
+const REC_DRAG_THRESHOLD = 6
+
+// One recommendation slot: a horizontal snap-track of its lane's pieces. Drag,
+// scroll, or use the arrows to cycle; clicking the piece in view opens it.
+function RecommendationSlot({
+  lane,
+  onOpen,
+}: {
+  lane: Product[]
+  onOpen?: (product: Product, sourceEl: HTMLElement) => void
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef({ active: false, startX: 0, scrollLeft: 0, moved: 0 })
+  const [index, setIndex] = useState(0)
+
+  const indexFromScroll = () => {
+    const t = trackRef.current
+    if (!t) return 0
+    return Math.min(Math.max(Math.round(t.scrollLeft / (t.clientWidth || 1)), 0), lane.length - 1)
+  }
+
+  const scrollToIndex = (i: number) => {
+    const t = trackRef.current
+    if (!t) return
+    const clamped = Math.min(Math.max(i, 0), lane.length - 1)
+    t.scrollTo({ left: clamped * t.clientWidth, behavior: "smooth" })
+    setIndex(clamped)
+  }
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const t = trackRef.current
+    if (!t) return
+    dragRef.current = { active: true, startX: e.clientX, scrollLeft: t.scrollLeft, moved: 0 }
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    const t = trackRef.current
+    const d = dragRef.current
+    if (!t || !d.active) return
+    const dx = e.clientX - d.startX
+    d.moved = Math.max(d.moved, Math.abs(dx))
+    if (d.moved > REC_DRAG_THRESHOLD) {
+      t.setPointerCapture(e.pointerId)
+      t.scrollLeft = d.scrollLeft - dx
+    }
+  }
+  const onPointerUp = () => {
+    dragRef.current.active = false
+  }
+  // Swallow the open-click when the gesture was a drag.
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (dragRef.current.moved > REC_DRAG_THRESHOLD) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+  }
+
+  if (lane.length === 0) {
+    return <div className="aspect-square border border-dark/20" />
+  }
+
+  return (
+    <div className="group relative aspect-square overflow-hidden border border-dark/20 transition-colors hover:border-dark/40">
+      <div
+        ref={trackRef}
+        className="rec-track"
+        onScroll={() => setIndex(indexFromScroll())}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onClickCapture={onClickCapture}
+      >
+        {lane.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={(e) => {
+              const img = e.currentTarget.querySelector("img")
+              if (img) onOpen?.(p, img)
+            }}
+            aria-label={`Open ${p.name}`}
+            className="relative block h-full w-full shrink-0"
+            style={{ scrollSnapAlign: "start" }}
+          >
+            <img
+              src={p.image}
+              alt={p.name}
+              draggable={false}
+              className="h-full w-full object-cover"
+            />
+          </button>
+        ))}
+      </div>
+
+      {/* Cycle arrows - hidden at the ends, surfaced on hover */}
+      {lane.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={() => scrollToIndex(index - 1)}
+            aria-label="Previous recommendation"
+            className={clsx(
+              "absolute top-1/2 left-1.5 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-canvas/90 text-dark shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-dark hover:text-white",
+              index === 0
+                ? "pointer-events-none opacity-0"
+                : "opacity-0 group-hover:opacity-100",
+            )}
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+              <path
+                d="M10 3 5 8l5 5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToIndex(index + 1)}
+            aria-label="Next recommendation"
+            className={clsx(
+              "absolute top-1/2 right-1.5 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-canvas/90 text-dark shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-dark hover:text-white",
+              index === lane.length - 1
+                ? "pointer-events-none opacity-0"
+                : "opacity-0 group-hover:opacity-100",
+            )}
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+              <path
+                d="M6 3l5 5-5 5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+
+          {/* Position dots */}
+          <div className="pointer-events-none absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1">
+            {lane.map((p, i) => (
+              <span
+                key={p.id}
+                className={clsx(
+                  "h-1 rounded-full bg-dark transition-all duration-300",
+                  i === index ? "w-3 opacity-80" : "w-1 opacity-25",
+                )}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 // Print size + framing options. Price is a fixed amount per size, plus a flat
@@ -120,8 +289,8 @@ export function FocusWrapper({
   // True while the panel is already open, so opening a recommendation is treated
   // as an in-place switch (skip the divider/× re-wipe) rather than a fresh open.
   const prevOpenRef = useRef(false)
-  const recommendations = useMemo(
-    () => (product ? getRecommendations(product, allProducts, 3) : []),
+  const recLanes = useMemo(
+    () => (product ? buildRecommendationLanes(product, allProducts, 3) : [[], [], []]),
     [product, allProducts],
   )
 
@@ -855,8 +1024,33 @@ export function FocusWrapper({
           className="absolute right-0 border-t border-dark/20 bg-canvas"
           style={{ left: "60vw", top: "20vh", bottom: 0, display: "none" }}
         >
-          <div className="flex h-full flex-col px-6 py-8 md:px-9">
-            <div className="mx-auto flex w-full max-w-[24rem] flex-1 flex-col">
+          <div className="flex h-full flex-col px-6 py-7 md:px-9">
+            {/* Top center: continue shopping - dismisses the panel, cart kept */}
+            <div className="mb-6 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setUpsellOpen(false)}
+                aria-label="Continue shopping"
+                className="group flex items-center gap-2 rounded-full border border-dark/20 bg-canvas px-4 py-2 text-[11px] font-medium tracking-wide text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+              >
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+                    <path
+                      d="M2.5 3.5H5l1.8 9.2a1.2 1.2 0 0 0 1.18.95h7.3a1.2 1.2 0 0 0 1.17-.9l1.45-5.6H6.2"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="9" cy="19" r="1.4" fill="currentColor" />
+                    <circle cx="16" cy="19" r="1.4" fill="currentColor" />
+                  </svg>
+                </span>
+                <HoverLabel>Continue shopping · cart updated</HoverLabel>
+              </button>
+            </div>
+
+            <div className="mx-auto flex w-full max-w-[22rem] flex-1 flex-col">
               <p className="mb-5 text-[10px] font-medium tracking-widest text-dark/50 uppercase">
                 Complete your set
               </p>
@@ -889,36 +1083,14 @@ export function FocusWrapper({
                   </span>
                 </div>
 
-                {/* Slots 2-4 - recommended pieces (same collection / colour / type) */}
-                {Array.from({ length: 3 }).map((_, i) => {
-                  const rec = recommendations[i]
-                  if (!rec) {
-                    return (
-                      <div
-                        key={`rec-empty-${i}`}
-                        className="aspect-square border border-dark/20"
-                      />
-                    )
-                  }
-                  return (
-                    <button
-                      key={rec.id}
-                      type="button"
-                      onClick={(e) => {
-                        const img = e.currentTarget.querySelector("img")
-                        if (img) onOpenRecommendation?.(rec, img)
-                      }}
-                      aria-label={`Open ${rec.name}`}
-                      className="group relative aspect-square overflow-hidden border border-dark/20 transition-colors hover:border-dark/50"
-                    >
-                      <img
-                        src={rec.image}
-                        alt={rec.name}
-                        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                      />
-                    </button>
-                  )
-                })}
+                {/* Slots 2-4 - recommendation carousels (distinct lanes) */}
+                {recLanes.map((lane, i) => (
+                  <RecommendationSlot
+                    key={lane[0]?.id ?? `lane-${i}`}
+                    lane={lane}
+                    onOpen={onOpenRecommendation}
+                  />
+                ))}
               </div>
 
               <div className="mt-auto pt-7">
