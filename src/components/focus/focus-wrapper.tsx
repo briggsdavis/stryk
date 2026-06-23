@@ -477,10 +477,11 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
   return (
     <div className={clsx("focus-wrapper", isOpen && "active")}>
-      {/* Left panel - 60vw */}
+      {/* Left panel - 60vw. Opaque so it cleanly covers whatever page it opens
+          over (on the home canvas this beige matches the revealed background). */}
       <div
         ref={panelRef}
-        className="absolute inset-y-0 left-0 overflow-hidden"
+        className="absolute inset-y-0 left-0 overflow-hidden bg-canvas"
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
         {/* Collection name - top left */}

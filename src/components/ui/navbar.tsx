@@ -75,13 +75,13 @@ function MorphDotIcon({ toGrid }: { toGrid: boolean }) {
             cy={restY}
             r="1.7"
             fill="currentColor"
-            className="transition-[transform,opacity] duration-500 [transition-timing-function:var(--ease-ui)] group-hover:[transform:translate(var(--dx),var(--dy))] group-hover:opacity-[var(--o)]"
+            className="opacity-[var(--o0)] transition-[transform,opacity] duration-500 [transition-timing-function:var(--ease-ui)] group-hover:[transform:translate(var(--dx),var(--dy))] group-hover:opacity-[var(--o)]"
             style={
               {
                 "--dx": `${hoverX - restX}px`,
                 "--dy": `${hoverY - restY}px`,
+                "--o0": `${restO}`,
                 "--o": `${hoverO}`,
-                opacity: restO,
               } as CSSProperties
             }
           />

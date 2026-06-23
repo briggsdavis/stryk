@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useNavigate, useParams } from "react-router"
+import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
+import { useProductFocus } from "../../hooks/use-product-focus"
 import { getCollection } from "../../lib/demo-data"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
@@ -67,7 +69,7 @@ export function CollectionPage() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef<HTMLElement>(null)
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  const { focusedProduct, beginFocus, handleClose } = useProductFocus()
 
   const products = useMemo(() => collection?.products ?? [], [collection])
   const heroImage = products[0]?.image ?? ""
@@ -226,16 +228,6 @@ export function CollectionPage() {
     }
   }, [collection])
 
-  // Escape closes the lightbox.
-  useEffect(() => {
-    if (!lightbox) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightbox(null)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [lightbox])
-
   if (!collection) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-6 bg-canvas text-dark">
@@ -328,8 +320,11 @@ export function CollectionPage() {
                 <div key={product.id} data-product-card className="flex flex-col">
                   <button
                     type="button"
-                    onClick={() => setLightbox(product.image)}
-                    aria-label={`Expand ${product.name}`}
+                    onClick={(e) => {
+                      const img = e.currentTarget.querySelector("img")
+                      if (img) beginFocus(product, img)
+                    }}
+                    aria-label={`Open ${product.name}`}
                     className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
                   >
                     <span className="absolute inset-0 flex items-center justify-center p-[14%]">
@@ -395,21 +390,8 @@ export function CollectionPage() {
 
       <Footer />
 
-      {/* ── Lightbox ───────────────────────────────────────────────────── */}
-      {lightbox && (
-        <button
-          type="button"
-          onClick={() => setLightbox(null)}
-          aria-label="Close image"
-          className="lightbox-backdrop fixed inset-0 z-[2000] flex items-center justify-center bg-dark/85 p-8 backdrop-blur-sm"
-        >
-          <img
-            src={lightbox}
-            alt=""
-            className="lightbox-image max-h-[85vh] max-w-[85vw] rounded-sm object-contain shadow-2xl"
-          />
-        </button>
-      )}
+      {/* Featured products open into the focus panel with the same morph as home */}
+      <FocusWrapper product={focusedProduct} allProducts={products} onClose={handleClose} />
     </div>
   )
 }
