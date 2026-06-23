@@ -324,7 +324,9 @@ export function CollectionPage() {
                     type="button"
                     onClick={(e) => {
                       const img = e.currentTarget.querySelector("img")
-                      if (img) beginFocus(product, img)
+                      // Slide the pinned section aside (it's the fixed element, so
+                      // it can be translated directly) as the image morphs in.
+                      if (img) beginFocus(product, img, pinRef.current)
                     }}
                     aria-label={`Open ${product.name}`}
                     className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
@@ -392,14 +394,10 @@ export function CollectionPage() {
 
       <Footer />
 
-      {/* Featured products open into the focus panel with the same morph as home.
-          The collection page behind it doesn't slide, so the panel is opaque. */}
-      <FocusWrapper
-        product={focusedProduct}
-        allProducts={products}
-        onClose={handleClose}
-        solidBackdrop
-      />
+      {/* Featured products open into the focus panel with the same slide + morph
+          as home: the pinned section slides aside, revealing the page background,
+          so the panel stays transparent. */}
+      <FocusWrapper product={focusedProduct} allProducts={products} onClose={handleClose} />
     </div>
   )
 }
