@@ -1,6 +1,6 @@
 import { clsx } from "clsx"
 import { useQuery } from "convex/react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { gsap } from "../../lib/gsap"
@@ -16,10 +16,6 @@ interface FocusWrapperProps {
   // Open a recommended piece from the "complete your set" upsell panel. Re-runs
   // the focus morph for the chosen product without closing first.
   onOpenRecommendation?: (product: Product, sourceEl: HTMLElement) => void
-  // Give the panel an opaque background. Needed when it opens over page content
-  // that doesn't slide away (e.g. the collection page). On the home canvas the
-  // panel must stay transparent so the canvas slide-away morph shows through.
-  solidBackdrop?: boolean
 }
 
 // Other pieces to suggest alongside the one added to cart, ranked by what they
@@ -234,7 +230,6 @@ export function FocusWrapper({
   allProducts,
   onClose,
   onOpenRecommendation,
-  solidBackdrop = false,
 }: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
   // The announcement bar (z-1100, root level) renders above the focus wrapper,
@@ -292,6 +287,13 @@ export function FocusWrapper({
   // "Complete your set" upsell panel, revealed after a piece is added to cart.
   const [upsellOpen, setUpsellOpen] = useState(false)
   const upsellRef = useRef<HTMLDivElement>(null)
+  // Add-to-cart button: once clicked it flips to an "Added" state. The button
+  // width is morphed (not snapped) between labels - see the layout effect below.
+  const [added, setAdded] = useState(false)
+  const cartBtnRef = useRef<HTMLButtonElement>(null)
+  const cartLabelRef = useRef<HTMLSpanElement>(null)
+  const prevCartWidthRef = useRef<number | null>(null)
+  const cartFirstRunRef = useRef(true)
   // True while the panel is already open, so opening a recommendation is treated
   // as an in-place switch (skip the divider/× re-wipe) rather than a fresh open.
   const prevOpenRef = useRef(false)
@@ -305,6 +307,37 @@ export function FocusWrapper({
   const price =
     selectedSize !== null ? SIZE_PRICES[selectedSize] + (withFrame ? FRAME_SURCHARGE : 0) : null
   const canAddToCart = selectedSize !== null && withFrame !== null
+
+  const cartLabel = added
+    ? "Added to Cart ✓"
+    : canAddToCart
+      ? `Add to Cart · $${price} →`
+      : "Add to Cart →"
+
+  // Morph the add-to-cart button's width whenever its label changes (e.g. on
+  // "Add to Cart" → "Added to Cart") and cross-fade the new label in, so the
+  // size change animates instead of snapping. Mirrors the navbar pill morph.
+  useLayoutEffect(() => {
+    const btn = cartBtnRef.current
+    if (!btn) return
+    const prevW = prevCartWidthRef.current
+    btn.style.width = "auto"
+    const targetW = Math.ceil(btn.getBoundingClientRect().width)
+    prevCartWidthRef.current = targetW
+    if (cartFirstRunRef.current || prevW == null) {
+      cartFirstRunRef.current = false
+      btn.style.width = `${targetW}px`
+      return
+    }
+    gsap.fromTo(btn, { width: prevW }, { width: targetW, duration: 0.45, ease: "expo.out" })
+    if (cartLabelRef.current) {
+      gsap.fromTo(
+        cartLabelRef.current,
+        { opacity: 0, y: 5 },
+        { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" },
+      )
+    }
+  }, [cartLabel])
 
   // "Custom" size can't be priced here - hand off to the contact page with the
   // custom-print inquiry preselected and the artwork name prefilled.
@@ -322,8 +355,10 @@ export function FocusWrapper({
 
   // ── Reset + activate gallery on product open/close ────────────────────────
   useEffect(() => {
-    // Any open/close or switch to another piece collapses the upsell panel.
+    // Any open/close or switch to another piece collapses the upsell panel and
+    // resets the add-to-cart button.
     setUpsellOpen(false)
+    setAdded(false)
     if (!isOpen) {
       prevOpenRef.current = false
       galleryActiveRef.current = false
@@ -534,7 +569,7 @@ export function FocusWrapper({
     const panel = upsellRef.current
     const close = closeRef.current
     if (!panel) return
-    const liftY = -window.innerHeight * 0.3 // 50vh centre → 20vh panel top
+    const liftY = -window.innerHeight * 0.14 // 50vh centre → 36vh panel top
     gsap.killTweensOf(panel)
     if (upsellOpen) {
       gsap.set(panel, { display: "block" })
@@ -785,7 +820,7 @@ export function FocusWrapper({
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
         onPointerLeave={onPointerEnd}
-        className={clsx("absolute inset-y-0 left-0 overflow-hidden", solidBackdrop && "bg-canvas")}
+        className="absolute inset-y-0 left-0 overflow-hidden bg-canvas"
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
         {/* Collection name - top left */}
@@ -989,21 +1024,26 @@ export function FocusWrapper({
                   </button>
                 ))}
                 <button
-                  disabled={!canAddToCart}
+                  ref={cartBtnRef}
+                  aria-label={added ? "Added to cart" : "Add to cart"}
+                  disabled={!canAddToCart && !added}
                   onClick={(e) => {
                     e.preventDefault()
-                    if (canAddToCart) setUpsellOpen(true)
+                    if (canAddToCart || added) {
+                      setAdded(true)
+                      setUpsellOpen(true)
+                    }
                   }}
                   className={clsx(
-                    "group ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
-                    canAddToCart
+                    "group ml-1 inline-flex justify-center overflow-hidden rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide whitespace-nowrap transition-colors",
+                    canAddToCart || added
                       ? "bg-dark text-white hover:opacity-70"
                       : "cursor-not-allowed bg-dark/20 text-dark/40",
                   )}
                 >
-                  <HoverLabel>
-                    {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
-                  </HoverLabel>
+                  <span ref={cartLabelRef} className="inline-block">
+                    <HoverLabel>{cartLabel}</HoverLabel>
+                  </span>
                 </button>
               </div>
             </div>
@@ -1029,11 +1069,11 @@ export function FocusWrapper({
         <div
           ref={upsellRef}
           className="absolute right-0 border-t border-dark/20 bg-canvas"
-          style={{ left: "60vw", top: "20vh", bottom: 0, display: "none" }}
+          style={{ left: "60vw", top: "36vh", bottom: 0, display: "none" }}
         >
-          <div className="flex h-full flex-col px-6 py-7 md:px-9">
+          <div className="flex h-full flex-col px-6 py-6 md:px-9">
             {/* Top center: continue shopping - dismisses the panel, cart kept */}
-            <div className="mb-6 flex justify-center">
+            <div className="mb-5 flex justify-center">
               <button
                 type="button"
                 onClick={() => setUpsellOpen(false)}
@@ -1057,12 +1097,12 @@ export function FocusWrapper({
               </button>
             </div>
 
-            <div className="mx-auto flex w-full max-w-[22rem] flex-1 flex-col">
-              <p className="mb-5 text-[10px] font-medium tracking-widest text-dark/50 uppercase">
+            <div className="mx-auto flex w-full max-w-[18rem] flex-1 flex-col">
+              <p className="mb-4 text-[10px] font-medium tracking-widest text-dark/50 uppercase">
                 Complete your set
               </p>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {/* Slot 1 - the piece just added to the cart */}
                 <div className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}>
                   {product && (
@@ -1100,7 +1140,7 @@ export function FocusWrapper({
                 ))}
               </div>
 
-              <div className="mt-auto pt-7">
+              <div className="mt-auto pt-5">
                 <button
                   type="button"
                   onClick={(e) => e.preventDefault()}
