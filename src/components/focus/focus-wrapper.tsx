@@ -1,5 +1,8 @@
 import { clsx } from "clsx"
+import { useQuery } from "convex/react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useLocation } from "react-router"
+import { api } from "../../../convex/_generated/api"
 import { gsap } from "../../lib/gsap"
 import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
@@ -36,6 +39,14 @@ export function FocusWrapper({
   solidBackdrop = false,
 }: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
+  // The announcement bar (z-1100, root level) renders above the focus wrapper,
+  // so when it's live the lightbox close button must drop below it - aligned with
+  // the navbar logo/FAB, which the navbar shifts to 3.5rem under the same bar.
+  const location = useLocation()
+  const announcement = useQuery(api.marketing.activeAnnouncement, {
+    route: location.pathname === "/" ? "home" : "other",
+  })
+  const barActive = !!announcement
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
   const productNameRef = useRef<HTMLParagraphElement>(null)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
@@ -811,7 +822,7 @@ export function FocusWrapper({
             onClick={closeExpanded}
             aria-label="Close expanded image"
             className="absolute top-6 right-6 z-[3] flex h-11 w-11 items-center justify-center rounded-none border border-dark/20 bg-white text-dark transition-all duration-300 hover:rounded-lg hover:bg-dark hover:text-white md:top-8 md:right-8"
-            style={{ opacity: 0 }}
+            style={barActive ? { opacity: 0, top: "3.5rem" } : { opacity: 0 }}
           >
             <svg viewBox="0 0 12 12" fill="none" className="h-3.5 w-3.5">
               <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" />
