@@ -57,8 +57,11 @@ export function CollectionPage() {
   const navigate = useNavigate()
   const transitionNavigate = useTransitionNavigate()
   const collection = useMemo(() => (slug ? getCollection(slug) : null), [slug])
+  const { focusedProduct, beginFocus, handleClose } = useProductFocus()
 
-  useLenis(!!collection)
+  // Pause smooth-scroll while a product is focused so wheel input drives the
+  // focus gallery (advancing between a product's images) instead of the page.
+  useLenis(!!collection && !focusedProduct)
 
   const pinRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -69,7 +72,6 @@ export function CollectionPage() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef<HTMLElement>(null)
-  const { focusedProduct, beginFocus, handleClose } = useProductFocus()
 
   const products = useMemo(() => collection?.products ?? [], [collection])
   const heroImage = products[0]?.image ?? ""

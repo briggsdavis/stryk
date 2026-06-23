@@ -77,7 +77,7 @@ export function PublicMarketing() {
     <>
       {announcement && (
         <div
-          className="fixed top-0 right-0 left-0 z-[700] flex min-h-11 items-center justify-center gap-4 px-5 py-3 text-center text-sm"
+          className="fixed top-0 right-0 left-0 z-[1100] flex min-h-11 items-center justify-center gap-4 px-5 py-3 text-center text-sm"
           style={{ backgroundColor: announcement.backgroundColor, color: announcement.textColor }}
         >
           <span>{announcement.text}</span>
@@ -186,10 +186,10 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
         isModal ? "p-10 md:p-16" : "p-7",
       )}
     >
-      {popup.heading && <h2 className={clsx("mb-4", isModal ? "text-48" : "text-2xl")}>{popup.heading}</h2>}
-      {popup.text && (
-        <p className="mb-7 max-w-xs text-sm leading-6 text-dark/65">{popup.text}</p>
+      {popup.heading && (
+        <h2 className={clsx("mb-4", isModal ? "text-48" : "text-2xl")}>{popup.heading}</h2>
       )}
+      {popup.text && <p className="mb-7 max-w-xs text-sm leading-6 text-dark/65">{popup.text}</p>}
       {popup.emailCaptureEnabled && (
         <form
           onSubmit={(event) => void submitEmail(event)}
@@ -274,13 +274,7 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
   )
 }
 
-function Carousel({
-  media,
-  className,
-}: {
-  media: PublicPopup["media"]
-  className?: string
-}) {
+function Carousel({ media, className }: { media: PublicPopup["media"]; className?: string }) {
   const [index, setIndex] = useState(0)
 
   useEffect(() => {
