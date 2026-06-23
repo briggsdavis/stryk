@@ -170,16 +170,13 @@ export function FocusWrapper({
       return
     }
 
-    // Distance from the image frame's centre to the panel edge (= divider).
-    // Frame is centred in the panel, so:  dist = (panelWidth + frameWidth) / 2
-    // This places the incoming image's leading edge exactly at the divider,
-    // and the outgoing image's trailing edge exactly at the panel's far side.
+    // Slide the images as a tight, edge-to-edge filmstrip: the incoming image's
+    // leading edge sits flush against the outgoing image's trailing edge, so the
+    // new image swipes in from the right with no background ever showing through
+    // the gap. That means the slide distance is exactly one frame width (the
+    // overlay clips the overflow to the frame).
     const frameEl = document.getElementById("focus-image-frame")
-    const panelEl = panelRef.current
-    const dist =
-      frameEl && panelEl
-        ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
-        : (panelRef.current?.offsetWidth ?? 900)
+    const dist = frameEl ? frameEl.offsetWidth : (panelRef.current?.offsetWidth ?? 900)
 
     // Advance the active dot at the start of the slide so the indicator
     // tracks the image in sync, rather than jumping after the tween ends.
@@ -350,8 +347,7 @@ export function FocusWrapper({
     })
 
     const frameEl = document.getElementById("focus-image-frame")
-    const panelEl = panelRef.current
-    const dist = frameEl && panelEl ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2 : 900
+    const dist = frameEl ? frameEl.offsetWidth : (panelRef.current?.offsetWidth ?? 900)
 
     // Lay all images 0..idx out as a filmstrip (same spacing as normal navigation)
     // then animate the whole strip right so image 0 lands at x=0
@@ -570,6 +566,9 @@ export function FocusWrapper({
                 opacity: galleryActive ? 1 : 0,
                 transition: "opacity 0.35s ease",
                 pointerEvents: "none",
+                // Clip the sliding images to the frame so a swipe stays within the
+                // image rectangle - no image spills over the panel background.
+                overflow: "hidden",
               }}
             >
               {galleryImages.map((src, i) => (
