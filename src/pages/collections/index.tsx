@@ -1,4 +1,3 @@
-import { clsx } from "clsx"
 import { useEffect, useRef } from "react"
 import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
@@ -54,19 +53,19 @@ export function CollectionsPage() {
         </p>
       </section>
 
-      {/* ── Collection cards — two columns, gently staggered ── */}
+      {/* ── Collection cards — even two-column grid ── */}
       <section
         ref={gridRef}
         className="grid grid-cols-1 gap-x-10 gap-y-14 px-6 pb-28 md:grid-cols-2 md:px-10"
       >
-        {COLLECTIONS.map((c, i) => (
+        {COLLECTIONS.map((c) => (
           <button
             key={c.slug}
             data-collection-card
             type="button"
             onClick={() => transitionNavigate(`/collection/${c.slug}`)}
             aria-label={`View the ${c.name} collection`}
-            className={clsx("group block text-left", i % 2 === 1 && "md:mt-24")}
+            className="group block text-left"
           >
             <div className="relative aspect-square w-full overflow-hidden">
               <img
