@@ -37,10 +37,8 @@ function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items))
 }
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-
 // Derive the available filter options straight from the product set so the UI
-// always reflects the real data.
+// always reflects the real data. Option labels are rendered lowercase.
 export function buildFilterGroups(products: Product[]): FilterGroup[] {
   const colors = unique(products.map((p) => p.colorName))
   const categories = unique(products.map((p) => p.category))
@@ -52,17 +50,20 @@ export function buildFilterGroups(products: Product[]): FilterGroup[] {
     {
       key: "color",
       label: "color",
-      options: colors.map((c) => ({ value: c, label: c, swatch: COLOR_SWATCHES[c] })),
+      options: colors.map((c) => ({ value: c, label: c.toLowerCase(), swatch: COLOR_SWATCHES[c] })),
     },
     {
       key: "category",
       label: "category",
-      options: categories.map((c) => ({ value: c, label: capitalize(c) })),
+      options: categories.map((c) => ({ value: c, label: c.toLowerCase() })),
     },
     {
       key: "collection",
       label: "collection",
-      options: Array.from(collectionMap, ([value, label]) => ({ value, label })),
+      options: Array.from(collectionMap, ([value, label]) => ({
+        value,
+        label: label.toLowerCase(),
+      })),
     },
   ]
 }

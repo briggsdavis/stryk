@@ -2,9 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Draggable, gsap } from "../lib/gsap"
 import type { ZoomLevel } from "../lib/types"
 
+// Each level keeps scale × factor ≈ 1 so the scaled wrapper still fills the
+// viewport while exposing `factor`× more of the canvas. Level 0 is a deep
+// zoom-out for browsing large collections (~2.5× more reach than level 1).
 const ZOOM_CONFIGS: Record<ZoomLevel, { scale: number; wFactor: number; hFactor: number }> = {
   2: { scale: 1.0, wFactor: 1, hFactor: 1 },
   1: { scale: 0.6, wFactor: 1.67, hFactor: 1.67 },
+  0: { scale: 0.24, wFactor: 4.17, hFactor: 4.17 },
 }
 
 export function useXpCanvas(active: boolean) {
@@ -22,20 +26,34 @@ export function useXpCanvas(active: boolean) {
   const xSet = useRef<((v: number) => void) | null>(null)
   const ySet = useRef<((v: number) => void) | null>(null)
 
+  // Pan bounds for a given wrapper/content size. `lockCenter` is used at the
+  // deepest zoom-out: there the wrapper layout is far larger than the artwork, so
+  // instead of the standard edge bounds we pin each axis to its centred position
+  // — keeping the cluster centred in the void rather than shoved to a corner.
+  const boundsFor = (ww: number, wh: number, cw: number, ch: number, lockCenter: boolean) => {
+    const axis = (wd: number, cd: number): [number, number] => {
+      if (lockCenter && cd < wd) {
+        const c = (wd - cd) / 2
+        return [c, c]
+      }
+      return [Math.min(0, wd - cd - 80), 80]
+    }
+    const [minX, maxX] = axis(ww, cw)
+    const [minY, maxY] = axis(wh, ch)
+    return { minX, maxX, minY, maxY }
+  }
+
   const getBounds = useCallback(() => {
     const wrapper = wrapperRef.current
     const collection = collectionRef.current
     if (!wrapper || !collection) return { minX: 0, maxX: 0, minY: 0, maxY: 0 }
-    const ww = wrapper.offsetWidth
-    const wh = wrapper.offsetHeight
-    const cw = collection.scrollWidth
-    const ch = collection.scrollHeight
-    return {
-      minX: Math.min(0, ww - cw - 80),
-      maxX: 80,
-      minY: Math.min(0, wh - ch - 80),
-      maxY: 80,
-    }
+    return boundsFor(
+      wrapper.offsetWidth,
+      wrapper.offsetHeight,
+      collection.scrollWidth,
+      collection.scrollHeight,
+      zoomRef.current === 0,
+    )
   }, [])
 
   const clamp = useCallback(
@@ -117,8 +135,21 @@ export function useXpCanvas(active: boolean) {
       //   new_x = old_x + (newWFactor - oldWFactor) * vw/2
       const vw = window.innerWidth
       const vh = window.innerHeight
-      const newX = positionRef.current.x + ((cfg.wFactor - prevCfg.wFactor) * vw) / 2
-      const newY = positionRef.current.y + ((cfg.hFactor - prevCfg.hFactor) * vh) / 2
+      const newXraw = positionRef.current.x + ((cfg.wFactor - prevCfg.wFactor) * vw) / 2
+      const newYraw = positionRef.current.y + ((cfg.hFactor - prevCfg.hFactor) * vh) / 2
+
+      // Clamp to the new level's bounds, computed against the *target* wrapper
+      // size (it hasn't resized yet). At the deepest level this recentres the
+      // cluster instead of leaving it pushed to one side.
+      const tb = boundsFor(
+        cfg.wFactor * vw,
+        cfg.hFactor * vh,
+        collection.scrollWidth,
+        collection.scrollHeight,
+        level === 0,
+      )
+      const newX = Math.max(tb.minX, Math.min(tb.maxX, newXraw))
+      const newY = Math.max(tb.minY, Math.min(tb.maxY, newYraw))
 
       positionRef.current = { x: newX, y: newY }
       targetRef.current = { x: newX, y: newY }
@@ -182,7 +213,7 @@ export function useXpCanvas(active: boolean) {
   }, [applyZoom])
 
   const zoomOut = useCallback(() => {
-    if (zoomRef.current <= 1) return
+    if (zoomRef.current <= 0) return
     const prev = zoomRef.current as ZoomLevel
     const next = (prev - 1) as ZoomLevel
     zoomRef.current = next

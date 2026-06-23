@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useNavigate, useParams } from "react-router"
+import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { Footer } from "../../components/ui/footer"
+import { HoverLabel } from "../../components/ui/hover-label"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
+import { useProductFocus } from "../../hooks/use-product-focus"
 import { getCollection } from "../../lib/demo-data"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
+import { useTransitionNavigate } from "../../lib/transition"
 
 function ExpandIcon() {
   return (
@@ -52,9 +56,13 @@ const SPOTS: {
 export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const transitionNavigate = useTransitionNavigate()
   const collection = useMemo(() => (slug ? getCollection(slug) : null), [slug])
+  const { focusedProduct, beginFocus, handleClose } = useProductFocus()
 
-  useLenis(!!collection)
+  // Pause smooth-scroll while a product is focused so wheel input drives the
+  // focus gallery (advancing between a product's images) instead of the page.
+  useLenis(!!collection && !focusedProduct)
 
   const pinRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -65,7 +73,6 @@ export function CollectionPage() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef<HTMLElement>(null)
-  const [lightbox, setLightbox] = useState<string | null>(null)
 
   const products = useMemo(() => collection?.products ?? [], [collection])
   const heroImage = products[0]?.image ?? ""
@@ -224,16 +231,6 @@ export function CollectionPage() {
     }
   }, [collection])
 
-  // Escape closes the lightbox.
-  useEffect(() => {
-    if (!lightbox) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightbox(null)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [lightbox])
-
   if (!collection) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-6 bg-canvas text-dark">
@@ -272,14 +269,14 @@ export function CollectionPage() {
                 <Spec label="Products" value={String(products.length)} />
                 <Spec label="Materials" value={collection.materials} />
                 <Spec label="Color palette" value={collection.palette} />
+                {products[1] && (
+                  <img
+                    src={products[1].image}
+                    alt=""
+                    className="mt-6 aspect-[16/9] w-full object-cover shadow-xl shadow-dark/10"
+                  />
+                )}
               </div>
-              {products[1] && (
-                <img
-                  src={products[1].image}
-                  alt=""
-                  className="absolute top-1/2 right-8 hidden aspect-square w-48 -translate-y-1/2 object-cover shadow-xl shadow-dark/10 md:right-16 md:block lg:w-64"
-                />
-              )}
             </div>
           </div>
 
@@ -310,7 +307,10 @@ export function CollectionPage() {
 
           {/* Panel 3 — featured products, laid out horizontally */}
           <div className="flex h-screen w-screen shrink-0 items-center px-8 md:px-16">
-            <div ref={gridRef} className="mx-auto grid w-full max-w-5xl grid-cols-3 items-start gap-x-8 gap-y-5">
+            <div
+              ref={gridRef}
+              className="mx-auto grid w-full max-w-6xl grid-cols-4 items-start gap-x-6 gap-y-6"
+            >
               <div className="flex items-start pt-10">
                 <h2
                   ref={headingRef}
@@ -323,15 +323,20 @@ export function CollectionPage() {
                 <div key={product.id} data-product-card className="flex flex-col">
                   <button
                     type="button"
-                    onClick={() => setLightbox(product.image)}
-                    aria-label={`Expand ${product.name}`}
+                    onClick={(e) => {
+                      const img = e.currentTarget.querySelector("img")
+                      // Slide the pinned section aside (it's the fixed element, so
+                      // it can be translated directly) as the image morphs in.
+                      if (img) beginFocus(product, img, pinRef.current)
+                    }}
+                    aria-label={`Open ${product.name}`}
                     className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
                   >
                     <span className="absolute inset-0 flex items-center justify-center p-[14%]">
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
                       />
                     </span>
                     <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
@@ -374,6 +379,14 @@ export function CollectionPage() {
         <div data-closing-text className="relative z-10 max-w-2xl text-center">
           <h2 className="text-128 leading-[0.95] text-dark">{collection.name}</h2>
           <p className="mx-auto mt-5 max-w-md text-base text-dark/60">{collection.tagline}</p>
+          <button
+            type="button"
+            onClick={() => transitionNavigate("/collections")}
+            className="group mt-8 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium text-dark transition-colors hover:border-dark/40"
+          >
+            <HoverLabel>Explore collections</HoverLabel>
+            <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+          </button>
         </div>
       </section>
 
@@ -382,21 +395,10 @@ export function CollectionPage() {
 
       <Footer />
 
-      {/* ── Lightbox ───────────────────────────────────────────────────── */}
-      {lightbox && (
-        <button
-          type="button"
-          onClick={() => setLightbox(null)}
-          aria-label="Close image"
-          className="lightbox-backdrop fixed inset-0 z-[2000] flex items-center justify-center bg-dark/85 p-8 backdrop-blur-sm"
-        >
-          <img
-            src={lightbox}
-            alt=""
-            className="lightbox-image max-h-[85vh] max-w-[85vw] rounded-sm object-contain shadow-2xl"
-          />
-        </button>
-      )}
+      {/* Featured products open into the focus panel with the same slide + morph
+          as home: the pinned section slides aside, revealing the page background,
+          so the panel stays transparent. */}
+      <FocusWrapper product={focusedProduct} allProducts={products} onClose={handleClose} />
     </div>
   )
 }

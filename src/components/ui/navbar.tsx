@@ -1,12 +1,13 @@
 import { clsx } from "clsx"
 import { useQuery } from "convex/react"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
-import { useTransitionNavigate } from "../../lib/transition"
+import { useTransitionBack, useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
+import { CartPanel } from "./cart-panel"
 import { ExpandingControl } from "./expanding-control"
 import { FilterPills } from "./filter-pills"
 import { HoverLabel } from "./hover-label"
@@ -26,34 +27,67 @@ interface NavbarProps {
 }
 
 const LINKS = [
-  { label: "Collections", to: "/" },
-  { label: "About", to: "/about" },
-  { label: "Contact", to: "/contact" },
+  { label: "artworks", to: "/" },
+  { label: "collections", to: "/collections" },
+  { label: "about", to: "/about" },
+  { label: "contact", to: "/contact" },
 ]
 
-// Even 3×3 grid of dots - represents the grid view.
-const GRID_DOTS = [5, 12, 19].flatMap((y) => [5, 12, 19].map((x) => [x, y] as const))
-// Loose, organic scatter - represents the infinite-canvas experience view.
-const SCATTER_DOTS = [
-  [6, 5],
-  [13, 4],
-  [19, 8],
-  [9, 12],
-  [16, 13],
-  [7, 18],
-  [14, 19],
-] as const
+// Two icons that morph into one another. The grid view is an even 3×3 grid of 9
+// dots; the canvas view is a 7-dot circle of three columns (2 · 3 · 2). Each row
+// pairs a grid position with its circle position; the grid's two side-middle dots
+// have no circle counterpart, so they fade out (opacity 0) when morphing to the
+// circle (and fade back in toward the grid). Columns: x 5/6, 12, 18/19.
+type DotMorph = readonly [
+  gridX: number,
+  gridY: number,
+  circX: number,
+  circY: number,
+  circVisible: 0 | 1,
+]
+const DOTS: readonly DotMorph[] = [
+  [5, 5, 6, 8, 1], // top-left → circle left-top
+  [12, 5, 12, 4, 1], // top-center → circle center-top
+  [19, 5, 18, 8, 1], // top-right → circle right-top
+  [5, 12, 6, 12, 0], // mid-left → fades out
+  [12, 12, 12, 12, 1], // center → circle center-mid
+  [19, 12, 18, 12, 0], // mid-right → fades out
+  [5, 19, 6, 16, 1], // bottom-left → circle left-bottom
+  [12, 19, 12, 20, 1], // bottom-center → circle center-bottom
+  [19, 19, 18, 16, 1], // bottom-right → circle right-bottom
+]
 
-function DotIcon({ dots }: { dots: ReadonlyArray<readonly [number, number]> }) {
+// Shows the destination view's icon at rest and morphs to the other on hover, so
+// hovering previews the switch. `toGrid` = the destination is the grid view.
+function MorphDotIcon({ toGrid }: { toGrid: boolean }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px] transition-transform duration-700 ease-out group-hover:rotate-90"
-      aria-hidden="true"
-    >
-      {dots.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="1.7" fill="currentColor" />
-      ))}
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+      {DOTS.map(([gx, gy, cx, cy, circVisible], i) => {
+        const restX = toGrid ? gx : cx
+        const restY = toGrid ? gy : cy
+        const restO = toGrid ? 1 : circVisible
+        const hoverX = toGrid ? cx : gx
+        const hoverY = toGrid ? cy : gy
+        const hoverO = toGrid ? circVisible : 1
+        return (
+          <circle
+            key={i}
+            cx={restX}
+            cy={restY}
+            r="1.7"
+            fill="currentColor"
+            className="opacity-[var(--o0)] transition-[transform,opacity] duration-500 [transition-timing-function:var(--ease-ui)] group-hover:[transform:translate(var(--dx),var(--dy))] group-hover:opacity-[var(--o)]"
+            style={
+              {
+                "--dx": `${hoverX - restX}px`,
+                "--dy": `${hoverY - restY}px`,
+                "--o0": `${restO}`,
+                "--o": `${hoverO}`,
+              } as CSSProperties
+            }
+          />
+        )
+      })}
     </svg>
   )
 }
@@ -85,6 +119,39 @@ function SlidersIcon() {
   )
 }
 
+// Cart icon: the cart rolls forward a touch on hover, wheels leading, so it
+// reads as a little nudge alongside the label's slide-swap.
+function CartIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px] transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[2px]"
+      aria-hidden="true"
+      fill="none"
+    >
+      <path
+        d="M2.5 3.5H5l1.8 9.2a1.2 1.2 0 0 0 1.18.95h7.3a1.2 1.2 0 0 0 1.17-.9l1.45-5.6H6.2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx="9"
+        cy="19"
+        r="1.5"
+        className="fill-current transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[1.5px]"
+      />
+      <circle
+        cx="16"
+        cy="19"
+        r="1.5"
+        className="fill-current transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[1.5px]"
+      />
+    </svg>
+  )
+}
+
 type Panel = "none" | "menu" | "filter"
 
 export function Navbar({
@@ -99,7 +166,12 @@ export function Navbar({
   onClearFilters,
 }: NavbarProps) {
   const transitionNavigate = useTransitionNavigate()
+  const transitionBack = useTransitionBack()
   const location = useLocation()
+  // The individual collection page (/collection/:slug) is the one nested route -
+  // not reachable from the menu - so it's the only page that needs a back button.
+  // ("/collections" is the menu-reachable index and intentionally doesn't match.)
+  const showBack = location.pathname.startsWith("/collection/")
   // When the announcement bar is live it occupies the top edge, so nudge the
   // logo and view toggle down to clear it (with a little breathing room).
   const announcement = useQuery(api.marketing.activeAnnouncement, {
@@ -107,6 +179,7 @@ export function Navbar({
   })
   const barActive = !!announcement
   const [panel, setPanel] = useState<Panel>("none")
+  const [cartOpen, setCartOpen] = useState(false)
   const menuOpen = panel === "menu"
   const topPillRef = useRef<HTMLButtonElement>(null)
   const togglerContentRef = useRef<HTMLSpanElement>(null)
@@ -161,9 +234,9 @@ export function Navbar({
 
   return (
     <>
-      {/* Top-left logo */}
+      {/* Top-left: logo */}
       <div
-        className="fixed top-6 left-6 z-[500] transition-[top] duration-300 md:left-10"
+        className="fixed top-6 left-6 z-[500] flex items-center gap-3 transition-[top] duration-300 md:left-10"
         style={barActive ? { top: "3.5rem" } : undefined}
       >
         <button
@@ -188,8 +261,8 @@ export function Navbar({
             className={CAPSULE}
           >
             <span ref={togglerContentRef} className="flex items-center gap-2.5">
-              <DotIcon dots={viewMode === "xp" ? GRID_DOTS : SCATTER_DOTS} />
-              <HoverLabel>{viewMode === "xp" ? "grid view" : "canvas view"}</HoverLabel>
+              <MorphDotIcon toGrid={viewMode === "xp"} />
+              <HoverLabel>{viewMode === "xp" ? "Grid View" : "Canvas View"}</HoverLabel>
             </span>
           </button>
         </div>
@@ -202,12 +275,35 @@ export function Navbar({
           hideForFocus && "pointer-events-none opacity-0",
         )}
       >
+        {/* Back - on nested pages (the individual collection page), sits in line
+            with the menu/cart controls. Styled to match them. */}
+        {showBack && (
+          <button
+            onClick={transitionBack}
+            aria-label="Go back"
+            className="group flex h-[42px] shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border border-dark/15 bg-canvas px-4 text-sm font-medium whitespace-nowrap text-dark transition-[background-color,border-color,color] duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+          >
+            <span className="flex shrink-0 items-center transition-transform duration-300 group-hover:-translate-x-0.5">
+              <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+                <path
+                  d="M10 3l-5 5 5 5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <HoverLabel>Back</HoverLabel>
+          </button>
+        )}
+
         {/* Menu - links slide out to the right as the trigger glides aside */}
         <ExpandingControl
           open={menuOpen}
           onToggle={() => setPanel((p) => (p === "menu" ? "none" : "menu"))}
           icon={<HamburgerIcon />}
-          label="menu"
+          label="Menu"
           ariaLabel={menuOpen ? "Close menu" : "Open menu"}
         >
           {LINKS.map(({ label, to }) => {
@@ -231,7 +327,7 @@ export function Navbar({
             open={panel === "filter"}
             onToggle={() => setPanel((p) => (p === "filter" ? "none" : "filter"))}
             icon={<SlidersIcon />}
-            label="filter"
+            label="Filter"
             ariaLabel={panel === "filter" ? "Close filters" : "Open filters"}
             dimmed={menuOpen}
           >
@@ -244,7 +340,25 @@ export function Navbar({
             />
           </ExpandingControl>
         )}
+
+        {/* Cart - opens the slide-in drawer. Styled to match the closed
+            menu/filter triggers so the three read as one bar. */}
+        <button
+          onClick={() => {
+            setPanel("none")
+            setCartOpen(true)
+          }}
+          aria-label="Open cart"
+          className="group flex h-[42px] shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border border-dark/15 bg-canvas px-4 text-sm font-medium whitespace-nowrap text-dark transition-[background-color,border-color,color] duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+        >
+          <span className="flex shrink-0 items-center">
+            <CartIcon />
+          </span>
+          <HoverLabel>Cart</HoverLabel>
+        </button>
       </div>
+
+      <CartPanel open={cartOpen} onClose={() => setCartOpen(false)} />
     </>
   )
 }

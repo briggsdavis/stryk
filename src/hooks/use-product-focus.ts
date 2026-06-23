@@ -1,0 +1,154 @@
+import { useCallback, useRef, useState } from "react"
+import { gsap } from "../lib/gsap"
+import { emitPopupAction } from "../lib/marketing"
+import type { Product } from "../lib/types"
+
+// How far the underlying view (canvas/grid) slides aside so the focus panel can
+// take its place.
+const CANVAS_SHIFT = "60vw"
+
+// Shared "open a product into the focus panel" morph. The clicked element flies
+// from its on-screen spot into #focus-image-slot (rendered by <FocusWrapper />),
+// leaving a placeholder behind so the source layout doesn't reflow; closing
+// reverses it. Optionally slides a background element aside during the morph.
+export function useProductFocus() {
+  const [focusedProduct, setFocusedProduct] = useState<Product | null>(null)
+  const focusedElRef = useRef<HTMLElement | null>(null)
+  const placeholderRef = useRef<HTMLElement | null>(null)
+  const originalSizeRef = useRef<{ w: string; h: string }>({ w: "", h: "" })
+  const isFocusedRef = useRef(false)
+  const shiftElRef = useRef<HTMLElement | null>(null)
+
+  const beginFocus = useCallback(
+    (product: Product, el: HTMLElement, shiftEl?: HTMLElement | null) => {
+      if (isFocusedRef.current) return
+      emitPopupAction("product")
+      isFocusedRef.current = true
+      shiftElRef.current = shiftEl ?? null
+
+      const slot = document.getElementById("focus-image-slot")
+      if (!slot) {
+        isFocusedRef.current = false
+        return
+      }
+
+      focusedElRef.current = el
+      originalSizeRef.current = { w: el.style.width, h: el.style.height }
+
+      const fromRect = el.getBoundingClientRect()
+
+      const placeholder = document.createElement("div")
+      placeholder.style.width = `${el.offsetWidth}px`
+      placeholder.style.height = `${el.offsetHeight}px`
+      placeholder.style.flexShrink = "0"
+      placeholderRef.current = placeholder
+      el.parentElement?.replaceChild(placeholder, el)
+
+      const aspect = fromRect.width / fromRect.height
+      const frame = document.getElementById("focus-image-frame")
+      if (frame) {
+        // Reserve a band at the top for the collection title and one at the
+        // bottom for the info/options strip, then size + centre the image
+        // within what's left. <FocusWrapper /> re-measures the strip after it
+        // renders and fine-tunes from this estimate.
+        const isMd = window.innerWidth >= 768
+        const titleTop = isMd ? 96 : 64
+        const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
+        const topReserve = titleTop + titleFont + 22
+        const bottomReserve = 240
+
+        const maxW = Math.min(window.innerWidth * 0.36, 440)
+        const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
+        let tw = maxW
+        let th = tw / aspect
+        if (th > maxH) {
+          th = maxH
+          tw = th * aspect
+        }
+        frame.style.width = `${tw}px`
+        frame.style.height = `${th}px`
+        frame.style.top = `${topReserve}px`
+        frame.style.bottom = `${bottomReserve}px`
+      }
+
+      setFocusedProduct(product)
+      const toRect = slot.getBoundingClientRect()
+
+      document.body.appendChild(el)
+      gsap.killTweensOf(el)
+      gsap.set(el, { position: "fixed", margin: 0, zIndex: 9000, scale: 1 })
+
+      if (shiftElRef.current) {
+        gsap.to(shiftElRef.current, { x: CANVAS_SHIFT, duration: 1.1, ease: "expo.inOut" })
+      }
+
+      gsap.fromTo(
+        el,
+        { left: fromRect.left, top: fromRect.top, width: fromRect.width, height: fromRect.height },
+        {
+          left: toRect.left,
+          top: toRect.top,
+          width: toRect.width,
+          height: toRect.height,
+          duration: 1.1,
+          ease: "expo.inOut",
+          onComplete: () => {
+            slot.appendChild(el)
+            gsap.set(el, { clearProps: "position,top,left,zIndex,margin" })
+            el.style.width = ""
+            el.style.height = ""
+          },
+        },
+      )
+    },
+    [],
+  )
+
+  const handleClose = useCallback(() => {
+    const el = focusedElRef.current
+    const placeholder = placeholderRef.current
+    if (!el || !placeholder?.parentElement) {
+      isFocusedRef.current = false
+      setFocusedProduct(null)
+      return
+    }
+
+    const fromRect = el.getBoundingClientRect()
+
+    const shiftEl = shiftElRef.current
+    const shift = shiftEl ? window.innerWidth * 0.6 : 0
+    const pr = placeholder.getBoundingClientRect()
+    const toRect = { left: pr.left - shift, top: pr.top, width: pr.width, height: pr.height }
+
+    document.body.appendChild(el)
+    gsap.set(el, { position: "fixed", margin: 0, zIndex: 9000, scale: 1 })
+
+    if (shiftEl) gsap.to(shiftEl, { x: 0, duration: 1.1, ease: "expo.inOut" })
+
+    gsap.fromTo(
+      el,
+      { left: fromRect.left, top: fromRect.top, width: fromRect.width, height: fromRect.height },
+      {
+        left: toRect.left,
+        top: toRect.top,
+        width: toRect.width,
+        height: toRect.height,
+        duration: 1.1,
+        ease: "expo.inOut",
+        onComplete: () => {
+          placeholder.parentElement?.replaceChild(el, placeholder)
+          placeholderRef.current = null
+          gsap.set(el, { clearProps: "top,left,zIndex,margin" })
+          el.style.position = "relative"
+          el.style.width = originalSizeRef.current.w
+          el.style.height = originalSizeRef.current.h
+          focusedElRef.current = null
+          isFocusedRef.current = false
+          setFocusedProduct(null)
+        },
+      },
+    )
+  }, [])
+
+  return { focusedProduct, beginFocus, handleClose, isFocusedRef }
+}

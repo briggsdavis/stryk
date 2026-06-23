@@ -13,10 +13,10 @@ export function ZoomControls({ level, onZoomIn, onZoomOut }: ZoomControlsProps) 
       <div className="flex flex-row items-center gap-1">
         <button
           onClick={onZoomOut}
-          disabled={level <= 1}
+          disabled={level <= 0}
           className={clsx(
             "flex h-9 w-9 items-center justify-center rounded-lg border text-base font-light transition-all duration-300",
-            level <= 1
+            level <= 0
               ? "cursor-not-allowed border-dark/10 text-dark/20"
               : "border-dark/20 text-dark hover:border-dark hover:bg-dark hover:text-white",
           )}
@@ -39,7 +39,7 @@ export function ZoomControls({ level, onZoomIn, onZoomOut }: ZoomControlsProps) 
         </button>
       </div>
       <div className="flex flex-row items-center gap-1">
-        {([1, 2] as ZoomLevel[]).map((z) => (
+        {([0, 1, 2] as ZoomLevel[]).map((z) => (
           <div
             key={z}
             className={clsx(

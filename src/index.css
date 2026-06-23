@@ -21,7 +21,7 @@
 @theme {
   --font-sans: "Sweet Sans Pro", system-ui, sans-serif;
   --font-title: "Rotunda Variable", system-ui, sans-serif;
-  --font-button: "Noto Sans", system-ui, sans-serif;
+  --font-button: "Sweet Sans Pro", system-ui, sans-serif;
 
   --color-dark: #222222;
   --color-light: #f5f6ee;
@@ -96,7 +96,7 @@
     font-variation-settings: "wght" 800;
   }
 
-  /* All button text uses Noto Sans. */
+  /* All button text uses Sweet Sans Pro. */
   button,
   .btn-outline,
   .btn-filled {
@@ -276,6 +276,11 @@
     cursor: none;
     position: relative;
     will-change: transform;
+    /* Drop shadow behind each canvas product. Matches the grid/featured shadow
+       (which sits 20% stronger than the original grid value: 0.16 → 0.19). The
+       image is object-cover inside an overflow-hidden button, so a box-shadow on
+       the element renders the shadow that a filter drop-shadow would get clipped. */
+    box-shadow: 0 18px 28px rgb(0 0 0 / 0.19);
   }
   .xp-item img {
     width: 100%;
@@ -332,7 +337,8 @@
   .grid-card-slide img {
     @apply max-h-full max-w-full object-contain transition-transform duration-700;
     transition-timing-function: var(--ease-ui);
-    filter: drop-shadow(0 18px 28px rgb(0 0 0 / 0.16));
+    /* Bumped 20% over the original grid value (0.16 → 0.19) per design. */
+    filter: drop-shadow(0 18px 28px rgb(0 0 0 / 0.19));
   }
   .grid-card:hover .grid-card-slide img {
     transform: scale(1.03);

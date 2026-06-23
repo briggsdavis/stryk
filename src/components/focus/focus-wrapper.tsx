@@ -1,5 +1,8 @@
 import { clsx } from "clsx"
+import { useQuery } from "convex/react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useLocation } from "react-router"
+import { api } from "../../../convex/_generated/api"
 import { gsap } from "../../lib/gsap"
 import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
@@ -10,6 +13,10 @@ interface FocusWrapperProps {
   product: Product | null
   allProducts: Product[]
   onClose: () => void
+  // Give the panel an opaque background. Needed when it opens over page content
+  // that doesn't slide away (e.g. the collection page). On the home canvas the
+  // panel must stay transparent so the canvas slide-away morph shows through.
+  solidBackdrop?: boolean
 }
 
 // Print size + framing options. Price is a fixed amount per size, plus a flat
@@ -25,13 +32,21 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 const SIZE_PRICES: Record<SizeKey, number> = { "8x8": 45, "12x12": 75, "16x16": 120 }
 const FRAME_SURCHARGE = 40
 
-// Vertical space (px) reserved below the image for the collapsed bottom strip.
-// Must match the open-morph's bottomReserve in the home page. The "more details"
-// dropdown adds its own height on top of this when expanded.
-const COLLAPSED_RESERVE = 150
-
-export function FocusWrapper({ product, allProducts: _allProducts, onClose }: FocusWrapperProps) {
+export function FocusWrapper({
+  product,
+  allProducts: _allProducts,
+  onClose,
+  solidBackdrop = false,
+}: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
+  // The announcement bar (z-1100, root level) renders above the focus wrapper,
+  // so when it's live the lightbox close button must drop below it - aligned with
+  // the navbar logo/FAB, which the navbar shifts to 3.5rem under the same bar.
+  const location = useLocation()
+  const announcement = useQuery(api.marketing.activeAnnouncement, {
+    route: location.pathname === "/" ? "home" : "other",
+  })
+  const barActive = !!announcement
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
   const productNameRef = useRef<HTMLParagraphElement>(null)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
@@ -41,14 +56,11 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const dividerContainerRef = useRef<HTMLDivElement>(null)
   const galleryOverlayRef = useRef<HTMLDivElement>(null)
 
-  // Collapsible "more details" dropdown - collapsed by default. Expanding it
-  // grows the bottom strip and shrinks the image to make room.
-  const [detailsOpen, setDetailsOpen] = useState(false)
-  const detailsFirstRunRef = useRef(true)
-  const summaryRef = useRef<HTMLDivElement>(null)
-  const detailsRef = useRef<HTMLDivElement>(null)
+  // Product details (description + purchase options) shown below the image.
   const detailsInnerRef = useRef<HTMLDivElement>(null)
-  const moreDetailsRef = useRef<HTMLButtonElement>(null)
+  // The whole bottom info/options strip - measured so the image can be sized to
+  // always clear it.
+  const stripRef = useRef<HTMLDivElement>(null)
 
   // Gallery
   const imgRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -58,6 +70,10 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
   const lockedRef = useRef(false)
   const lastWheelTimeRef = useRef(0)
   const galleryActiveRef = useRef(false)
+  // Left/right drag (mouse or touch) to advance the gallery.
+  const pointerActiveRef = useRef(false)
+  const pointerStartXRef = useRef(0)
+  const draggedRef = useRef(false)
   const [galleryActive, setGalleryActive] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [hasScrolled, setHasScrolled] = useState(false)
@@ -111,8 +127,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       setWithFrame(null)
       expandedActiveRef.current = false
       setExpanded(false)
-      setDetailsOpen(false)
-      detailsFirstRunRef.current = true
       return
     }
 
@@ -125,8 +139,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     lastWheelTimeRef.current = 0
     setSelectedSize(null)
     setWithFrame(null)
-    setDetailsOpen(false)
-    detailsFirstRunRef.current = true
 
     imgRefs.current.forEach((el, i) => {
       if (el) gsap.set(el, { x: 0, display: i === 0 ? "block" : "none" })
@@ -158,16 +170,13 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       return
     }
 
-    // Distance from the image frame's centre to the panel edge (= divider).
-    // Frame is centred in the panel, so:  dist = (panelWidth + frameWidth) / 2
-    // This places the incoming image's leading edge exactly at the divider,
-    // and the outgoing image's trailing edge exactly at the panel's far side.
+    // Slide the images as a tight, edge-to-edge filmstrip: the incoming image's
+    // leading edge sits flush against the outgoing image's trailing edge, so the
+    // new image swipes in from the right with no background ever showing through
+    // the gap. That means the slide distance is exactly one frame width (the
+    // overlay clips the overflow to the frame).
     const frameEl = document.getElementById("focus-image-frame")
-    const panelEl = panelRef.current
-    const dist =
-      frameEl && panelEl
-        ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2
-        : (panelRef.current?.offsetWidth ?? 900)
+    const dist = frameEl ? frameEl.offsetWidth : (panelRef.current?.offsetWidth ?? 900)
 
     // Advance the active dot at the start of the slide so the indicator
     // tracks the image in sync, rather than jumping after the tween ends.
@@ -218,7 +227,10 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       if (now - lastWheelTimeRef.current > 180) accDeltaRef.current = 0
       lastWheelTimeRef.current = now
 
-      accDeltaRef.current += e.deltaY
+      // Accept either axis: vertical scroll or a horizontal/trackpad swipe. Use
+      // whichever delta dominates this event (down or right = next).
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+      accDeltaRef.current += delta
       if (Math.abs(accDeltaRef.current) >= 60) {
         navigate(accDeltaRef.current > 0 ? 1 : -1)
         accDeltaRef.current = 0
@@ -233,6 +245,32 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     panel.addEventListener("wheel", onWheel, { passive: false })
     return () => panel.removeEventListener("wheel", onWheel)
   }, [onWheel])
+
+  // ── Drag to navigate (mouse / touch) ──────────────────────────────────────
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!galleryActiveRef.current || expandedActiveRef.current) return
+    pointerActiveRef.current = true
+    pointerStartXRef.current = e.clientX
+    draggedRef.current = false
+  }, [])
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!pointerActiveRef.current) return
+    // Past a small threshold this is a drag, not a click - used to suppress the
+    // click-to-expand that would otherwise fire on release.
+    if (Math.abs(e.clientX - pointerStartXRef.current) > 8) draggedRef.current = true
+  }, [])
+
+  const onPointerEnd = useCallback(
+    (e: React.PointerEvent) => {
+      if (!pointerActiveRef.current) return
+      pointerActiveRef.current = false
+      const dx = e.clientX - pointerStartXRef.current
+      // Swipe left (content moves left) -> next; swipe right -> previous.
+      if (Math.abs(dx) >= 50) navigate(dx < 0 ? 1 : -1)
+    },
+    [navigate],
+  )
 
   // ── Panel entrance animation ──────────────────────────────────────────────
   useEffect(() => {
@@ -255,7 +293,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     const textEls = [
       collectionNameRef.current,
       productNameRef.current,
-      moreDetailsRef.current,
+      detailsInnerRef.current,
     ].filter(Boolean) as HTMLElement[]
 
     gsap.set(textEls, { opacity: 0, y: 14 })
@@ -263,7 +301,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     const tl = gsap.timeline({ delay: 0.6 })
     tl.to(collectionNameRef.current, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0)
     tl.to(productNameRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.15)
-    tl.to(moreDetailsRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.3)
+    tl.to(detailsInnerRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.3)
 
     return () => {
       tl.kill()
@@ -279,7 +317,6 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     const textEls = [
       collectionNameRef.current,
       productNameRef.current,
-      moreDetailsRef.current,
       detailsInnerRef.current,
       closeRef.current,
     ].filter(Boolean) as HTMLElement[]
@@ -310,8 +347,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     })
 
     const frameEl = document.getElementById("focus-image-frame")
-    const panelEl = panelRef.current
-    const dist = frameEl && panelEl ? (panelEl.offsetWidth + frameEl.offsetWidth) / 2 : 900
+    const dist = frameEl ? frameEl.offsetWidth : (panelRef.current?.offsetWidth ?? 900)
 
     // Lay all images 0..idx out as a filmstrip (same spacing as normal navigation)
     // then animate the whole strip right so image 0 lands at x=0
@@ -339,6 +375,11 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
   // ── Expanded (lightbox) view ──────────────────────────────────────────────
   const openExpanded = () => {
+    // A drag that ends on the image shouldn't also open the lightbox.
+    if (draggedRef.current) {
+      draggedRef.current = false
+      return
+    }
     if (!galleryActiveRef.current || expandedActiveRef.current) return
     const el = imgRefs.current[currentIdxRef.current]
     if (!el) return
@@ -434,19 +475,27 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     return () => window.removeEventListener("keydown", onKey)
   }, [expanded, closeExpanded])
 
-  // ── "More details" dropdown ────────────────────────────────────────────────
-  // Resize + re-centre the image frame for a given bottom reserve. The slot
-  // (and the morphing canvas image inside it) and the gallery overlay all sit at
-  // inset-0 of the frame, so they follow this resize - and the close-morph back
-  // to the canvas reads the frame's live rect, so it still lands correctly.
-  const sizeFrame = useCallback((bottomReserve: number) => {
+  // ── Keep the image clear of the bottom strip ──────────────────────────────
+  // The open-morph in the home page sizes the image from an estimated bottom
+  // reserve. Once the panel has rendered its real info/options strip we measure
+  // it and resize the image so there is always a clean gap above the strip -
+  // for any artwork aspect ratio, strip content, or viewport size.
+  const fitImageToStrip = useCallback(() => {
     const frame = document.getElementById("focus-image-frame")
-    if (!frame) return
+    const strip = stripRef.current
+    if (!frame || !strip) return
+
     const aspect = frame.offsetWidth / frame.offsetHeight
     const isMd = window.innerWidth >= 768
     const titleTop = isMd ? 96 : 64
     const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
-    const topReserve = titleTop + titleFont + 28
+    const topReserve = titleTop + titleFont + 22
+
+    // The strip is anchored at bottom-8 (32px); keep a gap above it.
+    const STRIP_OFFSET = 32
+    const GAP = 28
+    const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
+
     const maxW = Math.min(window.innerWidth * 0.36, 440)
     const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 160)
     let tw = maxW
@@ -460,59 +509,38 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
       height: th,
       top: topReserve,
       bottom: bottomReserve,
-      duration: 0.55,
+      duration: 0.4,
       ease: "expo.inOut",
     })
   }, [])
 
   useEffect(() => {
     if (!isOpen) return
-    const details = detailsRef.current
-    const inner = detailsInnerRef.current
-    if (!details || !inner) return
-
-    // Skip the collapsed mount - the open-morph already sized the frame.
-    if (detailsFirstRunRef.current) {
-      detailsFirstRunRef.current = false
-      return
+    // Run after the open-morph has settled the image into the slot, so resizing
+    // the frame carries the image with it rather than fighting the morph.
+    const t = window.setTimeout(fitImageToStrip, 1200)
+    window.addEventListener("resize", fitImageToStrip)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("resize", fitImageToStrip)
     }
-
-    if (detailsOpen) {
-      // `inner` is never height-constrained, so its offsetHeight is the natural
-      // target even while `details` is collapsed to 0.
-      const target = inner.offsetHeight
-      gsap.fromTo(
-        details,
-        { height: 0 },
-        {
-          height: target,
-          duration: 0.5,
-          ease: "expo.out",
-          onComplete: () => gsap.set(details, { height: "auto" }),
-        },
-      )
-      gsap.fromTo(
-        inner,
-        { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, duration: 0.5, delay: 0.1, ease: "power3.out" },
-      )
-      sizeFrame(COLLAPSED_RESERVE + target)
-    } else {
-      gsap.to(details, { height: 0, duration: 0.45, ease: "expo.inOut" })
-      gsap.to(inner, { opacity: 0, y: 8, duration: 0.25, ease: "power2.in" })
-      sizeFrame(COLLAPSED_RESERVE)
-    }
-  }, [detailsOpen, isOpen, sizeFrame])
+  }, [isOpen, product?.id, fitImageToStrip])
 
   const expandedSrc = galleryImages[currentIdx] ?? product?.image ?? ""
   const expandFrom = expandFromRectRef.current
 
   return (
     <div className={clsx("focus-wrapper", isOpen && "active")}>
-      {/* Left panel - 60vw */}
+      {/* Left panel - 60vw. Transparent by default so the home canvas slide-away
+          morph shows through; opaque only when opening over static page content. */}
       <div
         ref={panelRef}
-        className="absolute inset-y-0 left-0 overflow-hidden"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onPointerLeave={onPointerEnd}
+        className={clsx("absolute inset-y-0 left-0 overflow-hidden", solidBackdrop && "bg-canvas")}
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
         {/* Collection name - top left */}
@@ -538,6 +566,9 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
                 opacity: galleryActive ? 1 : 0,
                 transition: "opacity 0.35s ease",
                 pointerEvents: "none",
+                // Clip the sliding images to the frame so a swipe stays within the
+                // image rectangle - no image spills over the panel background.
+                overflow: "hidden",
               }}
             >
               {galleryImages.map((src, i) => (
@@ -586,183 +617,161 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
           )}
         </div>
 
-        {/* Bottom strip - collapsed summary + expandable "more details" */}
-        <div className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
-          {/* Summary row - gallery indicator + title, with the details toggle */}
-          <div ref={summaryRef} className="flex items-end justify-between gap-4">
-            <div className="min-w-0">
-              <div
-                className="mb-3 flex items-center gap-3"
-                style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
-              >
-                <div className="flex items-center gap-1.5">
-                  {galleryImages.map((_, i) => (
-                    <div
-                      key={i}
-                      className={clsx(
-                        "rounded-full bg-dark transition-all duration-700 ease-out",
-                        i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
-                      )}
-                    />
-                  ))}
-                </div>
-                <span
-                  className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
-                  style={{ opacity: hasScrolled ? 0 : 1 }}
-                >
-                  Scroll to explore
-                  <svg
-                    viewBox="0 0 16 8"
-                    fill="none"
-                    className="scroll-hint-arrow h-2 w-4 text-dark/60"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M1 4h13M11 1l3 3-3 3"
-                      stroke="currentColor"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
+        {/* Bottom strip - gallery indicator + title + details */}
+        <div ref={stripRef} className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
+          {/* Gallery indicator + title */}
+          <div className="min-w-0">
+            <div
+              className="mb-3 flex items-center gap-3"
+              style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
+            >
+              <div className="flex items-center gap-1.5">
+                {galleryImages.map((_, i) => (
+                  <div
+                    key={i}
+                    className={clsx(
+                      "rounded-full bg-dark transition-all duration-700 ease-out",
+                      i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
+                    )}
+                  />
+                ))}
               </div>
-              <p
-                ref={productNameRef}
-                className="text-sm font-medium text-dark"
-                style={{ opacity: 0 }}
+              <span
+                className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
+                style={{ opacity: hasScrolled ? 0 : 1 }}
               >
-                {product?.name}
-              </p>
+                Scroll to explore
+                <svg
+                  viewBox="0 0 16 8"
+                  fill="none"
+                  className="scroll-hint-arrow h-2 w-4 text-dark/60"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M1 4h13M11 1l3 3-3 3"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
             </div>
-
-            {/* More-details toggle */}
-            <button
-              ref={moreDetailsRef}
-              type="button"
-              onClick={() => setDetailsOpen((o) => !o)}
-              aria-expanded={detailsOpen}
-              className="group flex flex-shrink-0 items-center gap-1.5 text-sm font-medium text-dark"
+            <p
+              ref={productNameRef}
+              className="text-sm font-medium text-dark"
               style={{ opacity: 0 }}
             >
-              <HoverLabel>{detailsOpen ? "less details" : "more details"}</HoverLabel>
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                className={clsx(
-                  "h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-y-0.5",
-                  detailsOpen && "rotate-180 group-hover:-translate-y-0.5",
-                )}
-                aria-hidden="true"
-              >
-                <path
-                  d="M4 6l4 4 4-4"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+              {product?.name}
+            </p>
           </div>
 
-          {/* Expandable details - description, options, explore collection */}
-          <div ref={detailsRef} style={{ height: 0, overflow: "hidden" }}>
-            <div ref={detailsInnerRef} className="flex items-end justify-between gap-6 pt-5">
-              {/* Left: description + explore collection */}
-              <div className="min-w-0">
-                <p
-                  ref={descriptionRef}
-                  className="text-xs leading-relaxed text-dark/55"
-                  style={{ maxWidth: "34ch" }}
-                >
-                  {product?.description}
-                </p>
+          {/* Details - description, options, explore collection */}
+          <div ref={detailsInnerRef} className="flex items-end justify-between gap-6 pt-5">
+            {/* Left: description + explore collection */}
+            <div className="min-w-0">
+              <p
+                ref={descriptionRef}
+                className="text-xs leading-relaxed text-dark/55"
+                style={{ maxWidth: "44ch" }}
+              >
+                {product?.description}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!product) return
+                  emitPopupAction("collection")
+                  transitionNavigate(`/collection/${product.collectionSlug}`)
+                }}
+                className="group mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-3.5 py-2 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
+              >
+                <HoverLabel>Explore collection</HoverLabel>
+                <span className="transition-transform duration-300 group-hover:translate-x-1">
+                  →
+                </span>
+              </button>
+            </div>
+
+            {/* Right: size row → frame + cart row */}
+            <div ref={optionsRef} className="flex flex-shrink-0 flex-col items-start gap-1.5">
+              {/* Size */}
+              <div className="flex items-center gap-1">
+                {SIZE_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedSize(key)}
+                    aria-pressed={selectedSize === key}
+                    className={clsx(
+                      "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                      selectedSize === key
+                        ? "border-dark bg-dark text-white"
+                        : "border-dark/20 text-dark hover:border-dark/40",
+                    )}
+                  >
+                    <HoverLabel>{label}</HoverLabel>
+                  </button>
+                ))}
                 <button
-                  type="button"
-                  onClick={() => {
-                    if (!product) return
-                    emitPopupAction("collection")
-                    transitionNavigate(`/collection/${product.collectionSlug}`)
-                  }}
-                  className="group mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-3.5 py-2 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
+                  onClick={handleCustomSize}
+                  className="group rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
                 >
-                  <HoverLabel>Explore collection</HoverLabel>
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">
-                    →
-                  </span>
+                  <HoverLabel>Custom</HoverLabel>
                 </button>
               </div>
 
-              {/* Right: size row → frame + cart row */}
-              <div ref={optionsRef} className="flex flex-shrink-0 flex-col items-end gap-1.5">
-                {/* Size */}
-                <div className="flex items-center gap-1">
-                  {SIZE_OPTIONS.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setSelectedSize(key)}
-                      aria-pressed={selectedSize === key}
-                      className={clsx(
-                        "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
-                        selectedSize === key
-                          ? "border-dark bg-dark text-white"
-                          : "border-dark/20 text-dark hover:border-dark/40",
-                      )}
-                    >
-                      <HoverLabel>{label}</HoverLabel>
-                    </button>
-                  ))}
+              {/* Frame toggle + Add to Cart */}
+              <div className="flex items-center gap-1">
+                {(
+                  [
+                    { value: true, label: "Framed" },
+                    { value: false, label: "Unframed" },
+                  ] as const
+                ).map(({ value, label }) => (
                   <button
-                    onClick={handleCustomSize}
-                    className="group rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
-                  >
-                    <HoverLabel>Custom</HoverLabel>
-                  </button>
-                </div>
-
-                {/* Frame toggle + Add to Cart */}
-                <div className="flex items-center gap-1">
-                  {(
-                    [
-                      { value: true, label: "Framed" },
-                      { value: false, label: "Unframed" },
-                    ] as const
-                  ).map(({ value, label }) => (
-                    <button
-                      key={label}
-                      onClick={() => setWithFrame(value)}
-                      aria-pressed={withFrame === value}
-                      className={clsx(
-                        "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
-                        withFrame === value
-                          ? "border-dark bg-dark text-white"
-                          : "border-dark/20 text-dark hover:border-dark/40",
-                      )}
-                    >
-                      <HoverLabel>{label}</HoverLabel>
-                    </button>
-                  ))}
-                  <button
-                    disabled={!canAddToCart}
-                    onClick={(e) => e.preventDefault()}
+                    key={label}
+                    onClick={() => setWithFrame(value)}
+                    aria-pressed={withFrame === value}
                     className={clsx(
-                      "group ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
-                      canAddToCart
-                        ? "bg-dark text-white hover:opacity-70"
-                        : "cursor-not-allowed bg-dark/20 text-dark/40",
+                      "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                      withFrame === value
+                        ? "border-dark bg-dark text-white"
+                        : "border-dark/20 text-dark hover:border-dark/40",
                     )}
                   >
-                    <HoverLabel>
-                      {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
-                    </HoverLabel>
+                    <HoverLabel>{label}</HoverLabel>
                   </button>
-                </div>
+                ))}
+                <button
+                  disabled={!canAddToCart}
+                  onClick={(e) => e.preventDefault()}
+                  className={clsx(
+                    "group ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
+                    canAddToCart
+                      ? "bg-dark text-white hover:opacity-70"
+                      : "cursor-not-allowed bg-dark/20 text-dark/40",
+                  )}
+                >
+                  <HoverLabel>
+                    {canAddToCart ? `Add to Cart · $${price} →` : "Add to Cart →"}
+                  </HoverLabel>
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Click the exposed canvas to the right of the panel to close (same as ×) */}
+      {isOpen && (
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Back to canvas"
+          className="absolute inset-y-0 right-0 cursor-none"
+          style={{ left: "60vw" }}
+        />
+      )}
 
       {/* Divider line + × button */}
       {isOpen && (
@@ -812,7 +821,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
             onClick={closeExpanded}
             aria-label="Close expanded image"
             className="absolute top-6 right-6 z-[3] flex h-11 w-11 items-center justify-center rounded-none border border-dark/20 bg-white text-dark transition-all duration-300 hover:rounded-lg hover:bg-dark hover:text-white md:top-8 md:right-8"
-            style={{ opacity: 0 }}
+            style={barActive ? { opacity: 0, top: "3.5rem" } : { opacity: 0 }}
           >
             <svg viewBox="0 0 12 12" fill="none" className="h-3.5 w-3.5">
               <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" />

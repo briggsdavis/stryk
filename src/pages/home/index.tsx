@@ -1,5 +1,5 @@
 import { clsx } from "clsx"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { XpWrapper } from "../../components/canvas/xp-wrapper"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
@@ -7,6 +7,7 @@ import { GridCollection } from "../../components/grid/grid-collection"
 import { EmptyFilterState } from "../../components/ui/empty-filter-state"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
+import { useProductFocus } from "../../hooks/use-product-focus"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
 import { DEMO_PRODUCTS } from "../../lib/demo-data"
 import type { ActiveFilters, FilterKey } from "../../lib/filters"
@@ -21,7 +22,6 @@ import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { Product, ViewMode } from "../../lib/types"
 
-const CANVAS_SHIFT = "60vw"
 const PROXIMITY_RADIUS = 220
 const FILTER_GROUPS = buildFilterGroups(DEMO_PRODUCTS)
 
@@ -29,8 +29,13 @@ type WithVTA = Document & { startViewTransition: (cb: () => void) => { finished:
 
 export function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("xp")
-  const [focusedProduct, setFocusedProduct] = useState<Product | null>(null)
   const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
+  const {
+    focusedProduct,
+    beginFocus,
+    handleClose: handleCloseFocus,
+    isFocusedRef,
+  } = useProductFocus()
 
   const toggleFilter = useCallback((key: FilterKey, value: string) => {
     emitPopupAction("filter")
@@ -58,13 +63,8 @@ export function HomePage() {
 
   const xpItemRefs = useRef<Map<string, HTMLElement>>(new Map())
   const gridItemRefs = useRef<Map<string, HTMLElement>>(new Map())
-  const focusedElRef = useRef<HTMLElement | null>(null)
-  const placeholderRef = useRef<HTMLElement | null>(null)
-  const originalSizeRef = useRef<{ w: string; h: string }>({ w: "", h: "" })
   const viewTransitioningRef = useRef(false)
-  const isFocusedRef = useRef(false)
   const gridWrapperRef = useRef<HTMLDivElement>(null)
-  const focusSourceRef = useRef<"canvas" | "grid">("canvas")
 
   const {
     wrapperRef,
@@ -157,172 +157,24 @@ export function HomePage() {
       setViewMode((prev) => (prev === "xp" ? "grid" : "xp"))
       viewTransitioningRef.current = false
     }
-  }, [])
+  }, [isFocusedRef])
 
   // ── Item click ───────────────────────────────────────────────────────────
-  const beginFocus = useCallback(
-    (product: Product, el: HTMLElement, source: "canvas" | "grid") => {
-      if (isFocusedRef.current) return
-      emitPopupAction("product")
-      isFocusedRef.current = true
-      focusSourceRef.current = source
-
-      const slot = document.getElementById("focus-image-slot")
-      if (!slot) {
-        isFocusedRef.current = false
-        return
-      }
-
-      focusedElRef.current = el
-      originalSizeRef.current = { w: el.style.width, h: el.style.height }
-
-      const fromRect = el.getBoundingClientRect()
-
-      const placeholder = document.createElement("div")
-      placeholder.style.width = `${el.offsetWidth}px`
-      placeholder.style.height = `${el.offsetHeight}px`
-      placeholder.style.flexShrink = "0"
-      placeholderRef.current = placeholder
-      el.parentElement?.replaceChild(placeholder, el)
-
-      const aspect = fromRect.width / fromRect.height
-      const frame = document.getElementById("focus-image-frame")
-      if (frame) {
-        // Reserve a band at the top for the collection title and one at the
-        // bottom for the info/options strip, then size + centre the image
-        // within what's left. This is a universal guard: the image's top edge
-        // can never rise into the title (the "Tokyo O" overlap), regardless of
-        // artwork aspect ratio or viewport size.
-        //
-        // Title metrics mirror the <h2>: top-16/top-24 offset + clamp(3rem,
-        // 7vw, 6rem) font size, so the reserve scales with the viewport.
-        const isMd = window.innerWidth >= 768
-        const titleTop = isMd ? 96 : 64
-        const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
-        const topReserve = titleTop + titleFont + 28
-        // The focus panel opens with its details collapsed, so the bottom strip
-        // is just the gallery indicator + product title. The details dropdown
-        // grows this reserve (and shrinks the image) on demand from within the
-        // focus panel. Keep this in sync with COLLAPSED_RESERVE there.
-        const bottomReserve = 150
-
-        const maxW = Math.min(window.innerWidth * 0.36, 440)
-        const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
-        let tw = maxW
-        let th = tw / aspect
-        if (th > maxH) {
-          th = maxH
-          tw = th * aspect
-        }
-        frame.style.width = `${tw}px`
-        frame.style.height = `${th}px`
-        // Centre within the reserved band rather than the full panel height.
-        frame.style.top = `${topReserve}px`
-        frame.style.bottom = `${bottomReserve}px`
-      }
-
-      setFocusedProduct(product)
-      const toRect = slot.getBoundingClientRect()
-
-      document.body.appendChild(el)
-      gsap.killTweensOf(el)
-      gsap.set(el, { position: "fixed", margin: 0, zIndex: 9000, scale: 1 })
-
-      if (source === "canvas" && wrapperRef.current) {
-        gsap.to(wrapperRef.current, { x: CANVAS_SHIFT, duration: 1.1, ease: "expo.inOut" })
-      } else if (source === "grid" && gridWrapperRef.current) {
-        gsap.to(gridWrapperRef.current, { x: CANVAS_SHIFT, duration: 1.1, ease: "expo.inOut" })
-      }
-
-      gsap.fromTo(
-        el,
-        { left: fromRect.left, top: fromRect.top, width: fromRect.width, height: fromRect.height },
-        {
-          left: toRect.left,
-          top: toRect.top,
-          width: toRect.width,
-          height: toRect.height,
-          duration: 1.1,
-          ease: "expo.inOut",
-          onComplete: () => {
-            slot.appendChild(el)
-            gsap.set(el, { clearProps: "position,top,left,zIndex,margin" })
-            el.style.width = ""
-            el.style.height = ""
-          },
-        },
-      )
-    },
-    [wrapperRef],
-  )
-
+  // The clicked piece morphs into the focus panel; the canvas/grid slides aside.
   const handleXpItemClick = useCallback(
     (product: Product, el: HTMLElement) => {
       // Ignore clicks until the intro pop-in/zoom sequence has finished, so the
       // focus morph doesn't fire mid-animation with the canvas still in motion.
       if (!entranceComplete) return
-      beginFocus(product, el, "canvas")
+      beginFocus(product, el, wrapperRef.current)
     },
-    [beginFocus, entranceComplete],
+    [beginFocus, entranceComplete, wrapperRef],
   )
 
   const handleGridItemClick = useCallback(
-    (product: Product, el: HTMLElement) => beginFocus(product, el, "grid"),
+    (product: Product, el: HTMLElement) => beginFocus(product, el, gridWrapperRef.current),
     [beginFocus],
   )
-
-  // ── Close focus ──────────────────────────────────────────────────────────
-  const handleCloseFocus = useCallback(() => {
-    const el = focusedElRef.current
-    const placeholder = placeholderRef.current
-    if (!el || !placeholder?.parentElement) {
-      isFocusedRef.current = false
-      setFocusedProduct(null)
-      return
-    }
-
-    const fromRect = el.getBoundingClientRect()
-
-    const shift = window.innerWidth * 0.6
-    const pr = placeholder.getBoundingClientRect()
-    const toRect = { left: pr.left - shift, top: pr.top, width: pr.width, height: pr.height }
-
-    document.body.appendChild(el)
-    gsap.set(el, { position: "fixed", margin: 0, zIndex: 9000, scale: 1 })
-
-    if (focusSourceRef.current === "canvas" && wrapperRef.current) {
-      gsap.to(wrapperRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
-    } else if (focusSourceRef.current === "grid" && gridWrapperRef.current) {
-      gsap.to(gridWrapperRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
-    }
-
-    gsap.fromTo(
-      el,
-      { left: fromRect.left, top: fromRect.top, width: fromRect.width, height: fromRect.height },
-      {
-        left: toRect.left,
-        top: toRect.top,
-        width: toRect.width,
-        height: toRect.height,
-        duration: 1.1,
-        ease: "expo.inOut",
-        onComplete: () => {
-          placeholder.parentElement?.replaceChild(el, placeholder)
-          placeholderRef.current = null
-          gsap.set(el, { clearProps: "top,left,zIndex,margin" })
-          el.style.position = "relative"
-          el.style.width = originalSizeRef.current.w
-          el.style.height = originalSizeRef.current.h
-          focusedElRef.current = null
-          isFocusedRef.current = false
-          setFocusedProduct(null)
-        },
-      },
-    )
-  }, [wrapperRef])
-
-  // unused layout effect removed (was for Flip.from)
-  useLayoutEffect(() => {}, [])
 
   return (
     <div className="relative h-screen w-screen overflow-hidden" style={{ background: "#f0ede6" }}>

@@ -118,7 +118,15 @@ const COLLECTIONS = [
   },
 ]
 
-const PIECES = ["Matchbox", "Matchbook", "Album Cover", "Brand Archive", "Limited Edition"]
+const PIECES = [
+  "Matchbox",
+  "Matchbook",
+  "Album Cover",
+  "Brand Archive",
+  "Limited Edition",
+  "Poster",
+  "Postcard",
+]
 
 const PIECE_DESCS = [
   "A striking matchbox label sourced from the streets of a city that knew how to make an impression.",
@@ -126,6 +134,8 @@ const PIECE_DESCS = [
   "Reimagined as album artwork - this label channels the mood of a record that defined its decade.",
   "Pulled from brand archives, this piece bears the mark of a company that shaped its city's visual culture.",
   "A limited-run reprint of a rare label, hand-selected for its rarity, colour, and extraordinary design.",
+  "A large-format poster reproduction that lets a single label's graphic punch command a whole wall.",
+  "A postcard-scale print pairing the original artwork with a note on the era and city it came from.",
 ]
 
 let globalIdx = 0
@@ -152,12 +162,36 @@ export const DEMO_PRODUCTS: Product[] = COLLECTIONS.flatMap((col) =>
       color: col.color,
       colorName: COLOR_NAMES[idx % COLOR_NAMES.length],
       category: CATEGORIES[idx % CATEGORIES.length],
-      size: ["5.5 × 3.5 cm", "4.5 × 4.5 cm", "31 × 31 cm", "5.5 × 3.5 cm", "14 × 9 cm"][pi],
+      size: [
+        "5.5 × 3.5 cm",
+        "4.5 × 4.5 cm",
+        "31 × 31 cm",
+        "5.5 × 3.5 cm",
+        "14 × 9 cm",
+        "42 × 30 cm",
+        "15 × 10 cm",
+      ][pi],
       available: true,
     }
   }),
 )
-// 10 collections × 5 pieces = 50 products
+// 10 collections × 7 pieces = 70 products
+
+// Lightweight list of every collection with a representative image, for the
+// collections index page.
+export function listCollections(): {
+  slug: string
+  name: string
+  tagline: string
+  image: string
+}[] {
+  return COLLECTIONS.map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    tagline: c.tagline,
+    image: DEMO_PRODUCTS.find((p) => p.collectionSlug === c.slug)?.image ?? "",
+  }))
+}
 
 export interface CollectionDetail {
   slug: string
