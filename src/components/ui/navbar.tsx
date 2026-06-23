@@ -7,6 +7,7 @@ import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
 import { useTransitionBack, useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
+import { CartPanel } from "./cart-panel"
 import { ExpandingControl } from "./expanding-control"
 import { FilterPills } from "./filter-pills"
 import { HoverLabel } from "./hover-label"
@@ -118,6 +119,39 @@ function SlidersIcon() {
   )
 }
 
+// Cart icon: the cart rolls forward a touch on hover, wheels leading, so it
+// reads as a little nudge alongside the label's slide-swap.
+function CartIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px] transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[2px]"
+      aria-hidden="true"
+      fill="none"
+    >
+      <path
+        d="M2.5 3.5H5l1.8 9.2a1.2 1.2 0 0 0 1.18.95h7.3a1.2 1.2 0 0 0 1.17-.9l1.45-5.6H6.2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx="9"
+        cy="19"
+        r="1.5"
+        className="fill-current transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[1.5px]"
+      />
+      <circle
+        cx="16"
+        cy="19"
+        r="1.5"
+        className="fill-current transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[1.5px]"
+      />
+    </svg>
+  )
+}
+
 type Panel = "none" | "menu" | "filter"
 
 export function Navbar({
@@ -145,6 +179,7 @@ export function Navbar({
   })
   const barActive = !!announcement
   const [panel, setPanel] = useState<Panel>("none")
+  const [cartOpen, setCartOpen] = useState(false)
   const menuOpen = panel === "menu"
   const topPillRef = useRef<HTMLButtonElement>(null)
   const togglerContentRef = useRef<HTMLSpanElement>(null)
@@ -305,7 +340,25 @@ export function Navbar({
             />
           </ExpandingControl>
         )}
+
+        {/* Cart - opens the slide-in drawer. Styled to match the closed
+            menu/filter triggers so the three read as one bar. */}
+        <button
+          onClick={() => {
+            setPanel("none")
+            setCartOpen(true)
+          }}
+          aria-label="Open cart"
+          className="group flex h-[42px] shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border border-dark/15 bg-canvas px-4 text-sm font-medium whitespace-nowrap text-dark transition-[background-color,border-color,color] duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+        >
+          <span className="flex shrink-0 items-center">
+            <CartIcon />
+          </span>
+          <HoverLabel>Cart</HoverLabel>
+        </button>
       </div>
+
+      <CartPanel open={cartOpen} onClose={() => setCartOpen(false)} />
     </>
   )
 }
