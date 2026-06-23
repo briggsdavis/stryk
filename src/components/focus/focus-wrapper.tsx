@@ -1,6 +1,6 @@
 import { clsx } from "clsx"
 import { useQuery } from "convex/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { gsap } from "../../lib/gsap"
@@ -13,10 +13,32 @@ interface FocusWrapperProps {
   product: Product | null
   allProducts: Product[]
   onClose: () => void
+  // Open a recommended piece from the "complete your set" upsell panel. Re-runs
+  // the focus morph for the chosen product without closing first.
+  onOpenRecommendation?: (product: Product, sourceEl: HTMLElement) => void
   // Give the panel an opaque background. Needed when it opens over page content
   // that doesn't slide away (e.g. the collection page). On the home canvas the
   // panel must stay transparent so the canvas slide-away morph shows through.
   solidBackdrop?: boolean
+}
+
+// Up to `count` other pieces to suggest alongside the one added to cart, scored
+// by what they share - same collection first, then colour, then category. Always
+// returns `count` items when enough products exist (lower-scoring pieces backfill
+// the remaining slots) so the panel stays complete.
+function getRecommendations(current: Product, all: Product[], count: number): Product[] {
+  return all
+    .filter((p) => p.id !== current.id)
+    .map((p) => {
+      let score = 0
+      if (p.collectionSlug === current.collectionSlug) score += 3
+      if (p.colorName === current.colorName) score += 2
+      if (p.category === current.category) score += 1
+      return { p, score }
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, count)
+    .map((s) => s.p)
 }
 
 // Print size + framing options. Price is a fixed amount per size, plus a flat
@@ -34,8 +56,9 @@ const FRAME_SURCHARGE = 40
 
 export function FocusWrapper({
   product,
-  allProducts: _allProducts,
+  allProducts,
   onClose,
+  onOpenRecommendation,
   solidBackdrop = false,
 }: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
@@ -91,6 +114,17 @@ export function FocusWrapper({
   const [selectedSize, setSelectedSize] = useState<SizeKey | null>(null)
   const [withFrame, setWithFrame] = useState<boolean | null>(null)
 
+  // "Complete your set" upsell panel, revealed after a piece is added to cart.
+  const [upsellOpen, setUpsellOpen] = useState(false)
+  const upsellRef = useRef<HTMLDivElement>(null)
+  // True while the panel is already open, so opening a recommendation is treated
+  // as an in-place switch (skip the divider/× re-wipe) rather than a fresh open.
+  const prevOpenRef = useRef(false)
+  const recommendations = useMemo(
+    () => (product ? getRecommendations(product, allProducts, 3) : []),
+    [product, allProducts],
+  )
+
   const isOpen = !!product
 
   const price =
@@ -113,7 +147,10 @@ export function FocusWrapper({
 
   // ── Reset + activate gallery on product open/close ────────────────────────
   useEffect(() => {
+    // Any open/close or switch to another piece collapses the upsell panel.
+    setUpsellOpen(false)
     if (!isOpen) {
+      prevOpenRef.current = false
       galleryActiveRef.current = false
       setGalleryActive(false)
       setCurrentIdx(0)
@@ -275,20 +312,26 @@ export function FocusWrapper({
   // ── Panel entrance animation ──────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return
+    // A switch (panel already open, opening a recommendation) keeps the divider
+    // and × in place; only a fresh open wipes them in.
+    const isSwitch = prevOpenRef.current
+    prevOpenRef.current = true
 
     gsap.set(panelRef.current, { clipPath: "none" })
 
-    gsap.set(dividerContainerRef.current, { x: "-60vw" })
-    gsap.to(dividerContainerRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
+    if (!isSwitch) {
+      gsap.set(dividerContainerRef.current, { x: "-60vw" })
+      gsap.to(dividerContainerRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
 
-    gsap.set(closeRef.current, { opacity: 0, scale: 0 })
-    gsap.to(closeRef.current, {
-      opacity: 1,
-      scale: 1,
-      duration: 0.35,
-      delay: 1.05,
-      ease: "back.out(1.7)",
-    })
+      gsap.set(closeRef.current, { opacity: 0, scale: 0 })
+      gsap.to(closeRef.current, {
+        opacity: 1,
+        scale: 1,
+        duration: 0.35,
+        delay: 1.05,
+        ease: "back.out(1.7)",
+      })
+    }
 
     const textEls = [
       collectionNameRef.current,
@@ -308,10 +351,37 @@ export function FocusWrapper({
     }
   }, [isOpen, product?.id])
 
+  // ── Upsell panel slide + close-button lift ────────────────────────────────
+  // The panel rises from the bottom-right and the × lifts from the divider's
+  // mid-point (50vh) up to the corner where the divider meets the panel's top
+  // edge (20vh). Reversed on close.
+  useEffect(() => {
+    const panel = upsellRef.current
+    const close = closeRef.current
+    if (!panel) return
+    const liftY = -window.innerHeight * 0.3 // 50vh centre → 20vh panel top
+    gsap.killTweensOf(panel)
+    if (upsellOpen) {
+      gsap.set(panel, { display: "block" })
+      gsap.fromTo(panel, { yPercent: 100 }, { yPercent: 0, duration: 0.9, ease: "expo.inOut" })
+      if (close) gsap.to(close, { y: liftY, duration: 0.9, ease: "expo.inOut" })
+    } else {
+      gsap.to(panel, {
+        yPercent: 100,
+        duration: 0.7,
+        ease: "expo.inOut",
+        onComplete: () => gsap.set(panel, { display: "none" }),
+      })
+      if (close) gsap.to(close, { y: 0, duration: 0.7, ease: "expo.inOut" })
+    }
+  }, [upsellOpen])
+
   // ── Close ─────────────────────────────────────────────────────────────────
   const handleClose = () => {
     galleryActiveRef.current = false
     animatingRef.current = false
+    // Slide the upsell panel back down as part of the close.
+    setUpsellOpen(false)
 
     // Fade text + CTA out immediately so they don't linger during the wipe
     const textEls = [
@@ -744,7 +814,10 @@ export function FocusWrapper({
                 ))}
                 <button
                   disabled={!canAddToCart}
-                  onClick={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (canAddToCart) setUpsellOpen(true)
+                  }}
                   className={clsx(
                     "group ml-1 rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all",
                     canAddToCart
@@ -771,6 +844,95 @@ export function FocusWrapper({
           className="absolute inset-y-0 right-0 cursor-none"
           style={{ left: "60vw" }}
         />
+      )}
+
+      {/* "Complete your set" upsell panel - rises from the bottom-right after a
+          piece is added to cart. No z-index: DOM order keeps it above the
+          close-on-click area yet below the divider/× that follow it. */}
+      {isOpen && (
+        <div
+          ref={upsellRef}
+          className="absolute right-0 border-t border-dark/20 bg-canvas"
+          style={{ left: "60vw", top: "20vh", bottom: 0, display: "none" }}
+        >
+          <div className="flex h-full flex-col px-6 py-8 md:px-9">
+            <div className="mx-auto flex w-full max-w-[24rem] flex-1 flex-col">
+              <p className="mb-5 text-[10px] font-medium tracking-widest text-dark/50 uppercase">
+                Complete your set
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Slot 1 - the piece just added to the cart */}
+                <div className="relative aspect-square overflow-hidden border border-dark">
+                  {product && (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-dark text-white">
+                    <svg
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      className="h-2.5 w-2.5"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M2 6.2 4.6 9 10 3"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+
+                {/* Slots 2-4 - recommended pieces (same collection / colour / type) */}
+                {Array.from({ length: 3 }).map((_, i) => {
+                  const rec = recommendations[i]
+                  if (!rec) {
+                    return (
+                      <div
+                        key={`rec-empty-${i}`}
+                        className="aspect-square border border-dark/20"
+                      />
+                    )
+                  }
+                  return (
+                    <button
+                      key={rec.id}
+                      type="button"
+                      onClick={(e) => {
+                        const img = e.currentTarget.querySelector("img")
+                        if (img) onOpenRecommendation?.(rec, img)
+                      }}
+                      aria-label={`Open ${rec.name}`}
+                      className="group relative aspect-square overflow-hidden border border-dark/20 transition-colors hover:border-dark/50"
+                    >
+                      <img
+                        src={rec.image}
+                        alt={rec.name}
+                        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                      />
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="mt-auto pt-7">
+                <button
+                  type="button"
+                  onClick={(e) => e.preventDefault()}
+                  className="group flex w-full items-center justify-center rounded-full bg-dark px-6 py-4 text-sm font-medium text-white transition-opacity duration-300 hover:opacity-80"
+                >
+                  <HoverLabel>Proceed to checkout</HoverLabel>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Divider line + × button */}

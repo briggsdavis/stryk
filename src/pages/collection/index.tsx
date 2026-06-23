@@ -58,7 +58,7 @@ export function CollectionPage() {
   const navigate = useNavigate()
   const transitionNavigate = useTransitionNavigate()
   const collection = useMemo(() => (slug ? getCollection(slug) : null), [slug])
-  const { focusedProduct, beginFocus, handleClose } = useProductFocus()
+  const { focusedProduct, beginFocus, switchFocus, handleClose } = useProductFocus()
 
   // Pause smooth-scroll while a product is focused so wheel input drives the
   // focus gallery (advancing between a product's images) instead of the page.
@@ -398,7 +398,12 @@ export function CollectionPage() {
       {/* Featured products open into the focus panel with the same slide + morph
           as home: the pinned section slides aside, revealing the page background,
           so the panel stays transparent. */}
-      <FocusWrapper product={focusedProduct} allProducts={products} onClose={handleClose} />
+      <FocusWrapper
+        product={focusedProduct}
+        allProducts={products}
+        onClose={handleClose}
+        onOpenRecommendation={switchFocus}
+      />
     </div>
   )
 }
