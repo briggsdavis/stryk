@@ -108,6 +108,15 @@ export function useProductFocus() {
     const el = focusedElRef.current
     const placeholder = placeholderRef.current
     if (!el || !placeholder?.parentElement) {
+      // No canvas/page origin to return to (e.g. closing after switching to a
+      // recommendation). Drop any orphaned morph node, glide the slid-aside
+      // background back, and let <FocusWrapper /> wipe the panel away.
+      const slot = document.getElementById("focus-image-slot")
+      if (slot) slot.replaceChildren()
+      if (shiftElRef.current) {
+        gsap.to(shiftElRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
+      }
+      focusedElRef.current = null
       isFocusedRef.current = false
       setFocusedProduct(null)
       return
@@ -150,5 +159,69 @@ export function useProductFocus() {
     )
   }, [])
 
-  return { focusedProduct, beginFocus, handleClose, isFocusedRef }
+  // Switch the focus to a different product (a recommended piece clicked in the
+  // upsell panel) without closing first. The current piece is returned to its
+  // origin instantly, then a clone of the clicked piece morphs into the focus
+  // slot. The new piece has no origin of its own, so closing afterwards just
+  // wipes the panel (see handleClose's no-origin branch).
+  const switchFocus = useCallback((product: Product, el: HTMLElement) => {
+    if (!isFocusedRef.current) return
+    const slot = document.getElementById("focus-image-slot")
+    if (!slot) return
+
+    // Detach whatever currently occupies the slot.
+    const prevEl = focusedElRef.current
+    const prevPlaceholder = placeholderRef.current
+    if (prevEl) gsap.killTweensOf(prevEl)
+    if (prevEl && prevPlaceholder?.parentElement) {
+      // A real canvas/page node: put it back where it came from.
+      prevPlaceholder.parentElement.replaceChild(prevEl, prevPlaceholder)
+      gsap.set(prevEl, { clearProps: "position,top,left,zIndex,margin,transform" })
+      prevEl.style.position = "relative"
+      prevEl.style.width = originalSizeRef.current.w
+      prevEl.style.height = originalSizeRef.current.h
+    } else if (prevEl) {
+      // An orphaned clone left by an earlier switch.
+      prevEl.remove()
+    }
+    placeholderRef.current = null
+
+    // Morph a clone of the clicked recommendation from its slot into the frame.
+    const fromRect = el.getBoundingClientRect()
+    const clone = el.cloneNode(true) as HTMLElement
+    document.body.appendChild(clone)
+    gsap.set(clone, {
+      position: "fixed",
+      margin: 0,
+      zIndex: 9000,
+      left: fromRect.left,
+      top: fromRect.top,
+      width: fromRect.width,
+      height: fromRect.height,
+      objectFit: "cover",
+    })
+    focusedElRef.current = clone
+    originalSizeRef.current = { w: "", h: "" }
+
+    setFocusedProduct(product)
+
+    const toRect = slot.getBoundingClientRect()
+    gsap.to(clone, {
+      left: toRect.left,
+      top: toRect.top,
+      width: toRect.width,
+      height: toRect.height,
+      duration: 1.0,
+      ease: "expo.inOut",
+      onComplete: () => {
+        slot.appendChild(clone)
+        gsap.set(clone, { clearProps: "all" })
+        clone.style.width = "100%"
+        clone.style.height = "100%"
+        clone.style.objectFit = "cover"
+      },
+    })
+  }, [])
+
+  return { focusedProduct, beginFocus, switchFocus, handleClose, isFocusedRef }
 }

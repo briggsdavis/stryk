@@ -33,6 +33,7 @@ export function HomePage() {
   const {
     focusedProduct,
     beginFocus,
+    switchFocus,
     handleClose: handleCloseFocus,
     isFocusedRef,
   } = useProductFocus()
@@ -236,6 +237,7 @@ export function HomePage() {
         product={focusedProduct}
         allProducts={DEMO_PRODUCTS}
         onClose={handleCloseFocus}
+        onOpenRecommendation={switchFocus}
       />
 
       {/* Empty-filter message on the canvas */}

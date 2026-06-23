@@ -38,6 +38,9 @@ export default defineSchema({
     text: v.string(),
     buttonLabel: v.string(),
     buttonLink: v.string(),
+    // Whether the call-to-action button is shown. Optional so pre-toggle rows
+    // stay valid; those default in code to "shown when a label + link exist".
+    buttonEnabled: v.optional(v.boolean()),
     emailCaptureEnabled: v.boolean(),
     delaySeconds: v.number(),
     frequency: v.union(v.literal("everyVisit"), v.literal("oncePerSession"), v.literal("oncePerDay")),
