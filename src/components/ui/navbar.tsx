@@ -26,9 +26,10 @@ interface NavbarProps {
 }
 
 const LINKS = [
-  { label: "Collections", to: "/" },
-  { label: "About", to: "/about" },
-  { label: "Contact", to: "/contact" },
+  { label: "artworks", to: "/" },
+  { label: "collections", to: "/collections" },
+  { label: "about", to: "/about" },
+  { label: "contact", to: "/contact" },
 ]
 
 // Two icons that morph into one another. The grid view is an even 3×3 grid of 9
@@ -221,7 +222,7 @@ export function Navbar({
           >
             <span ref={togglerContentRef} className="flex items-center gap-2.5">
               <MorphDotIcon toGrid={viewMode === "xp"} />
-              <HoverLabel>{viewMode === "xp" ? "grid view" : "canvas view"}</HoverLabel>
+              <HoverLabel>{viewMode === "xp" ? "Grid View" : "Canvas View"}</HoverLabel>
             </span>
           </button>
         </div>
@@ -239,7 +240,7 @@ export function Navbar({
           open={menuOpen}
           onToggle={() => setPanel((p) => (p === "menu" ? "none" : "menu"))}
           icon={<HamburgerIcon />}
-          label="menu"
+          label="Menu"
           ariaLabel={menuOpen ? "Close menu" : "Open menu"}
         >
           {LINKS.map(({ label, to }) => {

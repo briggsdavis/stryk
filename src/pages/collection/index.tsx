@@ -5,6 +5,7 @@ import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 import { getCollection } from "../../lib/demo-data"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
+import { useTransitionNavigate } from "../../lib/transition"
 
 function ExpandIcon() {
   return (
@@ -52,6 +53,7 @@ const SPOTS: {
 export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const transitionNavigate = useTransitionNavigate()
   const collection = useMemo(() => (slug ? getCollection(slug) : null), [slug])
 
   useLenis(!!collection)
@@ -272,14 +274,14 @@ export function CollectionPage() {
                 <Spec label="Products" value={String(products.length)} />
                 <Spec label="Materials" value={collection.materials} />
                 <Spec label="Color palette" value={collection.palette} />
+                {products[1] && (
+                  <img
+                    src={products[1].image}
+                    alt=""
+                    className="mt-6 aspect-[16/9] w-full object-cover shadow-xl shadow-dark/10"
+                  />
+                )}
               </div>
-              {products[1] && (
-                <img
-                  src={products[1].image}
-                  alt=""
-                  className="absolute top-1/2 right-8 hidden aspect-square w-48 -translate-y-1/2 object-cover shadow-xl shadow-dark/10 md:right-16 md:block lg:w-64"
-                />
-              )}
             </div>
           </div>
 
@@ -310,7 +312,10 @@ export function CollectionPage() {
 
           {/* Panel 3 — featured products, laid out horizontally */}
           <div className="flex h-screen w-screen shrink-0 items-center px-8 md:px-16">
-            <div ref={gridRef} className="mx-auto grid w-full max-w-5xl grid-cols-3 items-start gap-x-8 gap-y-5">
+            <div
+              ref={gridRef}
+              className="mx-auto grid w-full max-w-6xl grid-cols-4 items-start gap-x-6 gap-y-6"
+            >
               <div className="flex items-start pt-10">
                 <h2
                   ref={headingRef}
@@ -374,6 +379,14 @@ export function CollectionPage() {
         <div data-closing-text className="relative z-10 max-w-2xl text-center">
           <h2 className="text-128 leading-[0.95] text-dark">{collection.name}</h2>
           <p className="mx-auto mt-5 max-w-md text-base text-dark/60">{collection.tagline}</p>
+          <button
+            type="button"
+            onClick={() => transitionNavigate("/collections")}
+            className="group mt-8 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium text-dark transition-colors hover:border-dark/40"
+          >
+            Explore collections
+            <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+          </button>
         </div>
       </section>
 

@@ -21,7 +21,7 @@
 @theme {
   --font-sans: "Sweet Sans Pro", system-ui, sans-serif;
   --font-title: "Rotunda Variable", system-ui, sans-serif;
-  --font-button: "Noto Sans", system-ui, sans-serif;
+  --font-button: "Sweet Sans Pro", system-ui, sans-serif;
 
   --color-dark: #222222;
   --color-light: #f5f6ee;
@@ -96,7 +96,7 @@
     font-variation-settings: "wght" 800;
   }
 
-  /* All button text uses Noto Sans. */
+  /* All button text uses Sweet Sans Pro. */
   button,
   .btn-outline,
   .btn-filled {
