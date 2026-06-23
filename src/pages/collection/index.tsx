@@ -392,8 +392,14 @@ export function CollectionPage() {
 
       <Footer />
 
-      {/* Featured products open into the focus panel with the same morph as home */}
-      <FocusWrapper product={focusedProduct} allProducts={products} onClose={handleClose} />
+      {/* Featured products open into the focus panel with the same morph as home.
+          The collection page behind it doesn't slide, so the panel is opaque. */}
+      <FocusWrapper
+        product={focusedProduct}
+        allProducts={products}
+        onClose={handleClose}
+        solidBackdrop
+      />
     </div>
   )
 }

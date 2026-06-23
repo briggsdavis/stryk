@@ -10,6 +10,10 @@ interface FocusWrapperProps {
   product: Product | null
   allProducts: Product[]
   onClose: () => void
+  // Give the panel an opaque background. Needed when it opens over page content
+  // that doesn't slide away (e.g. the collection page). On the home canvas the
+  // panel must stay transparent so the canvas slide-away morph shows through.
+  solidBackdrop?: boolean
 }
 
 // Print size + framing options. Price is a fixed amount per size, plus a flat
@@ -25,7 +29,12 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 const SIZE_PRICES: Record<SizeKey, number> = { "8x8": 45, "12x12": 75, "16x16": 120 }
 const FRAME_SURCHARGE = 40
 
-export function FocusWrapper({ product, allProducts: _allProducts, onClose }: FocusWrapperProps) {
+export function FocusWrapper({
+  product,
+  allProducts: _allProducts,
+  onClose,
+  solidBackdrop = false,
+}: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
   const productNameRef = useRef<HTMLParagraphElement>(null)
@@ -477,11 +486,11 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
   return (
     <div className={clsx("focus-wrapper", isOpen && "active")}>
-      {/* Left panel - 60vw. Opaque so it cleanly covers whatever page it opens
-          over (on the home canvas this beige matches the revealed background). */}
+      {/* Left panel - 60vw. Transparent by default so the home canvas slide-away
+          morph shows through; opaque only when opening over static page content. */}
       <div
         ref={panelRef}
-        className="absolute inset-y-0 left-0 overflow-hidden bg-canvas"
+        className={clsx("absolute inset-y-0 left-0 overflow-hidden", solidBackdrop && "bg-canvas")}
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
         {/* Collection name - top left */}
