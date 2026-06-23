@@ -109,11 +109,11 @@ function RecommendationSlot({
   }
 
   if (lane.length === 0) {
-    return <div className="aspect-square border border-dark/20" />
+    return <div className="aspect-square rounded-sm bg-dark/[0.04]" />
   }
 
   return (
-    <div className="group relative aspect-square overflow-hidden border border-dark/20 transition-colors hover:border-dark/40">
+    <div className={clsx("group relative aspect-square overflow-hidden", IMAGE_SHADOW)}>
       <div
         ref={trackRef}
         className="rec-track"
@@ -222,6 +222,12 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 
 const SIZE_PRICES: Record<SizeKey, number> = { "8x8": 45, "12x12": 75, "16x16": 120 }
 const FRAME_SURCHARGE = 40
+
+// Headline price shown next to each piece's title: the default medium size, framed.
+const BASE_PRICE = SIZE_PRICES["12x12"] + FRAME_SURCHARGE
+
+// The soft drop shadow the site's artwork images carry (grid + collection cards).
+const IMAGE_SHADOW = "shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
 
 export function FocusWrapper({
   product,
@@ -898,10 +904,11 @@ export function FocusWrapper({
             </div>
             <p
               ref={productNameRef}
-              className="text-sm font-medium text-dark"
+              className="flex items-baseline gap-2 text-sm font-medium text-dark"
               style={{ opacity: 0 }}
             >
-              {product?.name}
+              <span>{product?.name}</span>
+              <span className="text-dark/45">${BASE_PRICE}</span>
             </p>
           </div>
 
@@ -1057,7 +1064,7 @@ export function FocusWrapper({
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Slot 1 - the piece just added to the cart */}
-                <div className="relative aspect-square overflow-hidden border border-dark">
+                <div className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}>
                   {product && (
                     <img
                       src={product.image}
@@ -1097,7 +1104,7 @@ export function FocusWrapper({
                 <button
                   type="button"
                   onClick={(e) => e.preventDefault()}
-                  className="group flex w-full items-center justify-center rounded-full bg-dark px-6 py-4 text-sm font-medium text-white transition-opacity duration-300 hover:opacity-80"
+                  className="group flex w-full items-center justify-center rounded-lg bg-dark px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300 hover:opacity-80"
                 >
                   <HoverLabel>Proceed to checkout</HoverLabel>
                 </button>

@@ -226,6 +226,7 @@ export const savePopup = mutation({
     text: v.string(),
     buttonLabel: v.string(),
     buttonLink: v.string(),
+    buttonEnabled: v.optional(v.boolean()),
     emailCaptureEnabled: v.boolean(),
     delaySeconds: v.number(),
     frequency: frequencyValidator,
@@ -255,7 +256,13 @@ export const savePopup = mutation({
         const keptIds = new Set(args.media.map((m) => m.storageId))
         for (const item of existing.media) {
           if (!keptIds.has(item.storageId)) {
-            await ctx.storage.delete(item.storageId)
+            // A file that's already gone must not abort the whole save - the
+            // edit (heading, blur, etc.) would silently roll back. Best-effort.
+            try {
+              await ctx.storage.delete(item.storageId)
+            } catch {
+              // already deleted / missing - ignore
+            }
           }
         }
       }
@@ -288,7 +295,11 @@ export const deletePopup = mutation({
     const popup = await ctx.db.get(args.id)
     if (popup) {
       for (const item of popup.media) {
-        await ctx.storage.delete(item.storageId)
+        try {
+          await ctx.storage.delete(item.storageId)
+        } catch {
+          // already deleted / missing - ignore
+        }
       }
     }
     await ctx.db.delete(args.id)

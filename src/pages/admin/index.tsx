@@ -52,6 +52,7 @@ const blankPopup = {
   title: "",
   heading: "",
   text: "",
+  buttonEnabled: true,
   buttonLabel: "",
   buttonLink: "",
   emailCaptureEnabled: true,
@@ -462,6 +463,8 @@ function popupToForm(popup: NonNullable<ReturnType<typeof useQuery<typeof api.ma
     title: popup.title,
     heading: popup.heading,
     text: popup.text,
+    // Legacy rows have no flag - infer it from whether a button was configured.
+    buttonEnabled: popup.buttonEnabled ?? (popup.buttonLabel !== "" && popup.buttonLink !== ""),
     buttonLabel: popup.buttonLabel,
     buttonLink: popup.buttonLink,
     emailCaptureEnabled: popup.emailCaptureEnabled,
@@ -486,13 +489,15 @@ function PopupsPanel() {
   const [editing, setEditing] = useState<PopupForm | null>(null)
 
   const persist = async (form: PopupForm) => {
-    await savePopup({
+    return await savePopup({
       id: form.id,
       title: form.title,
       heading: form.heading,
       text: form.text,
-      buttonLabel: form.buttonLabel,
-      buttonLink: form.buttonLink,
+      buttonEnabled: form.buttonEnabled,
+      // When the button is off, store empty label/link so nothing lingers.
+      buttonLabel: form.buttonEnabled ? form.buttonLabel : "",
+      buttonLink: form.buttonEnabled ? form.buttonLink : "",
       emailCaptureEnabled: form.emailCaptureEnabled,
       delaySeconds: form.delaySeconds,
       frequency: form.frequency,
@@ -521,8 +526,9 @@ function PopupsPanel() {
             initial={blankPopup}
             submitLabel="Create pop-up"
             onSave={async (form) => {
-              await persist(form)
+              const id = await persist(form)
               setMessage("Pop-up created.")
+              return id
             }}
           />
         </div>
@@ -636,7 +642,7 @@ function PopupEditor({
 }: {
   initial: PopupForm
   submitLabel: string
-  onSave: (form: PopupForm) => Promise<void>
+  onSave: (form: PopupForm) => Promise<Id<"popups"> | void>
   onCancel?: () => void
 }) {
   const upload = useMediaUploader()
@@ -651,8 +657,11 @@ function PopupEditor({
     event.preventDefault()
     setSaving(true)
     try {
-      await onSave(form)
-      if (!form.id) setForm(initial)
+      const saved = await onSave(form)
+      // Newly created pop-up: keep the entered values on screen (so toggles like
+      // "Blur" visibly stick) and bind the form to the new row instead of wiping
+      // it back to defaults, which read as the save being undone.
+      if (!form.id && saved) setForm((prev) => ({ ...prev, id: saved }))
     } finally {
       setSaving(false)
     }
@@ -790,16 +799,6 @@ function PopupEditor({
           value={form.text}
           onChange={(text) => setForm((prev) => ({ ...prev, text }))}
         />
-        <TextInput
-          label="Button label"
-          value={form.buttonLabel}
-          onChange={(buttonLabel) => setForm((prev) => ({ ...prev, buttonLabel }))}
-        />
-        <TextInput
-          label="Button link"
-          value={form.buttonLink}
-          onChange={(buttonLink) => setForm((prev) => ({ ...prev, buttonLink }))}
-        />
         <SelectInput
           label="Position"
           value={form.position}
@@ -813,6 +812,28 @@ function PopupEditor({
           options={POPUP_FREQUENCY_OPTIONS}
         />
       </div>
+
+      {/* Call-to-action button - optional; not every pop-up needs one. */}
+      <SwitchInput
+        label="Show button"
+        description="Turn off for pop-ups that don't need a call-to-action button."
+        checked={form.buttonEnabled}
+        onChange={(buttonEnabled) => setForm((prev) => ({ ...prev, buttonEnabled }))}
+      />
+      {form.buttonEnabled && (
+        <div className="mb-5 grid gap-4 md:grid-cols-2">
+          <TextInput
+            label="Button label"
+            value={form.buttonLabel}
+            onChange={(buttonLabel) => setForm((prev) => ({ ...prev, buttonLabel }))}
+          />
+          <TextInput
+            label="Button link"
+            value={form.buttonLink}
+            onChange={(buttonLink) => setForm((prev) => ({ ...prev, buttonLink }))}
+          />
+        </div>
+      )}
 
       {/* Trigger: time-on-page (with page targeting) OR a user action. The two
           are mutually exclusive — switching clears the other side's settings. */}

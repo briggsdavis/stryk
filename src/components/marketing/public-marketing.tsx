@@ -19,6 +19,7 @@ type PublicPopup = {
   text: string
   buttonLabel: string
   buttonLink: string
+  buttonEnabled?: boolean
   emailCaptureEnabled: boolean
   delaySeconds: number
   frequency: string
@@ -212,7 +213,9 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
         </form>
       )}
       {captured && <p className="mb-4 text-sm text-loam">Thanks, you're on the list.</p>}
-      {popup.buttonLabel && popup.buttonLink && (
+      {/* Legacy rows have no buttonEnabled flag - keep their old behaviour
+          (shown whenever a label + link exist). */}
+      {(popup.buttonEnabled ?? true) && popup.buttonLabel && popup.buttonLink && (
         <Link
           to={popup.buttonLink}
           onClick={dismiss}
