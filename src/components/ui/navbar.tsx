@@ -234,7 +234,7 @@ export function Navbar({
 
   return (
     <>
-      {/* Top-left: logo + (on nested pages) a back button */}
+      {/* Top-left: logo */}
       <div
         className="fixed top-6 left-6 z-[500] flex items-center gap-3 transition-[top] duration-300 md:left-10"
         style={barActive ? { top: "3.5rem" } : undefined}
@@ -246,29 +246,6 @@ export function Navbar({
         >
           <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
         </button>
-        {showBack && (
-          <button
-            onClick={transitionBack}
-            aria-label="Go back"
-            className="group flex items-center gap-1.5 rounded-lg border border-dark/15 bg-canvas px-3 py-2 text-sm font-medium text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
-          >
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-0.5"
-              aria-hidden="true"
-            >
-              <path
-                d="M10 3l-5 5 5 5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <HoverLabel>Back</HoverLabel>
-          </button>
-        )}
       </div>
 
       {/* Top-center: view toggle - single capsule, dots left of label */}
@@ -298,6 +275,29 @@ export function Navbar({
           hideForFocus && "pointer-events-none opacity-0",
         )}
       >
+        {/* Back - on nested pages (the individual collection page), sits in line
+            with the menu/cart controls. Styled to match them. */}
+        {showBack && (
+          <button
+            onClick={transitionBack}
+            aria-label="Go back"
+            className="group flex h-[42px] shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border border-dark/15 bg-canvas px-4 text-sm font-medium whitespace-nowrap text-dark transition-[background-color,border-color,color] duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+          >
+            <span className="flex shrink-0 items-center transition-transform duration-300 group-hover:-translate-x-0.5">
+              <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+                <path
+                  d="M10 3l-5 5 5 5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <HoverLabel>Back</HoverLabel>
+          </button>
+        )}
+
         {/* Menu - links slide out to the right as the trigger glides aside */}
         <ExpandingControl
           open={menuOpen}
