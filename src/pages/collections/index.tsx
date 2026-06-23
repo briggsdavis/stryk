@@ -47,7 +47,7 @@ export function CollectionsPage() {
       {/* ── Intro ── */}
       <section className="px-6 pt-28 pb-10 md:px-10 md:pt-32">
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">Browse</p>
-        <h1 className="text-128 leading-none font-medium lowercase">collections</h1>
+        <h1 className="text-128 leading-none font-medium">Collections</h1>
         <p className="mt-6 max-w-xl text-lg text-dark/60">
           Ten cities, each with a graphic language all its own. Explore the matchbox archives city
           by city and find the pieces that speak to you.
@@ -68,7 +68,7 @@ export function CollectionsPage() {
             aria-label={`View the ${c.name} collection`}
             className={clsx("group block text-left", i % 2 === 1 && "md:mt-24")}
           >
-            <div className="relative aspect-[4/3] w-full overflow-hidden">
+            <div className="relative aspect-square w-full overflow-hidden">
               <img
                 src={c.image}
                 alt={c.name}
