@@ -336,7 +336,7 @@ export function CollectionPage() {
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)]"
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
                       />
                     </span>
                     <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
