@@ -134,7 +134,10 @@ export function Navbar({
   const transitionNavigate = useTransitionNavigate()
   const transitionBack = useTransitionBack()
   const location = useLocation()
-  const isHome = location.pathname === "/"
+  // The individual collection page (/collection/:slug) is the one nested route -
+  // not reachable from the menu - so it's the only page that needs a back button.
+  // ("/collections" is the menu-reachable index and intentionally doesn't match.)
+  const showBack = location.pathname.startsWith("/collection/")
   // When the announcement bar is live it occupies the top edge, so nudge the
   // logo and view toggle down to clear it (with a little breathing room).
   const announcement = useQuery(api.marketing.activeAnnouncement, {
@@ -196,7 +199,7 @@ export function Navbar({
 
   return (
     <>
-      {/* Top-left: logo + (off-home) a back button so users are never stranded */}
+      {/* Top-left: logo + (on nested pages) a back button */}
       <div
         className="fixed top-6 left-6 z-[500] flex items-center gap-3 transition-[top] duration-300 md:left-10"
         style={barActive ? { top: "3.5rem" } : undefined}
@@ -208,7 +211,7 @@ export function Navbar({
         >
           <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
         </button>
-        {!isHome && (
+        {showBack && (
           <button
             onClick={transitionBack}
             aria-label="Go back"
