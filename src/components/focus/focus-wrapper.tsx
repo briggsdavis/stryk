@@ -530,6 +530,15 @@ export function FocusWrapper({
     gsap.set(panelRef.current, { clipPath: "none" })
 
     if (!isSwitch) {
+      // Fade the left backdrop (canvas colour) in over the slide so the canvas
+      // is visibly sliding away beneath it, then it settles opaque - masking any
+      // sliver the zoomed canvas would otherwise leave just left of the divider.
+      gsap.fromTo(
+        panelRef.current,
+        { backgroundColor: "rgba(240,237,230,0)" },
+        { backgroundColor: "rgba(240,237,230,1)", duration: 1.1, ease: "expo.inOut" },
+      )
+
       gsap.set(dividerContainerRef.current, { x: "-60vw" })
       gsap.to(dividerContainerRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
 
@@ -541,6 +550,9 @@ export function FocusWrapper({
         delay: 1.05,
         ease: "back.out(1.7)",
       })
+    } else {
+      // Switching to a recommendation: the backdrop is already in place.
+      gsap.set(panelRef.current, { backgroundColor: "rgba(240,237,230,1)" })
     }
 
     const textEls = [
@@ -820,7 +832,7 @@ export function FocusWrapper({
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
         onPointerLeave={onPointerEnd}
-        className="absolute inset-y-0 left-0 overflow-hidden bg-canvas"
+        className="absolute inset-y-0 left-0 overflow-hidden"
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
         {/* Collection name - top left */}
