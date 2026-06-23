@@ -2,9 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Draggable, gsap } from "../lib/gsap"
 import type { ZoomLevel } from "../lib/types"
 
+// Each level keeps scale × factor ≈ 1 so the scaled wrapper still fills the
+// viewport while exposing `factor`× more of the canvas. Level 0 is a deep
+// zoom-out for browsing large collections (~2.5× more reach than level 1).
 const ZOOM_CONFIGS: Record<ZoomLevel, { scale: number; wFactor: number; hFactor: number }> = {
   2: { scale: 1.0, wFactor: 1, hFactor: 1 },
   1: { scale: 0.6, wFactor: 1.67, hFactor: 1.67 },
+  0: { scale: 0.24, wFactor: 4.17, hFactor: 4.17 },
 }
 
 export function useXpCanvas(active: boolean) {
@@ -182,7 +186,7 @@ export function useXpCanvas(active: boolean) {
   }, [applyZoom])
 
   const zoomOut = useCallback(() => {
-    if (zoomRef.current <= 1) return
+    if (zoomRef.current <= 0) return
     const prev = zoomRef.current as ZoomLevel
     const next = (prev - 1) as ZoomLevel
     zoomRef.current = next

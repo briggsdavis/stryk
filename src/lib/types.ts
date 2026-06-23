@@ -28,4 +28,5 @@ export interface Collection {
 }
 
 export type ViewMode = "xp" | "grid"
-export type ZoomLevel = 1 | 2
+// 2 = default, 1 = zoomed out, 0 = zoomed out further (for large collections).
+export type ZoomLevel = 0 | 1 | 2

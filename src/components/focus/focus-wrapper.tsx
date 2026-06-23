@@ -38,6 +38,9 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
 
   // Product details (description + purchase options) shown below the image.
   const detailsInnerRef = useRef<HTMLDivElement>(null)
+  // The whole bottom info/options strip - measured so the image can be sized to
+  // always clear it.
+  const stripRef = useRef<HTMLDivElement>(null)
 
   // Gallery
   const imgRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -418,6 +421,57 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
     return () => window.removeEventListener("keydown", onKey)
   }, [expanded, closeExpanded])
 
+  // ── Keep the image clear of the bottom strip ──────────────────────────────
+  // The open-morph in the home page sizes the image from an estimated bottom
+  // reserve. Once the panel has rendered its real info/options strip we measure
+  // it and resize the image so there is always a clean gap above the strip -
+  // for any artwork aspect ratio, strip content, or viewport size.
+  const fitImageToStrip = useCallback(() => {
+    const frame = document.getElementById("focus-image-frame")
+    const strip = stripRef.current
+    if (!frame || !strip) return
+
+    const aspect = frame.offsetWidth / frame.offsetHeight
+    const isMd = window.innerWidth >= 768
+    const titleTop = isMd ? 96 : 64
+    const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
+    const topReserve = titleTop + titleFont + 22
+
+    // The strip is anchored at bottom-8 (32px); keep a gap above it.
+    const STRIP_OFFSET = 32
+    const GAP = 28
+    const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
+
+    const maxW = Math.min(window.innerWidth * 0.36, 440)
+    const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 160)
+    let tw = maxW
+    let th = tw / aspect
+    if (th > maxH) {
+      th = maxH
+      tw = th * aspect
+    }
+    gsap.to(frame, {
+      width: tw,
+      height: th,
+      top: topReserve,
+      bottom: bottomReserve,
+      duration: 0.4,
+      ease: "expo.inOut",
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    // Run after the open-morph has settled the image into the slot, so resizing
+    // the frame carries the image with it rather than fighting the morph.
+    const t = window.setTimeout(fitImageToStrip, 1200)
+    window.addEventListener("resize", fitImageToStrip)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("resize", fitImageToStrip)
+    }
+  }, [isOpen, product?.id, fitImageToStrip])
+
   const expandedSrc = galleryImages[currentIdx] ?? product?.image ?? ""
   const expandFrom = expandFromRectRef.current
 
@@ -501,7 +555,7 @@ export function FocusWrapper({ product, allProducts: _allProducts, onClose }: Fo
         </div>
 
         {/* Bottom strip - gallery indicator + title + details */}
-        <div className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
+        <div ref={stripRef} className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
           {/* Gallery indicator + title */}
           <div className="min-w-0">
             <div
