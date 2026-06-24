@@ -149,7 +149,11 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
   return (
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-dark/10 bg-light/60 px-5 py-6 backdrop-blur md:w-80">
-        <button type="button" className="mb-10 text-left" onClick={() => setSection("announcements")}>
+        <button
+          type="button"
+          className="mb-10 text-left"
+          onClick={() => setSection("announcements")}
+        >
           <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto" />
         </button>
         <nav className="flex flex-1 flex-col gap-2">
@@ -167,7 +171,7 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
           ))}
         </nav>
         <div className="border-t border-dark/10 pt-5">
-          <p className="mb-3 break-words text-xs text-dark/50">{email}</p>
+          <p className="mb-3 text-xs break-words text-dark/50">{email}</p>
           <button type="button" onClick={onSignOut} className="admin-secondary w-full">
             Sign out
           </button>
@@ -457,7 +461,9 @@ function useMediaUploader() {
   )
 }
 
-function popupToForm(popup: NonNullable<ReturnType<typeof useQuery<typeof api.marketing.listPopups>>>[number]): PopupForm {
+function popupToForm(
+  popup: NonNullable<ReturnType<typeof useQuery<typeof api.marketing.listPopups>>>[number],
+): PopupForm {
   return {
     id: popup._id,
     title: popup.title,
@@ -623,7 +629,11 @@ function PopupsPanel() {
 }
 
 // Human-readable trigger summary for the saved-pop-up list.
-function describeTrigger(popup: { triggerType?: PopupTriggerType; action?: PopupAction; pages?: PopupPage[] }): string {
+function describeTrigger(popup: {
+  triggerType?: PopupTriggerType
+  action?: PopupAction
+  pages?: PopupPage[]
+}): string {
   if (popup.triggerType === "action") {
     const label = POPUP_ACTION_OPTIONS.find((o) => o.value === popup.action)?.label
     return label ? label.toLowerCase() : "on action"
@@ -852,8 +862,7 @@ function PopupEditor({
             setForm((prev) => ({
               ...prev,
               triggerType,
-              action:
-                triggerType === "action" ? (prev.action ?? "product") : undefined,
+              action: triggerType === "action" ? (prev.action ?? "product") : undefined,
             }))
           }
           options={POPUP_TRIGGER_OPTIONS}
@@ -1064,7 +1073,9 @@ function EmailCaptures() {
   const filtered = useMemo(() => {
     if (!popupEmails) return popupEmails
     const term = search.trim().toLowerCase()
-    return term ? popupEmails.filter((item) => item.email.toLowerCase().includes(term)) : popupEmails
+    return term
+      ? popupEmails.filter((item) => item.email.toLowerCase().includes(term))
+      : popupEmails
   }, [popupEmails, search])
 
   return (
@@ -1193,7 +1204,7 @@ function TextInput({
         required={required}
         autoComplete={autoComplete}
         minLength={minLength}
-        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm outline-none transition-colors focus:border-dark/45"
+        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm transition-colors outline-none focus:border-dark/45"
       />
     </label>
   )
@@ -1237,7 +1248,7 @@ function SelectInput<TValue extends string>({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value as TValue)}
-        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm outline-none transition-colors focus:border-dark/45"
+        className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm transition-colors outline-none focus:border-dark/45"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -1276,7 +1287,7 @@ function ColorInput({
           aria-label={`${label} hex`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm outline-none transition-colors focus:border-dark/45"
+          className="w-full rounded-lg border border-dark/15 bg-canvas px-4 py-3 text-sm transition-colors outline-none focus:border-dark/45"
         />
       </div>
     </label>

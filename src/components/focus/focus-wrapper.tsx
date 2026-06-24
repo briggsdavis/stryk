@@ -151,9 +151,7 @@ function RecommendationSlot({
             aria-label="Previous recommendation"
             className={clsx(
               "absolute top-1/2 left-1.5 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-canvas/90 text-dark shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-dark hover:text-white",
-              index === 0
-                ? "pointer-events-none opacity-0"
-                : "opacity-0 group-hover:opacity-100",
+              index === 0 ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100",
             )}
           >
             <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
@@ -1125,12 +1123,7 @@ export function FocusWrapper({
                     />
                   )}
                   <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-dark text-white">
-                    <svg
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      className="h-2.5 w-2.5"
-                      aria-hidden="true"
-                    >
+                    <svg viewBox="0 0 12 12" fill="none" className="h-2.5 w-2.5" aria-hidden="true">
                       <path
                         d="M2 6.2 4.6 9 10 3"
                         stroke="currentColor"

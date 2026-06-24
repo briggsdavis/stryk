@@ -105,8 +105,7 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   }, [products])
 
   const layoutProducts = useMemo(
-    () =>
-      isFiltering ? products.filter((p) => productMatches(p, displayedFilters)) : products,
+    () => (isFiltering ? products.filter((p) => productMatches(p, displayedFilters)) : products),
     [products, displayedFilters, isFiltering],
   )
 
