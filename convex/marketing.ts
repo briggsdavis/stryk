@@ -254,7 +254,11 @@ export const savePopup = mutation({
       const existing = await ctx.db.get(id)
       if (existing) {
         const keptIds = new Set(args.media.map((m) => m.storageId))
-        for (const item of existing.media) {
+        // Legacy/in-progress rows may predate the `media` field (see
+        // resolveMedia); default to an empty list so iterating it can't throw
+        // and roll back the whole save - which would silently discard edits
+        // like the blur/dim toggle.
+        for (const item of existing.media ?? []) {
           if (!keptIds.has(item.storageId)) {
             // A file that's already gone must not abort the whole save - the
             // edit (heading, blur, etc.) would silently roll back. Best-effort.
@@ -294,7 +298,7 @@ export const deletePopup = mutation({
     await requireAdmin(ctx)
     const popup = await ctx.db.get(args.id)
     if (popup) {
-      for (const item of popup.media) {
+      for (const item of popup.media ?? []) {
         try {
           await ctx.storage.delete(item.storageId)
         } catch {
