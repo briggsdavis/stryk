@@ -649,6 +649,7 @@ function PopupEditor({
   const [form, setForm] = useState(initial)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAction = form.triggerType === "action"
@@ -656,12 +657,18 @@ function PopupEditor({
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
+    setError(null)
     try {
       const saved = await onSave(form)
       // Newly created pop-up: keep the entered values on screen (so toggles like
       // "Blur" visibly stick) and bind the form to the new row instead of wiping
       // it back to defaults, which read as the save being undone.
       if (!form.id && saved) setForm((prev) => ({ ...prev, id: saved }))
+    } catch (err) {
+      // A failed save must never look like it succeeded - surface it instead of
+      // swallowing the rejection, which left toggles (e.g. blur/dim) silently
+      // reverted with no indication the change didn't persist.
+      setError(err instanceof Error ? err.message : "Save failed. Please try again.")
     } finally {
       setSaving(false)
     }
@@ -892,6 +899,9 @@ function PopupEditor({
           onChange={(blurBackground) => setForm((prev) => ({ ...prev, blurBackground }))}
         />
       </div>
+      {error && (
+        <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700">{error}</p>
+      )}
       <div className="flex gap-2">
         <button type="submit" className="admin-primary" disabled={uploading || saving}>
           {saving ? "Saving..." : submitLabel}
