@@ -3,6 +3,7 @@ import { useQuery } from "convex/react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
+import { useShopifyCart } from "../../hooks/use-shopify-cart"
 import { gsap } from "../../lib/gsap"
 import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
@@ -214,14 +215,18 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
   { key: "16x16", label: '16×16"' },
 ]
 
-const SIZE_PRICES: Record<SizeKey, number> = { "8x8": 45, "12x12": 75, "16x16": 120 }
-const FRAME_SURCHARGE = 40
-
-// Headline price shown next to each piece's title: the default medium size, framed.
-const BASE_PRICE = SIZE_PRICES["12x12"] + FRAME_SURCHARGE
-
 // The soft drop shadow the site's artwork images carry (grid + collection cards).
 const IMAGE_SHADOW = "shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
+
+type AddedArtwork = {
+  id: string
+  image: string
+  alt: string
+}
+
+function mediaKey(src: string | undefined) {
+  return src?.split("?")[0] ?? ""
+}
 
 export function FocusWrapper({
   product,
@@ -237,6 +242,13 @@ export function FocusWrapper({
   const announcement = useQuery(api.marketing.activeAnnouncement, {
     route: location.pathname === "/" ? "home" : "other",
   })
+  const {
+    addVariant,
+    adding: cartAdding,
+    checkoutUrl,
+    configured: cartConfigured,
+    error: cartError,
+  } = useShopifyCart()
   const barActive = !!announcement
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
   const productNameRef = useRef<HTMLParagraphElement>(null)
@@ -288,6 +300,7 @@ export function FocusWrapper({
   // Add-to-cart button: once clicked it flips to an "Added" state. The button
   // width is morphed (not snapped) between labels - see the layout effect below.
   const [added, setAdded] = useState(false)
+  const [addedArtworks, setAddedArtworks] = useState<AddedArtwork[]>([])
   const cartBtnRef = useRef<HTMLButtonElement>(null)
   const cartLabelRef = useRef<HTMLSpanElement>(null)
   const prevCartWidthRef = useRef<number | null>(null)
@@ -295,22 +308,66 @@ export function FocusWrapper({
   // True while the panel is already open, so opening a recommendation is treated
   // as an in-place switch (skip the divider/× re-wipe) rather than a fresh open.
   const prevOpenRef = useRef(false)
+  const addedArtworkSlots = addedArtworks.slice(0, 4)
+  const remainingUpsellSlots = Math.max(0, 4 - addedArtworkSlots.length)
   const recLanes = useMemo(
-    () => (product ? buildRecommendationLanes(product, allProducts, 3) : [[], [], []]),
-    [product, allProducts],
+    () =>
+      product && remainingUpsellSlots > 0
+        ? buildRecommendationLanes(product, allProducts, remainingUpsellSlots)
+        : [],
+    [product, allProducts, remainingUpsellSlots],
   )
 
   const isOpen = !!product
 
-  const price =
-    selectedSize !== null ? SIZE_PRICES[selectedSize] + (withFrame ? FRAME_SURCHARGE : 0) : null
-  const canAddToCart = selectedSize !== null && withFrame !== null
+  const galleryImages: string[] =
+    product?.images && product.images.length >= 2
+      ? product.images
+      : product
+        ? Array.from({ length: 5 }, () => product.image)
+        : []
 
-  const cartLabel = added
-    ? "Added to Cart ✓"
-    : canAddToCart
-      ? `Add to Cart · $${price} →`
-      : "Add to Cart →"
+  const selectedFrameKey = withFrame === null ? null : withFrame ? "framed" : "unframed"
+  const currentGalleryImage = galleryImages[currentIdx]
+  const selectedVariant = useMemo(() => {
+    if (
+      !product ||
+      currentIdx === 0 ||
+      !currentGalleryImage ||
+      !selectedSize ||
+      !selectedFrameKey
+    ) {
+      return null
+    }
+    const currentImageKey = mediaKey(currentGalleryImage)
+    return (
+      product.variants?.find(
+        (variant) =>
+          variant.sizeKey === selectedSize &&
+          variant.frameKey === selectedFrameKey &&
+          mediaKey(variant.image) === currentImageKey &&
+          variant.availableForSale,
+      ) ?? null
+    )
+  }, [currentGalleryImage, currentIdx, product, selectedFrameKey, selectedSize])
+
+  const price = selectedVariant?.price ?? null
+  const canAddToCart = cartConfigured && !!selectedVariant && !cartAdding
+
+  const cartLabel =
+    added && selectedVariant
+      ? `Add Another · $${price} →`
+      : cartAdding
+        ? "Adding..."
+        : !cartConfigured
+          ? "Cart unavailable"
+          : currentIdx === 0
+            ? "Select Artwork →"
+            : selectedSize === null || withFrame === null
+              ? "Add to Cart →"
+              : selectedVariant
+                ? `Add to Cart · $${price} →`
+                : "Unavailable"
 
   // Morph the add-to-cart button's width whenever its label changes (e.g. on
   // "Add to Cart" → "Added to Cart") and cross-fade the new label in, so the
@@ -344,12 +401,26 @@ export function FocusWrapper({
     transitionNavigate(`/contact?inquiry=custom&product=${encodeURIComponent(product.name)}`)
   }
 
-  const galleryImages: string[] =
-    product?.images && product.images.length >= 2
-      ? product.images
-      : product
-        ? Array.from({ length: 5 }, () => product.image)
-        : []
+  const handleAddToCart = async () => {
+    if (!product || !selectedVariant || cartAdding) return
+    const variantToAdd = selectedVariant
+    const artworkImage = variantToAdd.image ?? currentGalleryImage ?? product.image
+    await addVariant(variantToAdd.shopifyVariantId, 1)
+    setAddedArtworks((artworks) => [
+      ...artworks,
+      {
+        id: `${variantToAdd.shopifyVariantId}:${Date.now()}:${artworks.length}`,
+        image: artworkImage,
+        alt: variantToAdd.artworkLabel ?? product.name,
+      },
+    ])
+    setAdded(true)
+    setUpsellOpen(true)
+  }
+
+  useEffect(() => {
+    setAdded(false)
+  }, [selectedVariant?.shopifyVariantId])
 
   // ── Reset + activate gallery on product open/close ────────────────────────
   useEffect(() => {
@@ -357,6 +428,7 @@ export function FocusWrapper({
     // resets the add-to-cart button.
     setUpsellOpen(false)
     setAdded(false)
+    setAddedArtworks([])
     if (!isOpen) {
       prevOpenRef.current = false
       galleryActiveRef.current = false
@@ -953,7 +1025,7 @@ export function FocusWrapper({
               style={{ opacity: 0 }}
             >
               <span>{product?.name}</span>
-              <span className="text-dark/45">${BASE_PRICE}</span>
+              <span className="text-dark/45">${price ?? product?.price ?? ""}</span>
             </p>
           </div>
 
@@ -1035,18 +1107,15 @@ export function FocusWrapper({
                 ))}
                 <button
                   ref={cartBtnRef}
-                  aria-label={added ? "Added to cart" : "Add to cart"}
-                  disabled={!canAddToCart && !added}
-                  onClick={(e) => {
+                  aria-label={added ? "Add another to cart" : "Add to cart"}
+                  disabled={!canAddToCart}
+                  onClick={async (e) => {
                     e.preventDefault()
-                    if (canAddToCart || added) {
-                      setAdded(true)
-                      setUpsellOpen(true)
-                    }
+                    if (canAddToCart) await handleAddToCart()
                   }}
                   className={clsx(
                     "group ml-1 inline-flex justify-center overflow-hidden rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide whitespace-nowrap transition-colors",
-                    canAddToCart || added
+                    canAddToCart
                       ? "bg-dark text-white hover:opacity-70"
                       : "cursor-not-allowed bg-dark/20 text-dark/40",
                   )}
@@ -1056,6 +1125,9 @@ export function FocusWrapper({
                   </span>
                 </button>
               </div>
+              {cartError && (
+                <p className="max-w-[17rem] text-[10px] leading-4 text-red-700">{cartError}</p>
+              )}
             </div>
           </div>
         </div>
@@ -1113,29 +1185,20 @@ export function FocusWrapper({
               </p>
 
               <div className="grid grid-cols-2 gap-3">
-                {/* Slot 1 - the piece just added to the cart */}
-                <div className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}>
-                  {product && (
+                {addedArtworkSlots.map((artwork) => (
+                  <div
+                    key={artwork.id}
+                    className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}
+                  >
                     <img
-                      src={product.image}
-                      alt={product.name}
+                      src={artwork.image}
+                      alt={artwork.alt}
                       className="h-full w-full object-cover"
                     />
-                  )}
-                  <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-dark text-white">
-                    <svg viewBox="0 0 12 12" fill="none" className="h-2.5 w-2.5" aria-hidden="true">
-                      <path
-                        d="M2 6.2 4.6 9 10 3"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                </div>
+                  </div>
+                ))}
 
-                {/* Slots 2-4 - recommendation carousels (distinct lanes) */}
+                {/* Empty slots are recommendation carousels (distinct lanes). */}
                 {recLanes.map((lane, i) => (
                   <RecommendationSlot
                     key={lane[0]?.id ?? `lane-${i}`}
@@ -1146,13 +1209,18 @@ export function FocusWrapper({
               </div>
 
               <div className="mt-auto pt-5">
-                <button
-                  type="button"
-                  onClick={(e) => e.preventDefault()}
-                  className="group flex w-full items-center justify-center rounded-lg bg-dark px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300 hover:opacity-80"
+                <a
+                  href={checkoutUrl ?? undefined}
+                  target={checkoutUrl ? "_blank" : undefined}
+                  rel="noopener noreferrer"
+                  aria-disabled={!checkoutUrl}
+                  className={clsx(
+                    "group flex w-full items-center justify-center rounded-lg px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300",
+                    checkoutUrl ? "bg-dark hover:opacity-80" : "pointer-events-none bg-dark/25",
+                  )}
                 >
                   <HoverLabel>Proceed to checkout</HoverLabel>
-                </button>
+                </a>
               </div>
             </div>
           </div>

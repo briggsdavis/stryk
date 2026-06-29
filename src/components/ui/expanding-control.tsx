@@ -16,12 +16,7 @@ interface ExpandingControlProps {
 
 function XIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4 transition-transform duration-500 [transition-timing-function:var(--ease-ui)] group-hover:rotate-90"
-      aria-hidden="true"
-      fill="none"
-    >
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true" fill="none">
       <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="1.5" />
       <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="1.5" />
     </svg>
@@ -151,7 +146,7 @@ export function ExpandingControl({
           <XIcon />
         ) : (
           <>
-            <span className="flex shrink-0 items-center transition-transform duration-300 group-hover:-translate-x-0.5">
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
               {icon}
             </span>
             <HoverLabel>{label}</HoverLabel>

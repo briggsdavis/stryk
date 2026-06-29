@@ -109,4 +109,106 @@ export default defineSchema({
     email: v.string(),
     source: v.string(),
   }).index("by_email", ["email"]),
+  catalogProducts: defineTable({
+    shopifyProductId: v.string(),
+    shopifyHandle: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    image: v.string(),
+    images: v.array(v.string()),
+    priceMin: v.number(),
+    priceMax: v.number(),
+    currencyCode: v.string(),
+    firstAvailableVariantId: v.optional(v.string()),
+    availableForSale: v.boolean(),
+    colorKey: v.optional(v.string()),
+    colorLabel: v.optional(v.string()),
+    categoryKey: v.optional(v.string()),
+    categoryLabel: v.optional(v.string()),
+    primaryCollectionHandle: v.optional(v.string()),
+    primaryCollectionTitle: v.optional(v.string()),
+    sortRank: v.number(),
+    isVisible: v.boolean(),
+    shopifyUpdatedAt: v.optional(v.string()),
+    syncedAt: v.number(),
+  })
+    .index("by_shopifyProductId", ["shopifyProductId"])
+    .index("by_shopifyHandle", ["shopifyHandle"])
+    .index("by_isVisible_and_sortRank", ["isVisible", "sortRank"])
+    .index("by_isVisible_and_colorKey_and_sortRank", ["isVisible", "colorKey", "sortRank"])
+    .index("by_isVisible_and_categoryKey_and_sortRank", ["isVisible", "categoryKey", "sortRank"]),
+  catalogCollections: defineTable({
+    shopifyCollectionId: v.string(),
+    shopifyHandle: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    image: v.optional(v.string()),
+    tagline: v.optional(v.string()),
+    materials: v.optional(v.string()),
+    palette: v.optional(v.string()),
+    sortRank: v.number(),
+    isVisible: v.boolean(),
+    shopifyUpdatedAt: v.optional(v.string()),
+    syncedAt: v.number(),
+  })
+    .index("by_shopifyCollectionId", ["shopifyCollectionId"])
+    .index("by_shopifyHandle", ["shopifyHandle"])
+    .index("by_isVisible_and_sortRank", ["isVisible", "sortRank"]),
+  catalogProductCollections: defineTable({
+    productId: v.id("catalogProducts"),
+    collectionId: v.id("catalogCollections"),
+    collectionHandle: v.string(),
+    sortRank: v.number(),
+    syncedAt: v.number(),
+  })
+    .index("by_productId", ["productId"])
+    .index("by_collectionHandle_and_sortRank", ["collectionHandle", "sortRank"])
+    .index("by_collectionId_and_productId", ["collectionId", "productId"])
+    .index("by_productId_and_collectionHandle", ["productId", "collectionHandle"]),
+  catalogProductVariants: defineTable({
+    productId: v.id("catalogProducts"),
+    shopifyProductId: v.string(),
+    shopifyVariantId: v.string(),
+    title: v.string(),
+    sku: v.optional(v.string()),
+    artworkKey: v.optional(v.string()),
+    artworkLabel: v.optional(v.string()),
+    sizeKey: v.optional(v.string()),
+    sizeLabel: v.optional(v.string()),
+    frameKey: v.optional(v.string()),
+    frameLabel: v.optional(v.string()),
+    image: v.optional(v.string()),
+    price: v.number(),
+    currencyCode: v.string(),
+    availableForSale: v.boolean(),
+    sortRank: v.number(),
+    syncedAt: v.number(),
+  })
+    .index("by_productId_and_sortRank", ["productId", "sortRank"])
+    .index("by_shopifyVariantId", ["shopifyVariantId"])
+    .index("by_productId_and_artworkKey_and_sizeKey_and_frameKey", [
+      "productId",
+      "artworkKey",
+      "sizeKey",
+      "frameKey",
+    ]),
+  catalogProductIndexEntries: defineTable({
+    filterKey: v.string(),
+    productId: v.id("catalogProducts"),
+    sortRank: v.number(),
+    syncedAt: v.number(),
+  })
+    .index("by_filterKey_and_sortRank", ["filterKey", "sortRank"])
+    .index("by_productId", ["productId"]),
+  catalogFacetOptions: defineTable({
+    dimension: v.union(v.literal("color"), v.literal("category")),
+    value: v.string(),
+    label: v.string(),
+    swatch: v.optional(v.string()),
+    sortRank: v.number(),
+    isVisible: v.boolean(),
+    syncedAt: v.number(),
+  })
+    .index("by_dimension_and_value", ["dimension", "value"])
+    .index("by_dimension_and_sortRank", ["dimension", "sortRank"]),
 })

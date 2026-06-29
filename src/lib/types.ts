@@ -1,4 +1,21 @@
-export type ProductCategory = "hotel" | "misc" | "restaurant" | "empties"
+export type ProductCategory = string
+
+export interface ProductVariant {
+  id: string
+  shopifyVariantId: string
+  title: string
+  sku?: string
+  artworkKey?: string
+  artworkLabel?: string
+  sizeKey?: string
+  sizeLabel?: string
+  frameKey?: string
+  frameLabel?: string
+  image?: string
+  price: number
+  currencyCode: string
+  availableForSale: boolean
+}
 
 export interface Product {
   id: string
@@ -18,6 +35,7 @@ export interface Product {
   category: ProductCategory
   size?: string
   available: boolean
+  variants?: ProductVariant[]
 }
 
 export interface Collection {

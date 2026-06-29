@@ -7,29 +7,24 @@ import { GridCollection } from "../../components/grid/grid-collection"
 import { EmptyFilterState } from "../../components/ui/empty-filter-state"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
+import { useHomeCatalog } from "../../hooks/use-home-catalog"
 import { useProductFocus } from "../../hooks/use-product-focus"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
-import { DEMO_PRODUCTS } from "../../lib/demo-data"
 import type { ActiveFilters, FilterKey } from "../../lib/filters"
-import {
-  activeFilterCount,
-  buildFilterGroups,
-  EMPTY_FILTERS,
-  productMatches,
-} from "../../lib/filters"
+import { activeFilterCount, EMPTY_FILTERS, productMatches } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
 import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { Product, ViewMode } from "../../lib/types"
 
 const PROXIMITY_RADIUS = 220
-const FILTER_GROUPS = buildFilterGroups(DEMO_PRODUCTS)
 
 type WithVTA = Document & { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
 
 export function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("xp")
   const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
+  const { products, filterGroups } = useHomeCatalog(filters)
   const {
     focusedProduct,
     beginFocus,
@@ -57,8 +52,8 @@ export function HomePage() {
 
   const hasActiveFilters = activeFilterCount(filters) > 0
   const matchCount = useMemo(
-    () => DEMO_PRODUCTS.filter((p) => productMatches(p, filters)).length,
-    [filters],
+    () => products.filter((p) => productMatches(p, filters)).length,
+    [filters, products],
   )
   const noMatches = hasActiveFilters && matchCount === 0
 
@@ -95,6 +90,7 @@ export function HomePage() {
       const items = wrapper.querySelectorAll<HTMLElement>(".xp-item")
       let closestDist = Infinity
       let closestName = ""
+      let hoveredName = ""
 
       items.forEach((item) => {
         // Skip pieces filtered out of the current view.
@@ -115,6 +111,14 @@ export function HomePage() {
         const factor = Math.max(0, 1 - dist / PROXIMITY_RADIUS)
         const scale = 1 + factor * 0.15
         gsap.to(item, { scale, duration: 0.35, ease: "power2.out", overwrite: "auto" })
+        if (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        ) {
+          hoveredName = item.dataset.cursor ?? ""
+        }
         if (dist < closestDist) {
           closestDist = dist
           closestName = item.dataset.cursor ?? ""
@@ -122,7 +126,9 @@ export function HomePage() {
       })
 
       window.dispatchEvent(
-        new CustomEvent("canvas-hover", { detail: { name: closestName, dist: closestDist } }),
+        new CustomEvent("canvas-hover", {
+          detail: { name: hoveredName, proximityName: closestName, dist: closestDist },
+        }),
       )
     }
 
@@ -185,7 +191,7 @@ export function HomePage() {
         showViewToggle={!focusedProduct}
         showCta={!!focusedProduct}
         showFilter={viewMode === "xp" && !focusedProduct}
-        filterGroups={FILTER_GROUPS}
+        filterGroups={filterGroups}
         activeFilters={filters}
         onToggleFilter={toggleFilter}
         onClearFilters={clearFilters}
@@ -200,7 +206,7 @@ export function HomePage() {
       >
         <XpWrapper
           ref={wrapperRef}
-          products={DEMO_PRODUCTS}
+          products={products}
           onItemClick={handleXpItemClick}
           collectionRef={collectionRef}
           itemRefs={xpItemRefs}
@@ -219,9 +225,9 @@ export function HomePage() {
         )}
       >
         <GridCollection
-          products={DEMO_PRODUCTS}
+          products={products}
           filters={filters}
-          filterGroups={FILTER_GROUPS}
+          filterGroups={filterGroups}
           onToggleFilter={toggleFilter}
           onClearFilters={clearFilters}
           onItemClick={handleGridItemClick}
@@ -235,7 +241,7 @@ export function HomePage() {
       {/* Focus panel */}
       <FocusWrapper
         product={focusedProduct}
-        allProducts={DEMO_PRODUCTS}
+        allProducts={products}
         onClose={handleCloseFocus}
         onOpenRecommendation={switchFocus}
       />

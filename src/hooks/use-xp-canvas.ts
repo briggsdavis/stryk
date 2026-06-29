@@ -329,31 +329,19 @@ export function useXpCanvas(active: boolean) {
     // Allow items at the edges to be visible during the zoomed-out entrance -
     // the wrapper's layout box is 100vw×100vh so overflow:hidden would clip them.
     gsap.set(wrapper, { scale: 0.85, transformOrigin: "center center", overflow: "visible" })
+    gsap.set(items, { opacity: 1, scale: 1, filter: "blur(0px)" })
 
-    const shuffled = [...items].sort(() => Math.random() - 0.5)
-
-    gsap.set(shuffled, { scale: 0.65, filter: "blur(14px)" })
-    gsap.to(shuffled, {
-      opacity: 1,
+    gsap.to(wrapper, {
       scale: 1,
-      filter: "blur(0px)",
-      duration: 0.45,
-      ease: "back.out(1.2)",
-      stagger: { each: 0.03, from: "random" },
+      duration: 1.6,
+      ease: "expo.inOut",
       onComplete: () => {
-        gsap.to(wrapper, {
-          scale: 1,
-          duration: 1.6,
-          ease: "expo.inOut",
-          onComplete: () => {
-            gsap.set(wrapper, { overflow: "hidden" })
-            initDraggable()
-            zoomRef.current = 2
-            setZoomLevel(2)
-            setEntranceComplete(true)
-            scheduleIdle()
-          },
-        })
+        gsap.set(wrapper, { overflow: "hidden" })
+        initDraggable()
+        zoomRef.current = 2
+        setZoomLevel(2)
+        setEntranceComplete(true)
+        scheduleIdle()
       },
     })
   }, [initDraggable, scheduleIdle])

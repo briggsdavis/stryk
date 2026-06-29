@@ -1,10 +1,9 @@
 import { clsx } from "clsx"
 import { useQuery } from "convex/react"
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { type CSSProperties, useEffect, useRef, useState } from "react"
 import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
-import { gsap } from "../../lib/gsap"
 import { useTransitionBack, useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
 import { CartPanel } from "./cart-panel"
@@ -32,6 +31,7 @@ const LINKS = [
   { label: "about", to: "/about" },
   { label: "contact", to: "/contact" },
 ]
+const VIEW_TOGGLE_LABELS = ["Grid View", "Canvas View"] as const
 
 // Two icons that morph into one another. The grid view is an even 3×3 grid of 9
 // dots; the canvas view is a 7-dot circle of three columns (2 · 3 · 2). Each row
@@ -92,20 +92,18 @@ function MorphDotIcon({ toGrid }: { toGrid: boolean }) {
   )
 }
 
-// Hover: the bars retract to staggered lengths for a subtle "reflow".
 function HamburgerIcon() {
   const bar =
-    "block h-px w-5 bg-current transition-all duration-300 [transition-timing-function:var(--ease-ui)]"
+    "block h-px bg-current transition-[width] duration-300 [transition-timing-function:var(--ease-ui)]"
   return (
-    <span className="flex flex-col items-center gap-1.5">
-      <span className={`${bar} group-hover:w-3`} />
-      <span className={`${bar} group-hover:w-5`} />
-      <span className={`${bar} group-hover:w-3.5`} />
+    <span className="flex h-[18px] w-[18px] flex-col items-center justify-center gap-1">
+      <span className={`${bar} w-3 group-hover:w-2`} />
+      <span className={`${bar} w-3 group-hover:w-3`} />
+      <span className={`${bar} w-3 group-hover:w-2`} />
     </span>
   )
 }
 
-// Hover: the two knobs slide across their tracks and swap sides.
 function SlidersIcon() {
   const knob =
     "fill-current transition-transform duration-300 [transform-box:fill-box] [transition-timing-function:var(--ease-ui)]"
@@ -119,16 +117,9 @@ function SlidersIcon() {
   )
 }
 
-// Cart icon: the cart rolls forward a touch on hover, wheels leading, so it
-// reads as a little nudge alongside the label's slide-swap.
 function CartIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px] transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[2px]"
-      aria-hidden="true"
-      fill="none"
-    >
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true" fill="none">
       <path
         d="M2.5 3.5H5l1.8 9.2a1.2 1.2 0 0 0 1.18.95h7.3a1.2 1.2 0 0 0 1.17-.9l1.45-5.6H6.2"
         stroke="currentColor"
@@ -136,18 +127,8 @@ function CartIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle
-        cx="9"
-        cy="19"
-        r="1.5"
-        className="fill-current transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[1.5px]"
-      />
-      <circle
-        cx="16"
-        cy="19"
-        r="1.5"
-        className="fill-current transition-transform duration-300 [transition-timing-function:var(--ease-ui)] group-hover:translate-x-[1.5px]"
-      />
+      <circle cx="8.55" cy="19" r="1.5" className="fill-current" />
+      <circle cx="15.55" cy="19" r="1.5" className="fill-current" />
     </svg>
   )
 }
@@ -181,39 +162,7 @@ export function Navbar({
   const [panel, setPanel] = useState<Panel>("none")
   const [cartOpen, setCartOpen] = useState(false)
   const menuOpen = panel === "menu"
-  const topPillRef = useRef<HTMLButtonElement>(null)
-  const togglerContentRef = useRef<HTMLSpanElement>(null)
-  const prevWidthRef = useRef<number | null>(null)
-  const firstRunRef = useRef(true)
   const ctaFirstRunRef = useRef(true)
-
-  // ── Morph the top view-toggle on label change ──────────────────────────────
-  // The top toggle changes label ("grid view" ↔ "canvas view"), so its natural
-  // width changes. Morph the pill to its new width and crossfade its contents.
-  useLayoutEffect(() => {
-    const top = topPillRef.current
-    if (!top) return
-
-    const prevW = prevWidthRef.current
-    top.style.width = "auto"
-    const targetW = Math.ceil(top.getBoundingClientRect().width)
-    prevWidthRef.current = targetW
-
-    if (firstRunRef.current || prevW == null) {
-      firstRunRef.current = false
-      top.style.width = `${targetW}px`
-      return
-    }
-
-    gsap.fromTo(top, { width: prevW }, { width: targetW, duration: 0.5, ease: "expo.out" })
-    if (togglerContentRef.current) {
-      gsap.fromTo(
-        togglerContentRef.current,
-        { opacity: 0, y: 6 },
-        { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" },
-      )
-    }
-  }, [viewMode, showViewToggle])
 
   // ── Collapse panels when a product is focused ──────────────────────────────
   useEffect(() => {
@@ -255,14 +204,20 @@ export function Navbar({
           style={barActive ? { top: "3.5rem" } : undefined}
         >
           <button
-            ref={topPillRef}
             onClick={onToggleView}
             aria-label={viewMode === "xp" ? "Switch to grid view" : "Switch to experience view"}
             className={CAPSULE}
           >
-            <span ref={togglerContentRef} className="flex items-center gap-2.5">
+            <span className="flex items-center gap-2.5">
               <MorphDotIcon toGrid={viewMode === "xp"} />
-              <HoverLabel>{viewMode === "xp" ? "Grid View" : "Canvas View"}</HoverLabel>
+              <span className="inline-grid">
+                <HoverLabel className="col-start-1 row-start-1">
+                  {viewMode === "xp" ? VIEW_TOGGLE_LABELS[0] : VIEW_TOGGLE_LABELS[1]}
+                </HoverLabel>
+                <span aria-hidden="true" className="invisible col-start-1 row-start-1 -mx-1 px-1">
+                  {VIEW_TOGGLE_LABELS[1]}
+                </span>
+              </span>
             </span>
           </button>
         </div>
@@ -283,8 +238,8 @@ export function Navbar({
             aria-label="Go back"
             className="group flex h-[42px] shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border border-dark/15 bg-canvas px-4 text-sm font-medium whitespace-nowrap text-dark transition-[background-color,border-color,color] duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
           >
-            <span className="flex shrink-0 items-center transition-transform duration-300 group-hover:-translate-x-0.5">
-              <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+              <svg viewBox="0 0 16 16" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
                 <path
                   d="M10 3l-5 5 5 5"
                   stroke="currentColor"

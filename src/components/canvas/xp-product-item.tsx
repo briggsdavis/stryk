@@ -33,7 +33,6 @@ export function XpProductItem({ product, index, onClick, itemRef }: XpProductIte
       className="xp-item"
       style={{
         width,
-        opacity: 0,
         flexShrink: 0,
         overflow: "hidden",
         position: "relative",

@@ -338,6 +338,7 @@ function AnnouncementsPanel() {
             key={editing.id}
             initial={editing}
             submitLabel="Save changes"
+            showActiveToggle
             onCancel={() => setEditing(null)}
             onSave={async (form) => {
               await persist(form)
@@ -356,11 +357,13 @@ function AnnouncementsPanel() {
 function AnnouncementEditor({
   initial,
   submitLabel,
+  showActiveToggle = false,
   onSave,
   onCancel,
 }: {
   initial: AnnouncementForm
   submitLabel: string
+  showActiveToggle?: boolean
   onSave: (form: AnnouncementForm) => Promise<void>
   onCancel?: () => void
 }) {
@@ -423,12 +426,14 @@ function AnnouncementEditor({
           { value: "all", label: "Every page" },
         ]}
       />
-      <SwitchInput
-        label="Active"
-        description="Only one announcement can be live at a time."
-        checked={form.isActive}
-        onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
-      />
+      {showActiveToggle && (
+        <SwitchInput
+          label="Active"
+          description="Only one announcement can be live at a time."
+          checked={form.isActive}
+          onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
+        />
+      )}
       <div className="flex gap-2">
         <button type="submit" className="admin-primary" disabled={saving}>
           {saving ? "Saving..." : submitLabel}
@@ -615,6 +620,7 @@ function PopupsPanel() {
             key={editing.id}
             initial={editing}
             submitLabel="Save changes"
+            showActiveToggle
             onCancel={() => setEditing(null)}
             onSave={async (form) => {
               await persist(form)
@@ -647,11 +653,13 @@ function describeTrigger(popup: {
 function PopupEditor({
   initial,
   submitLabel,
+  showActiveToggle = false,
   onSave,
   onCancel,
 }: {
   initial: PopupForm
   submitLabel: string
+  showActiveToggle?: boolean
   onSave: (form: PopupForm) => Promise<Id<"popups"> | void>
   onCancel?: () => void
 }) {
@@ -892,11 +900,13 @@ function PopupEditor({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <SwitchInput
-          label="Active"
-          checked={form.isActive}
-          onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
-        />
+        {showActiveToggle && (
+          <SwitchInput
+            label="Active"
+            checked={form.isActive}
+            onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
+          />
+        )}
         <SwitchInput
           label="Email capture"
           checked={form.emailCaptureEnabled}
@@ -1280,7 +1290,7 @@ function ColorInput({
           aria-label={label}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-11 w-12 flex-shrink-0 cursor-pointer rounded-lg border border-dark/15 bg-canvas"
+          className="admin-color-input h-[46px] w-12 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0"
         />
         <input
           type="text"

@@ -179,6 +179,15 @@
   .admin-secondary {
     @apply inline-flex items-center justify-center rounded-lg border border-dark/15 px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-dark hover:text-white;
   }
+  .admin-color-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  .admin-color-input::-webkit-color-swatch {
+    border: 0;
+  }
+  .admin-color-input::-moz-color-swatch {
+    border: 0;
+  }
 
   /* ── Image mask (scroll reveal) ── */
   .image-mask-wrap {

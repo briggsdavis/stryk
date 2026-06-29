@@ -4,6 +4,7 @@ import { StrictMode } from "react"
 import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 import App from "./app.tsx"
+import { ShopifyCartProvider } from "./hooks/use-shopify-cart.tsx"
 import "./index.css"
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined
@@ -15,7 +16,11 @@ const convex = convexUrl ? new ConvexReactClient(convexUrl) : null
 
 function Providers({ children }: { children: ReactNode }) {
   if (convex) {
-    return <ConvexAuthProvider client={convex}>{children}</ConvexAuthProvider>
+    return (
+      <ConvexAuthProvider client={convex}>
+        <ShopifyCartProvider>{children}</ShopifyCartProvider>
+      </ConvexAuthProvider>
+    )
   }
   return <>{children}</>
 }

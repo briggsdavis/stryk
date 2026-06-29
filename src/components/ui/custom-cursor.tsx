@@ -18,8 +18,8 @@ export function CustomCursor() {
     }
 
     const onCanvasHover = (e: Event) => {
-      const { name, dist } = (e as CustomEvent<{ name: string; dist: number }>).detail
-      setLabel(dist < 280 ? name : "")
+      const { name } = (e as CustomEvent<{ name: string }>).detail
+      setLabel(name)
     }
 
     window.addEventListener("mousemove", onMove)
