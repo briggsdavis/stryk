@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useShopifyCart } from "../../hooks/use-shopify-cart"
 import { HoverLabel } from "./hover-label"
 
@@ -18,9 +19,21 @@ function formatMoney(amount: string | undefined, currencyCode: string | undefine
 export function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [visible, setVisible] = useState(false)
   const [entered, setEntered] = useState(false)
-  const { cart, configured, loading, error, checkoutUrl, subtotal, totalQuantity } =
-    useShopifyCart()
-  const lines = cart?.lines.nodes ?? []
+  const {
+    cart,
+    configured,
+    loading,
+    error,
+    checkoutUrl,
+    subtotal,
+    totalQuantity,
+    removeLine,
+    removingLineIds,
+    refresh,
+  } = useShopifyCart()
+  const lines = (cart?.lines.nodes ?? []).flatMap((line) =>
+    line.merchandise ? [{ ...line, merchandise: line.merchandise }] : [],
+  )
 
   useEffect(() => {
     if (open) {
@@ -32,6 +45,10 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
       return () => window.clearTimeout(t)
     }
   }, [open])
+
+  useEffect(() => {
+    if (open) void refresh()
+  }, [open, refresh])
 
   // Esc closes the drawer, matching the click-outside backdrop.
   useEffect(() => {
@@ -45,8 +62,8 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
 
   if (!visible) return null
 
-  return (
-    <>
+  return createPortal(
+    <div>
       {/* Backdrop - click anywhere outside the drawer to close */}
       <button
         type="button"
@@ -135,12 +152,39 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
                     )}
                   </div>
                   <div className="min-w-0 pt-0.5">
-                    <p className="truncate text-sm font-medium text-dark">
-                      {line.merchandise.product.title}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-dark/50">
-                      {line.merchandise.selectedOptions.map((option) => option.value).join(" / ")}
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-dark">
+                          {line.merchandise.product.title}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-dark/50">
+                          {line.merchandise.selectedOptions
+                            .map((option) => option.value)
+                            .join(" / ")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void removeLine(line.id)}
+                        disabled={removingLineIds.includes(line.id)}
+                        aria-label="Remove from cart"
+                        className="group flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dark/10 bg-canvas/85 text-dark/55 shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-dark/25 hover:bg-dark hover:text-white disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        <svg
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          className="h-3 w-3 transition-transform duration-300 group-hover:rotate-90"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M4 4l8 8M12 4l-8 8"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                     <div className="mt-2 flex items-center justify-between text-xs text-dark/60">
                       <span>Qty {line.quantity}</span>
                       <span className="font-medium text-dark">
@@ -182,6 +226,7 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
           </a>
         </div>
       </aside>
-    </>
+    </div>,
+    document.body,
   )
 }

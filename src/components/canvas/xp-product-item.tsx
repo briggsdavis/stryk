@@ -1,45 +1,30 @@
+import type { CSSProperties } from "react"
 import type { Product } from "../../lib/types"
 
-// Varied widths only - each image's natural aspect ratio decides its height,
-// so thumbnails are shown uncropped at their true proportions.
-const WIDTH_VARIANTS = [
-  "18vw",
-  "14vw",
-  "22vw",
-  "12vw",
-  "16vw",
-  "20vw",
-  "24vw",
-  "13vw",
-  "19vw",
-  "22vw",
-  "15vw",
-  "17vw",
-]
+export const CANVAS_ITEM_WIDTH = 18
 
 interface XpProductItemProps {
   product: Product
-  index: number
   onClick: (product: Product, el: HTMLElement) => void
   itemRef?: (el: HTMLElement | null) => void
+  style?: CSSProperties
 }
 
-export function XpProductItem({ product, index, onClick, itemRef }: XpProductItemProps) {
-  const width = WIDTH_VARIANTS[index % WIDTH_VARIANTS.length]
-
+export function XpProductItem({ product, onClick, itemRef, style }: XpProductItemProps) {
   return (
     <button
       type="button"
       className="xp-item"
       style={{
-        width,
+        width: `${CANVAS_ITEM_WIDTH}vw`,
         flexShrink: 0,
         overflow: "hidden",
         position: "relative",
         padding: 0,
         border: "none",
-        background: "none",
+        background: "#f0ede6",
         appearance: "none",
+        ...style,
       }}
       data-cursor={product.name}
       data-product-id={product.id}

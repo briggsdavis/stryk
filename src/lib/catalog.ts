@@ -1,6 +1,6 @@
 import type { Doc } from "../../convex/_generated/dataModel"
 import type { ActiveFilters, FilterGroup } from "./filters"
-import { COLOR_SWATCHES } from "./filters"
+import { capitalizeFirstLetter, COLOR_SWATCHES } from "./filters"
 import type { Product } from "./types"
 
 export type CatalogProduct = Doc<"catalogProducts">
@@ -81,7 +81,7 @@ export function catalogFiltersToGroups(input: {
       label: "color",
       options: input.colors.map((option) => ({
         value: option.value,
-        label: option.label.toLowerCase(),
+        label: option.label[0]?.toUpperCase() + option.label.slice(1).toLowerCase(),
         swatch: option.swatch ?? COLOR_SWATCHES[option.label],
       })),
     },
@@ -90,7 +90,7 @@ export function catalogFiltersToGroups(input: {
       label: "category",
       options: input.categories.map((option) => ({
         value: option.value,
-        label: option.label.toLowerCase(),
+        label: capitalizeFirstLetter(option.label),
       })),
     },
     {
@@ -98,7 +98,7 @@ export function catalogFiltersToGroups(input: {
       label: "collection",
       options: input.collections.map((collection) => ({
         value: collection.shopifyHandle,
-        label: collection.title.toLowerCase(),
+        label: capitalizeFirstLetter(collection.title),
       })),
     },
   ]

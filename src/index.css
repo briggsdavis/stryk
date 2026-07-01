@@ -4,7 +4,7 @@
 /* Titles: Rotunda Variable (rendered at extra-bold). */
 @font-face {
   font-family: "Rotunda Variable";
-  src: url("/fonnts.com-Rotunda_Variable_Regular.otf") format("opentype");
+  src: url("/rotunda-regular.otf") format("opentype");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -12,7 +12,7 @@
 /* Body copy: Sweet Sans Pro Medium. */
 @font-face {
   font-family: "Sweet Sans Pro";
-  src: url("/SweetSansPro-Medium.woff") format("woff");
+  src: url("/sweet-sans-pro-medium.woff") format("woff");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -267,18 +267,7 @@
     position: absolute;
     top: 0;
     left: 0;
-    display: flex;
-    padding: 6vw 6vw 14vw;
-    width: fit-content;
-    height: fit-content;
     will-change: transform;
-    gap: 0;
-  }
-  .xp-column {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12vw;
   }
   .xp-item {
     flex-shrink: 0;

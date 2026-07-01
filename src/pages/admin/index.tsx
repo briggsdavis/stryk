@@ -1,6 +1,6 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react"
 import { clsx } from "clsx"
-import { useMutation, useQuery } from "convex/react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
@@ -22,7 +22,7 @@ import {
 } from "../../lib/marketing"
 
 type AuthMode = "signIn" | "signUp"
-type AdminSection = "about" | "global" | "announcements" | "popups" | "inquiries"
+type AdminSection = "about" | "global" | "announcements" | "popups" | "catalog" | "inquiries"
 type AnnouncementScope = "home" | "all"
 
 type PopupMediaItem = { type: PopupMediaType; storageId: Id<"_storage">; url: string | null }
@@ -32,6 +32,7 @@ const SECTIONS: Array<{ key: AdminSection; label: string }> = [
   { key: "global", label: "Footer / Global" },
   { key: "announcements", label: "Announcement Bar" },
   { key: "popups", label: "Pop-ups" },
+  { key: "catalog", label: "Catalog Sync" },
   { key: "inquiries", label: "Inquiries" },
 ]
 
@@ -154,7 +155,7 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
           className="mb-10 text-left"
           onClick={() => setSection("announcements")}
         >
-          <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto" />
+          <img src="/stryk-logo.png" alt="Stryk" className="h-7 w-auto" />
         </button>
         <nav className="flex flex-1 flex-col gap-2">
           {SECTIONS.map((item) => (
@@ -187,6 +188,7 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
             {section === "global" && <Placeholder title="Footer / Global" />}
             {section === "announcements" && <AnnouncementsPanel />}
             {section === "popups" && <PopupsPanel />}
+            {section === "catalog" && <CatalogSyncPanel />}
             {section === "inquiries" && <InquiriesPanel />}
           </ErrorBoundary>
         </div>
@@ -222,6 +224,76 @@ function Placeholder({ title }: { title: string }) {
         <p className="text-sm text-dark/60">
           This dashboard section is reserved for future editing controls.
         </p>
+      </div>
+    </section>
+  )
+}
+
+function CatalogSyncPanel() {
+  const syncCatalogPage = useAction(api.shopify.syncCatalogPageForAdmin)
+  const finalizeCatalogSync = useAction(api.shopify.finalizeCatalogSyncForAdmin)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const runSync = async () => {
+    setIsSyncing(true)
+    setMessage("Starting Shopify sync...")
+    setError(null)
+
+    try {
+      let after: string | undefined
+      let pageCount = 0
+      let productCount = 0
+      let collectionCount = 0
+      let hasNextPage = true
+      let syncStartedAt: number | undefined
+
+      while (hasNextPage) {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await syncCatalogPage({ first: 25, after, syncStartedAt })
+        syncStartedAt = result.syncStartedAt
+        pageCount += 1
+        productCount += result.productCount
+        collectionCount += result.collectionCount
+        hasNextPage = result.hasNextPage && !!result.nextCursor
+        after = result.nextCursor ?? undefined
+        setMessage(`Synced ${productCount} products across ${pageCount} page(s)...`)
+      }
+
+      if (syncStartedAt === undefined) throw new Error("Shopify sync did not start.")
+      setMessage("Finalizing sync and pruning deleted Shopify products...")
+      const cleanup = await finalizeCatalogSync({ syncStartedAt })
+
+      setMessage(
+        `Sync complete. Updated ${productCount} products and ${collectionCount} collection links. Hid ${cleanup.hiddenProductCount} stale products, ${cleanup.hiddenCollectionCount} stale collections, and ${cleanup.hiddenFacetOptionCount} stale filters.`,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Shopify sync failed.")
+      setMessage(null)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  return (
+    <section className="space-y-8">
+      <AdminHeader title="Catalog Sync" eyebrow="Shopify products" />
+      <div className="admin-card">
+        <PanelTitle title="Sync from Shopify" />
+        <p className="mb-5 max-w-2xl text-sm leading-6 text-dark/60">
+          Pull the latest Shopify products, variants, images, prices, and collection membership into
+          Convex.
+        </p>
+        <button type="button" className="admin-primary" disabled={isSyncing} onClick={runSync}>
+          {isSyncing ? "Syncing..." : "Run Shopify sync"}
+        </button>
+        {message && (
+          <p className="mt-4 rounded-lg bg-loam/10 px-4 py-3 text-sm text-loam">{message}</p>
+        )}
+        {error && (
+          <p className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700">{error}</p>
+        )}
       </div>
     </section>
   )

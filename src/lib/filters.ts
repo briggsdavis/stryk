@@ -14,11 +14,29 @@ export const EMPTY_FILTERS: ActiveFilters = { color: [], category: [], collectio
 // Swatch colours used to render the colour-filter dots.
 export const COLOR_SWATCHES: Record<string, string> = {
   Black: "#222222",
-  Cream: "#e8dcc8",
-  Green: "#506157",
-  Blue: "#4a699f",
-  Terracotta: "#b5836a",
-  Grey: "#a1a19c",
+  White: "#f7f5ef",
+  Gray: "#9a9a9a",
+  Brown: "#6f4e37",
+  Beige: "#d8c3a5",
+  Ivory: "#fff8e7",
+  Red: "#c23b3b",
+  Orange: "#d97832",
+  Yellow: "#e7c84b",
+  Green: "#4f7f52",
+  Blue: "#3f6ea8",
+  Purple: "#7b5aa6",
+  Pink: "#d989a5",
+  Navy: "#263f63",
+  Teal: "#347f7a",
+  Turquoise: "#48aeb2",
+  Olive: "#707845",
+  Mint: "#9bc7aa",
+  Gold: "#c9a23a",
+  Silver: "#c4c6c8",
+  Burgundy: "#7a2f3f",
+  Tan: "#c9a16d",
+  Coral: "#d96f5f",
+  Lavender: "#a995c9",
 }
 
 export interface FilterOption {
@@ -33,12 +51,17 @@ export interface FilterGroup {
   options: FilterOption[]
 }
 
+export function capitalizeFirstLetter(value: string) {
+  const label = value.toLowerCase()
+  return label[0]?.toUpperCase() + label.slice(1)
+}
+
 function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items))
 }
 
 // Derive the available filter options straight from the product set so the UI
-// always reflects the real data. Option labels are rendered lowercase.
+// always reflects the real data. Option labels are display-formatted only.
 export function buildFilterGroups(products: Product[]): FilterGroup[] {
   const colors = unique(products.map((p) => p.colorName))
   const categories = unique(products.map((p) => p.category))
@@ -50,19 +73,23 @@ export function buildFilterGroups(products: Product[]): FilterGroup[] {
     {
       key: "color",
       label: "color",
-      options: colors.map((c) => ({ value: c, label: c.toLowerCase(), swatch: COLOR_SWATCHES[c] })),
+      options: colors.map((c) => ({
+        value: c,
+        label: c[0]?.toUpperCase() + c.slice(1).toLowerCase(),
+        swatch: COLOR_SWATCHES[c],
+      })),
     },
     {
       key: "category",
       label: "category",
-      options: categories.map((c) => ({ value: c, label: c.toLowerCase() })),
+      options: categories.map((c) => ({ value: c, label: capitalizeFirstLetter(c) })),
     },
     {
       key: "collection",
       label: "collection",
       options: Array.from(collectionMap, ([value, label]) => ({
         value,
-        label: label.toLowerCase(),
+        label: capitalizeFirstLetter(label),
       })),
     },
   ]

@@ -136,7 +136,8 @@ export default defineSchema({
     .index("by_shopifyHandle", ["shopifyHandle"])
     .index("by_isVisible_and_sortRank", ["isVisible", "sortRank"])
     .index("by_isVisible_and_colorKey_and_sortRank", ["isVisible", "colorKey", "sortRank"])
-    .index("by_isVisible_and_categoryKey_and_sortRank", ["isVisible", "categoryKey", "sortRank"]),
+    .index("by_isVisible_and_categoryKey_and_sortRank", ["isVisible", "categoryKey", "sortRank"])
+    .index("by_syncedAt", ["syncedAt"]),
   catalogCollections: defineTable({
     shopifyCollectionId: v.string(),
     shopifyHandle: v.string(),
@@ -153,7 +154,8 @@ export default defineSchema({
   })
     .index("by_shopifyCollectionId", ["shopifyCollectionId"])
     .index("by_shopifyHandle", ["shopifyHandle"])
-    .index("by_isVisible_and_sortRank", ["isVisible", "sortRank"]),
+    .index("by_isVisible_and_sortRank", ["isVisible", "sortRank"])
+    .index("by_syncedAt", ["syncedAt"]),
   catalogProductCollections: defineTable({
     productId: v.id("catalogProducts"),
     collectionId: v.id("catalogCollections"),
@@ -210,5 +212,6 @@ export default defineSchema({
     syncedAt: v.number(),
   })
     .index("by_dimension_and_value", ["dimension", "value"])
-    .index("by_dimension_and_sortRank", ["dimension", "sortRank"]),
+    .index("by_dimension_and_sortRank", ["dimension", "sortRank"])
+    .index("by_syncedAt", ["syncedAt"]),
 })

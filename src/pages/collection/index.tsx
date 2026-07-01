@@ -1,12 +1,14 @@
+import { useQuery } from "convex/react"
 import { useEffect, useMemo, useRef } from "react"
-import { useNavigate, useParams } from "react-router"
+import { Link, useNavigate, useParams } from "react-router"
+import { api } from "../../../convex/_generated/api"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { Footer } from "../../components/ui/footer"
 import { HoverLabel } from "../../components/ui/hover-label"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 import { useProductFocus } from "../../hooks/use-product-focus"
-import { getCollection } from "../../lib/demo-data"
+import { catalogProductToProduct } from "../../lib/catalog"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
 
@@ -57,8 +59,28 @@ export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const transitionNavigate = useTransitionNavigate()
-  const collection = useMemo(() => (slug ? getCollection(slug) : null), [slug])
-  const { focusedProduct, beginFocus, switchFocus, handleClose } = useProductFocus()
+  const collectionResult = useQuery(
+    api.catalog.getCollection,
+    slug ? { handle: slug, productLimit: 60 } : "skip",
+  )
+  const collection = useMemo(() => {
+    if (!collectionResult) return collectionResult
+    return {
+      slug: collectionResult.collection.shopifyHandle,
+      name: collectionResult.collection.title,
+      color: collectionResult.collection.palette ?? "#f0ede6",
+      tagline: collectionResult.collection.tagline ?? collectionResult.collection.description ?? "",
+      description: collectionResult.collection.description ?? "",
+      materials: collectionResult.collection.materials ?? "",
+      palette: collectionResult.collection.palette ?? "Beige",
+      products: collectionResult.products.map((product) => ({
+        ...catalogProductToProduct(product),
+        collectionName: collectionResult.collection.title,
+        collectionSlug: collectionResult.collection.shopifyHandle,
+      })),
+    }
+  }, [collectionResult])
+  const { focusedProduct, beginFocus, handleClose } = useProductFocus()
 
   // Pause smooth-scroll while a product is focused so wheel input drives the
   // focus gallery (advancing between a product's images) instead of the page.
@@ -231,7 +253,11 @@ export function CollectionPage() {
     }
   }, [collection])
 
-  if (!collection) {
+  if (collection === undefined) {
+    return <div className="h-screen bg-canvas text-dark" />
+  }
+
+  if (collection === null) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-6 bg-canvas text-dark">
         <p className="text-128">Collection not found</p>
@@ -379,14 +405,27 @@ export function CollectionPage() {
         <div data-closing-text className="relative z-10 max-w-2xl text-center">
           <h2 className="text-128 leading-[0.95] text-dark">{collection.name}</h2>
           <p className="mx-auto mt-5 max-w-md text-base text-dark/60">{collection.tagline}</p>
-          <button
-            type="button"
-            onClick={() => transitionNavigate("/collections")}
+          <Link
+            to="/collections"
+            onClick={(event) => {
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.altKey ||
+                event.ctrlKey ||
+                event.shiftKey
+              ) {
+                return
+              }
+              event.preventDefault()
+              transitionNavigate("/collections")
+            }}
             className="group mt-8 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium text-dark transition-colors hover:border-dark/40"
           >
             <HoverLabel>Explore collections</HoverLabel>
             <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-          </button>
+          </Link>
         </div>
       </section>
 
@@ -400,9 +439,7 @@ export function CollectionPage() {
           so the panel stays transparent. */}
       <FocusWrapper
         product={focusedProduct}
-        allProducts={products}
         onClose={handleClose}
-        onOpenRecommendation={switchFocus}
       />
     </div>
   )

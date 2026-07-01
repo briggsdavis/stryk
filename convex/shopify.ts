@@ -1,7 +1,8 @@
 /* eslint-disable no-await-in-loop */
 import { v } from "convex/values"
-import { internal } from "./_generated/api"
+import { api, internal } from "./_generated/api"
 import { action, env, query } from "./_generated/server"
+import type { ActionCtx } from "./_generated/server"
 
 type ShopifyImage = {
   url: string
@@ -85,6 +86,12 @@ type ShopifyProductVariantsResponse = {
     } | null
   }
   errors?: Array<{ message: string }>
+}
+
+type SyncCatalogPageArgs = {
+  after?: string
+  first?: number
+  syncStartedAt?: number
 }
 
 const PRODUCTS_QUERY = `
@@ -362,8 +369,8 @@ function normalizeProduct(product: ShopifyProduct) {
     shopifyHandle: product.handle,
     title: product.title,
     description: product.description ?? undefined,
-    image: images[0] ?? "/strykfav.jpg",
-    images: images.length > 0 ? images.slice(0, 20) : ["/strykfav.jpg"],
+    image: images[0] ?? "",
+    images: images.slice(0, 20),
     priceMin: prices.min,
     priceMax: prices.max,
     currencyCode: "USD",
@@ -427,52 +434,126 @@ async function fetchAllProductVariants(
   }
 }
 
+async function syncCatalogPageFromShopify(ctx: ActionCtx, args: SyncCatalogPageArgs) {
+  const storeDomain = requiredEnv("SHOPIFY_STORE_DOMAIN", env.SHOPIFY_STORE_DOMAIN)
+  const clientId = requiredEnv("SHOPIFY_CLIENT_ID", env.SHOPIFY_CLIENT_ID)
+  const clientSecret = requiredEnv("SHOPIFY_CLIENT_SECRET", env.SHOPIFY_CLIENT_SECRET)
+  const apiVersion = env.SHOPIFY_API_VERSION ?? "2026-04"
+  const first = Math.min(Math.max(args.first ?? 25, 1), 50)
+  const syncStartedAt = args.syncStartedAt ?? Date.now()
+  const accessToken = await getAdminAccessToken(storeDomain, clientId, clientSecret)
+
+  const payload = await shopifyGraphql<ShopifyProductsResponse>(
+    storeDomain,
+    apiVersion,
+    accessToken,
+    PRODUCTS_QUERY,
+    {
+      first,
+      after: args.after ?? null,
+    },
+  )
+
+  const productsConnection = payload.data?.products
+  if (!productsConnection) throw new Error("Shopify response did not include products")
+
+  const products: Array<ReturnType<typeof normalizeProduct>> = []
+  for (const product of productsConnection.nodes) {
+    const hydrated = await fetchAllProductVariants(storeDomain, apiVersion, accessToken, product)
+    products.push(normalizeProduct(hydrated))
+  }
+  const result: { productCount: number; collectionCount: number } = await ctx.runMutation(
+    internal.catalog.upsertSyncedProducts,
+    { products, syncedAt: syncStartedAt },
+  )
+
+  return {
+    ...result,
+    syncStartedAt,
+    hasNextPage: productsConnection.pageInfo.hasNextPage,
+    nextCursor: productsConnection.pageInfo.endCursor,
+  }
+}
+
+async function finalizeCatalogSync(ctx: ActionCtx, syncStartedAt: number) {
+  const totals = {
+    hiddenProductCount: 0,
+    hiddenCollectionCount: 0,
+    hiddenFacetOptionCount: 0,
+  }
+  let hasMore = true
+  let batchCount = 0
+
+  while (hasMore && batchCount < 50) {
+    const batch: typeof totals & { hasMore: boolean } = await ctx.runMutation(
+      internal.catalog.finalizeCatalogSyncBatch,
+      { syncedAt: syncStartedAt, limit: 100 },
+    )
+    totals.hiddenProductCount += batch.hiddenProductCount
+    totals.hiddenCollectionCount += batch.hiddenCollectionCount
+    totals.hiddenFacetOptionCount += batch.hiddenFacetOptionCount
+    hasMore = batch.hasMore
+    batchCount++
+  }
+
+  if (hasMore) {
+    throw new Error("Catalog cleanup did not finish. Run sync again to continue pruning stale rows.")
+  }
+
+  return totals
+}
+
 export const syncCatalogPage = action({
   args: {
     after: v.optional(v.string()),
     first: v.optional(v.number()),
+    syncStartedAt: v.optional(v.number()),
     syncSecret: v.string(),
   },
   handler: async (ctx, args) => {
     const syncSecret = requiredEnv("SHOPIFY_SYNC_SECRET", env.SHOPIFY_SYNC_SECRET)
     if (args.syncSecret !== syncSecret) throw new Error("Invalid Shopify sync secret")
 
-    const storeDomain = requiredEnv("SHOPIFY_STORE_DOMAIN", env.SHOPIFY_STORE_DOMAIN)
-    const clientId = requiredEnv("SHOPIFY_CLIENT_ID", env.SHOPIFY_CLIENT_ID)
-    const clientSecret = requiredEnv("SHOPIFY_CLIENT_SECRET", env.SHOPIFY_CLIENT_SECRET)
-    const apiVersion = env.SHOPIFY_API_VERSION ?? "2026-04"
-    const first = Math.min(Math.max(args.first ?? 25, 1), 50)
-    const accessToken = await getAdminAccessToken(storeDomain, clientId, clientSecret)
+    return await syncCatalogPageFromShopify(ctx, args)
+  },
+})
 
-    const payload = await shopifyGraphql<ShopifyProductsResponse>(
-      storeDomain,
-      apiVersion,
-      accessToken,
-      PRODUCTS_QUERY,
-      {
-        first,
-        after: args.after ?? null,
-      },
-    )
+export const syncCatalogPageForAdmin = action({
+  args: {
+    after: v.optional(v.string()),
+    first: v.optional(v.number()),
+    syncStartedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const viewer: { email: string } | null = await ctx.runQuery(api.admin.viewer, {})
+    if (!viewer) throw new Error("Unauthorized")
 
-    const productsConnection = payload.data?.products
-    if (!productsConnection) throw new Error("Shopify response did not include products")
+    return await syncCatalogPageFromShopify(ctx, args)
+  },
+})
 
-    const products = []
-    for (const product of productsConnection.nodes) {
-      const hydrated = await fetchAllProductVariants(storeDomain, apiVersion, accessToken, product)
-      products.push(normalizeProduct(hydrated))
-    }
-    const result: { productCount: number; collectionCount: number } = await ctx.runMutation(
-      internal.catalog.upsertSyncedProducts,
-      { products },
-    )
+export const finalizeCatalogSyncForAdmin = action({
+  args: {
+    syncStartedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const viewer: { email: string } | null = await ctx.runQuery(api.admin.viewer, {})
+    if (!viewer) throw new Error("Unauthorized")
 
-    return {
-      ...result,
-      hasNextPage: productsConnection.pageInfo.hasNextPage,
-      nextCursor: productsConnection.pageInfo.endCursor,
-    }
+    return await finalizeCatalogSync(ctx, args.syncStartedAt)
+  },
+})
+
+export const finalizeCatalogSyncWithSecret = action({
+  args: {
+    syncStartedAt: v.number(),
+    syncSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const syncSecret = requiredEnv("SHOPIFY_SYNC_SECRET", env.SHOPIFY_SYNC_SECRET)
+    if (args.syncSecret !== syncSecret) throw new Error("Invalid Shopify sync secret")
+
+    return await finalizeCatalogSync(ctx, args.syncStartedAt)
   },
 })
 

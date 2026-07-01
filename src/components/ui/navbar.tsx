@@ -191,9 +191,9 @@ export function Navbar({
         <button
           onClick={() => transitionNavigate("/")}
           aria-label="Stryk - home"
-          className="opacity-80 transition-opacity hover:opacity-100"
+          className="cursor-pointer opacity-80 transition-opacity hover:opacity-100"
         >
-          <img src="/stryklogo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
+          <img src="/stryk-logo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
         </button>
       </div>
 
@@ -276,7 +276,7 @@ export function Navbar({
           })}
         </ExpandingControl>
 
-        {/* Filter - canvas view only; dimmed while the menu is open */}
+        {/* Filter - canvas view only */}
         {hasFilter && (
           <ExpandingControl
             open={panel === "filter"}
@@ -284,7 +284,6 @@ export function Navbar({
             icon={<SlidersIcon />}
             label="Filter"
             ariaLabel={panel === "filter" ? "Close filters" : "Open filters"}
-            dimmed={menuOpen}
           >
             <FilterPills
               groups={filterGroups}

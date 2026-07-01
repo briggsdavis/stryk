@@ -12,197 +12,7 @@ import { HoverLabel } from "../ui/hover-label"
 
 interface FocusWrapperProps {
   product: Product | null
-  allProducts: Product[]
   onClose: () => void
-  // Open a recommended piece from the "complete your set" upsell panel. Re-runs
-  // the focus morph for the chosen product without closing first.
-  onOpenRecommendation?: (product: Product, sourceEl: HTMLElement) => void
-}
-
-// Other pieces to suggest alongside the one added to cart, ranked by what they
-// share - same collection first, then colour, then category.
-function rankRecommendations(current: Product, all: Product[]): Product[] {
-  return all
-    .filter((p) => p.id !== current.id)
-    .map((p) => {
-      let score = 0
-      if (p.collectionSlug === current.collectionSlug) score += 3
-      if (p.colorName === current.colorName) score += 2
-      if (p.category === current.category) score += 1
-      return { p, score }
-    })
-    .sort((a, b) => b.score - a.score)
-    .map((s) => s.p)
-}
-
-// Cap on how many pieces each slot cycles through, so the carousels (and their
-// position dots) stay manageable on a large catalogue.
-const REC_PER_LANE = 6
-
-// Deal the top-ranked recommendations round-robin into `lanes` slots so the best
-// picks fill the slots first and no piece ever appears in two slots at once. Each
-// lane is its own carousel the visitor can cycle through.
-function buildRecommendationLanes(current: Product, all: Product[], lanes: number): Product[][] {
-  const ranked = rankRecommendations(current, all).slice(0, lanes * REC_PER_LANE)
-  const result: Product[][] = Array.from({ length: lanes }, () => [])
-  ranked.forEach((p, i) => result[i % lanes].push(p))
-  return result
-}
-
-const REC_DRAG_THRESHOLD = 6
-
-// One recommendation slot: a horizontal snap-track of its lane's pieces. Drag,
-// scroll, or use the arrows to cycle; clicking the piece in view opens it.
-function RecommendationSlot({
-  lane,
-  onOpen,
-}: {
-  lane: Product[]
-  onOpen?: (product: Product, sourceEl: HTMLElement) => void
-}) {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef({ active: false, startX: 0, scrollLeft: 0, moved: 0 })
-  const [index, setIndex] = useState(0)
-
-  const indexFromScroll = () => {
-    const t = trackRef.current
-    if (!t) return 0
-    return Math.min(Math.max(Math.round(t.scrollLeft / (t.clientWidth || 1)), 0), lane.length - 1)
-  }
-
-  const scrollToIndex = (i: number) => {
-    const t = trackRef.current
-    if (!t) return
-    const clamped = Math.min(Math.max(i, 0), lane.length - 1)
-    t.scrollTo({ left: clamped * t.clientWidth, behavior: "smooth" })
-    setIndex(clamped)
-  }
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    const t = trackRef.current
-    if (!t) return
-    dragRef.current = { active: true, startX: e.clientX, scrollLeft: t.scrollLeft, moved: 0 }
-  }
-  const onPointerMove = (e: React.PointerEvent) => {
-    const t = trackRef.current
-    const d = dragRef.current
-    if (!t || !d.active) return
-    const dx = e.clientX - d.startX
-    d.moved = Math.max(d.moved, Math.abs(dx))
-    if (d.moved > REC_DRAG_THRESHOLD) {
-      t.setPointerCapture(e.pointerId)
-      t.scrollLeft = d.scrollLeft - dx
-    }
-  }
-  const onPointerUp = () => {
-    dragRef.current.active = false
-  }
-  // Swallow the open-click when the gesture was a drag.
-  const onClickCapture = (e: React.MouseEvent) => {
-    if (dragRef.current.moved > REC_DRAG_THRESHOLD) {
-      e.stopPropagation()
-      e.preventDefault()
-    }
-  }
-
-  if (lane.length === 0) {
-    return <div className="aspect-square rounded-sm bg-dark/[0.04]" />
-  }
-
-  return (
-    <div className={clsx("group relative aspect-square overflow-hidden", IMAGE_SHADOW)}>
-      <div
-        ref={trackRef}
-        className="rec-track"
-        onScroll={() => setIndex(indexFromScroll())}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onClickCapture={onClickCapture}
-      >
-        {lane.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={(e) => {
-              const img = e.currentTarget.querySelector("img")
-              if (img) onOpen?.(p, img)
-            }}
-            aria-label={`Open ${p.name}`}
-            className="relative block h-full w-full shrink-0"
-            style={{ scrollSnapAlign: "start" }}
-          >
-            <img
-              src={p.image}
-              alt={p.name}
-              draggable={false}
-              className="h-full w-full object-cover"
-            />
-          </button>
-        ))}
-      </div>
-
-      {/* Cycle arrows - hidden at the ends, surfaced on hover */}
-      {lane.length > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={() => scrollToIndex(index - 1)}
-            aria-label="Previous recommendation"
-            className={clsx(
-              "absolute top-1/2 left-1.5 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-canvas/90 text-dark shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-dark hover:text-white",
-              index === 0 ? "pointer-events-none opacity-0" : "opacity-0 group-hover:opacity-100",
-            )}
-          >
-            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-              <path
-                d="M10 3 5 8l5 5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollToIndex(index + 1)}
-            aria-label="Next recommendation"
-            className={clsx(
-              "absolute top-1/2 right-1.5 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-canvas/90 text-dark shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-dark hover:text-white",
-              index === lane.length - 1
-                ? "pointer-events-none opacity-0"
-                : "opacity-0 group-hover:opacity-100",
-            )}
-          >
-            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-              <path
-                d="M6 3l5 5-5 5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-
-          {/* Position dots */}
-          <div className="pointer-events-none absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1">
-            {lane.map((p, i) => (
-              <span
-                key={p.id}
-                className={clsx(
-                  "h-1 rounded-full bg-dark transition-all duration-300",
-                  i === index ? "w-3 opacity-80" : "w-1 opacity-25",
-                )}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
 }
 
 // Print size + framing options. Price is a fixed amount per size, plus a flat
@@ -217,23 +27,27 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 
 // The soft drop shadow the site's artwork images carry (grid + collection cards).
 const IMAGE_SHADOW = "shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
+const UPSELL_SLOT_COUNT = 4
+const EMPTY_UPSELL_SLOT_KEYS = Array.from(
+  { length: UPSELL_SLOT_COUNT },
+  (_, i) => `empty-slot-${i + 1}`,
+)
 
 type AddedArtwork = {
   id: string
+  lineId: string
+  lineQuantity: number
   image: string
   alt: string
 }
+
+type UpsellSlot = AddedArtwork | null
 
 function mediaKey(src: string | undefined) {
   return src?.split("?")[0] ?? ""
 }
 
-export function FocusWrapper({
-  product,
-  allProducts,
-  onClose,
-  onOpenRecommendation,
-}: FocusWrapperProps) {
+export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
   // The announcement bar (z-1100, root level) renders above the focus wrapper,
   // so when it's live the lightbox close button must drop below it - aligned with
@@ -243,15 +57,17 @@ export function FocusWrapper({
     route: location.pathname === "/" ? "home" : "other",
   })
   const {
+    cart,
     addVariant,
     adding: cartAdding,
     checkoutUrl,
     configured: cartConfigured,
     error: cartError,
+    removeLineUnit,
+    removingLineIds,
   } = useShopifyCart()
   const barActive = !!announcement
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
-  const productNameRef = useRef<HTMLParagraphElement>(null)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
   const optionsRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -300,23 +116,67 @@ export function FocusWrapper({
   // Add-to-cart button: once clicked it flips to an "Added" state. The button
   // width is morphed (not snapped) between labels - see the layout effect below.
   const [added, setAdded] = useState(false)
-  const [addedArtworks, setAddedArtworks] = useState<AddedArtwork[]>([])
   const cartBtnRef = useRef<HTMLButtonElement>(null)
   const cartLabelRef = useRef<HTMLSpanElement>(null)
   const prevCartWidthRef = useRef<number | null>(null)
   const cartFirstRunRef = useRef(true)
-  // True while the panel is already open, so opening a recommendation is treated
-  // as an in-place switch (skip the divider/× re-wipe) rather than a fresh open.
+  // True after the focus panel has opened, so repeated renders don't replay the
+  // divider/close-button entrance.
   const prevOpenRef = useRef(false)
-  const addedArtworkSlots = addedArtworks.slice(0, 4)
-  const remainingUpsellSlots = Math.max(0, 4 - addedArtworkSlots.length)
-  const recLanes = useMemo(
+  const cartArtworkItems = useMemo<AddedArtwork[]>(
     () =>
-      product && remainingUpsellSlots > 0
-        ? buildRecommendationLanes(product, allProducts, remainingUpsellSlots)
-        : [],
-    [product, allProducts, remainingUpsellSlots],
+      (cart?.lines.nodes ?? [])
+        .flatMap((line) => {
+          const merchandise = line.merchandise
+          if (!merchandise) return []
+          return Array.from({ length: line.quantity }, (_, i) => ({
+            id: `${line.id}:${i}`,
+            lineId: line.id,
+            lineQuantity: line.quantity,
+            image: merchandise.image?.url ?? "",
+            alt: merchandise.image?.altText ?? merchandise.product.title,
+          }))
+        })
+        .filter((artwork) => artwork.image),
+    [cart],
   )
+  const [upsellSlots, setUpsellSlots] = useState<UpsellSlot[]>(
+    EMPTY_UPSELL_SLOT_KEYS.map(() => null),
+  )
+
+  useEffect(() => {
+    setUpsellSlots((currentSlots) => {
+      const remainingItems = [...cartArtworkItems]
+      const nextSlots = currentSlots.map((slot) => {
+        if (!slot) return null
+
+        const nextItemIndex = remainingItems.findIndex((item) => item.id === slot.id)
+        if (nextItemIndex === -1) return null
+
+        const [nextItem] = remainingItems.splice(nextItemIndex, 1)
+        return nextItem
+      })
+
+      for (const item of remainingItems) {
+        const openSlotIndex = nextSlots.findIndex((slot) => slot === null)
+        if (openSlotIndex === -1) break
+        nextSlots[openSlotIndex] = item
+      }
+
+      const unchanged = currentSlots.every((slot, i) => {
+        const nextSlot = nextSlots[i]
+        return (
+          slot?.id === nextSlot?.id &&
+          slot?.lineId === nextSlot?.lineId &&
+          slot?.lineQuantity === nextSlot?.lineQuantity &&
+          slot?.image === nextSlot?.image &&
+          slot?.alt === nextSlot?.alt
+        )
+      })
+
+      return unchanged ? currentSlots : nextSlots
+    })
+  }, [cartArtworkItems])
 
   const isOpen = !!product
 
@@ -404,16 +264,7 @@ export function FocusWrapper({
   const handleAddToCart = async () => {
     if (!product || !selectedVariant || cartAdding) return
     const variantToAdd = selectedVariant
-    const artworkImage = variantToAdd.image ?? currentGalleryImage ?? product.image
     await addVariant(variantToAdd.shopifyVariantId, 1)
-    setAddedArtworks((artworks) => [
-      ...artworks,
-      {
-        id: `${variantToAdd.shopifyVariantId}:${Date.now()}:${artworks.length}`,
-        image: artworkImage,
-        alt: variantToAdd.artworkLabel ?? product.name,
-      },
-    ])
     setAdded(true)
     setUpsellOpen(true)
   }
@@ -424,13 +275,16 @@ export function FocusWrapper({
 
   // ── Reset + activate gallery on product open/close ────────────────────────
   useEffect(() => {
-    // Any open/close or switch to another piece collapses the upsell panel and
-    // resets the add-to-cart button.
-    setUpsellOpen(false)
+    // Keep the upsell panel closed on a fresh product open; cart contents come
+    // from Shopify and are not reset here.
+    const isSwitch = prevOpenRef.current
+    if (!isSwitch) {
+      setUpsellOpen(false)
+    }
     setAdded(false)
-    setAddedArtworks([])
     if (!isOpen) {
       prevOpenRef.current = false
+      setUpsellOpen(false)
       galleryActiveRef.current = false
       setGalleryActive(false)
       setCurrentIdx(0)
@@ -592,8 +446,7 @@ export function FocusWrapper({
   // ── Panel entrance animation ──────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return
-    // A switch (panel already open, opening a recommendation) keeps the divider
-    // and × in place; only a fresh open wipes them in.
+    // Only a fresh panel open wipes in the divider and close button.
     const isSwitch = prevOpenRef.current
     prevOpenRef.current = true
 
@@ -621,21 +474,18 @@ export function FocusWrapper({
         ease: "back.out(1.7)",
       })
     } else {
-      // Switching to a recommendation: the backdrop is already in place.
+      // The backdrop is already in place on repeated renders.
       gsap.set(panelRef.current, { backgroundColor: "rgba(240,237,230,1)" })
     }
 
-    const textEls = [
-      collectionNameRef.current,
-      productNameRef.current,
-      detailsInnerRef.current,
-    ].filter(Boolean) as HTMLElement[]
+    const textEls = [collectionNameRef.current, detailsInnerRef.current].filter(
+      Boolean,
+    ) as HTMLElement[]
 
     gsap.set(textEls, { opacity: 0, y: 14 })
 
     const tl = gsap.timeline({ delay: 0.6 })
     tl.to(collectionNameRef.current, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0)
-    tl.to(productNameRef.current, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.15)
     tl.to(detailsInnerRef.current, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.3)
 
     return () => {
@@ -676,12 +526,9 @@ export function FocusWrapper({
     setUpsellOpen(false)
 
     // Fade text + CTA out immediately so they don't linger during the wipe
-    const textEls = [
-      collectionNameRef.current,
-      productNameRef.current,
-      detailsInnerRef.current,
-      closeRef.current,
-    ].filter(Boolean) as HTMLElement[]
+    const textEls = [collectionNameRef.current, detailsInnerRef.current, closeRef.current].filter(
+      Boolean,
+    ) as HTMLElement[]
     gsap.to(textEls, { opacity: 0, y: -6, duration: 0.25, stagger: 0.03, ease: "power2.in" })
 
     const triggerClose = () => {
@@ -905,13 +752,13 @@ export function FocusWrapper({
         className="absolute inset-y-0 left-0 overflow-hidden"
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
-        {/* Collection name - top left */}
+        {/* Product name - top left */}
         <h2
           ref={collectionNameRef}
           className="pointer-events-none absolute top-16 left-6 z-20 leading-none font-medium text-dark md:top-24 md:left-10"
           style={{ fontSize: "clamp(3rem, 7vw, 6rem)", letterSpacing: "-0.04em", opacity: 0 }}
         >
-          {product?.collectionName}
+          {product?.name}
         </h2>
 
         {/* Image area */}
@@ -979,9 +826,9 @@ export function FocusWrapper({
           )}
         </div>
 
-        {/* Bottom strip - gallery indicator + title + details */}
+        {/* Bottom strip - gallery indicator + details */}
         <div ref={stripRef} className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
-          {/* Gallery indicator + title */}
+          {/* Gallery indicator */}
           <div className="min-w-0">
             <div
               className="mb-3 flex items-center gap-3"
@@ -1019,24 +866,16 @@ export function FocusWrapper({
                 </svg>
               </span>
             </div>
-            <p
-              ref={productNameRef}
-              className="flex items-baseline gap-2 text-sm font-medium text-dark"
-              style={{ opacity: 0 }}
-            >
-              <span>{product?.name}</span>
-              <span className="text-dark/45">${price ?? product?.price ?? ""}</span>
-            </p>
           </div>
 
           {/* Details - description, options, explore collection */}
-          <div ref={detailsInnerRef} className="flex items-end justify-between gap-6 pt-5">
+          <div ref={detailsInnerRef} className="flex items-end justify-between gap-6 pt-3">
             {/* Left: description + explore collection */}
             <div className="min-w-0">
               <p
                 ref={descriptionRef}
                 className="text-xs leading-relaxed text-dark/55"
-                style={{ maxWidth: "44ch" }}
+                style={{ maxWidth: "55ch" }}
               >
                 {product?.description}
               </p>
@@ -1185,27 +1024,59 @@ export function FocusWrapper({
               </p>
 
               <div className="grid grid-cols-2 gap-3">
-                {addedArtworkSlots.map((artwork) => (
-                  <div
-                    key={artwork.id}
-                    className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}
-                  >
-                    <img
-                      src={artwork.image}
-                      alt={artwork.alt}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
+                {EMPTY_UPSELL_SLOT_KEYS.map((slotKey, slotIndex) => {
+                  const artwork = upsellSlots[slotIndex]
 
-                {/* Empty slots are recommendation carousels (distinct lanes). */}
-                {recLanes.map((lane, i) => (
-                  <RecommendationSlot
-                    key={lane[0]?.id ?? `lane-${i}`}
-                    lane={lane}
-                    onOpen={onOpenRecommendation}
-                  />
-                ))}
+                  return artwork ? (
+                    <div
+                      key={slotKey}
+                      className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}
+                    >
+                      <img
+                        src={artwork.image}
+                        alt={artwork.alt}
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void removeLineUnit(artwork.lineId, artwork.lineQuantity)}
+                        disabled={removingLineIds.includes(artwork.lineId)}
+                        aria-label="Remove from cart"
+                        className={clsx(
+                          "group absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-dark/10 bg-canvas/85 text-dark/55 shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-dark/25 hover:bg-dark hover:text-white disabled:pointer-events-none disabled:opacity-40",
+                          removingLineIds.includes(artwork.lineId) && "opacity-40",
+                        )}
+                      >
+                        <svg
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          className="h-3 w-3 transition-transform duration-300 group-hover:rotate-90"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M4 4l8 8M12 4l-8 8"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      key={slotKey}
+                      className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-dark/20 bg-dark/[0.025]"
+                      aria-label="Empty set slot"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-dark/15 text-lg leading-none text-dark/25"
+                      >
+                        +
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
 
               <div className="mt-auto pt-5">

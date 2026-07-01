@@ -28,7 +28,6 @@ export function HomePage() {
   const {
     focusedProduct,
     beginFocus,
-    switchFocus,
     handleClose: handleCloseFocus,
     isFocusedRef,
   } = useProductFocus()
@@ -71,7 +70,7 @@ export function HomePage() {
     runEntrance,
     entranceComplete,
     recenter,
-  } = useXpCanvas(viewMode === "xp")
+  } = useXpCanvas(viewMode === "xp", isFocusedRef)
 
   // Run canvas entrance animation on mount
   useEffect(() => {
@@ -241,9 +240,7 @@ export function HomePage() {
       {/* Focus panel */}
       <FocusWrapper
         product={focusedProduct}
-        allProducts={products}
         onClose={handleCloseFocus}
-        onOpenRecommendation={switchFocus}
       />
 
       {/* Empty-filter message on the canvas */}

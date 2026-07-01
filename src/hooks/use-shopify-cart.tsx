@@ -19,17 +19,19 @@ type Money = {
 type StorefrontCartLine = {
   id: string
   quantity: number
-  merchandise: {
-    id: string
+  merchandise: StorefrontCartMerchandise | null
+}
+
+type StorefrontCartMerchandise = {
+  id: string
+  title: string
+  availableForSale: boolean
+  image?: { url: string; altText?: string | null } | null
+  selectedOptions: Array<{ name: string; value: string }>
+  price: Money
+  product: {
     title: string
-    availableForSale: boolean
-    image?: { url: string; altText?: string | null } | null
-    selectedOptions: Array<{ name: string; value: string }>
-    price: Money
-    product: {
-      title: string
-      handle: string
-    }
+    handle: string
   }
 }
 
@@ -64,11 +66,14 @@ type CartContextValue = {
   configured: boolean
   loading: boolean
   adding: boolean
+  removingLineIds: string[]
   error: string | null
   checkoutUrl: string | null
   totalQuantity: number
   subtotal: Money | null
   addVariant: (shopifyVariantId: string, quantity?: number) => Promise<StorefrontCart>
+  removeLine: (lineId: string) => Promise<StorefrontCart>
+  removeLineUnit: (lineId: string, quantity: number) => Promise<StorefrontCart>
   refresh: () => Promise<void>
 }
 
@@ -162,6 +167,42 @@ const CART_LINES_ADD_MUTATION = `
   }
 `
 
+const CART_LINES_REMOVE_MUTATION = `
+  ${CART_FRAGMENT}
+  mutation StrykCartLinesRemove($cartId: ID!, $lineIds: [ID!]!) {
+    cartLinesRemove(cartId: $cartId, lineIds: $lineIds) {
+      cart {
+        ...CartFields
+      }
+      userErrors {
+        field
+        message
+      }
+      warnings {
+        message
+      }
+    }
+  }
+`
+
+const CART_LINES_UPDATE_MUTATION = `
+  ${CART_FRAGMENT}
+  mutation StrykCartLinesUpdate($cartId: ID!, $lines: [CartLineUpdateInput!]!) {
+    cartLinesUpdate(cartId: $cartId, lines: $lines) {
+      cart {
+        ...CartFields
+      }
+      userErrors {
+        field
+        message
+      }
+      warnings {
+        message
+      }
+    }
+  }
+`
+
 const CartContext = createContext<CartContextValue | null>(null)
 
 const UNCONFIGURED_CART: CartContextValue = {
@@ -169,11 +210,18 @@ const UNCONFIGURED_CART: CartContextValue = {
   configured: false,
   loading: false,
   adding: false,
+  removingLineIds: [],
   error: null,
   checkoutUrl: null,
   totalQuantity: 0,
   subtotal: null,
   addVariant: async () => {
+    throw new Error("Shopify Storefront API is not configured.")
+  },
+  removeLine: async () => {
+    throw new Error("Shopify Storefront API is not configured.")
+  },
+  removeLineUnit: async () => {
     throw new Error("Shopify Storefront API is not configured.")
   },
   refresh: async () => {},
@@ -184,11 +232,30 @@ function userErrorMessage(errors: StorefrontUserError[], warnings: StorefrontWar
   return messages.join(" ")
 }
 
+function moneyValue(money: Money | undefined) {
+  const value = Number.parseFloat(money?.amount ?? "")
+  return Number.isFinite(value) ? value : 0
+}
+
+function isUsableLine(
+  line: StorefrontCartLine,
+): line is StorefrontCartLine & { merchandise: StorefrontCartMerchandise } {
+  return !!line.merchandise && line.merchandise.availableForSale
+}
+
+function hasStaleEmptyTotals(cart: StorefrontCart) {
+  return (
+    cart.lines.nodes.length === 0 &&
+    (cart.totalQuantity > 0 || moneyValue(cart.cost.subtotalAmount) > 0)
+  )
+}
+
 export function ShopifyCartProvider({ children }: { children: ReactNode }) {
   const config = useQuery(api.shopify.storefrontConfig)
   const [cart, setCart] = useState<StorefrontCart | null>(null)
   const [loading, setLoading] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [removingLineIds, setRemovingLineIds] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const cartIdRef = useRef<string | null>(null)
 
@@ -223,11 +290,55 @@ export function ShopifyCartProvider({ children }: { children: ReactNode }) {
     [config],
   )
 
-  const rememberCart = useCallback((nextCart: StorefrontCart) => {
-    cartIdRef.current = nextCart.id
-    window.localStorage.setItem(CART_ID_STORAGE_KEY, nextCart.id)
-    setCart(nextCart)
+  const clearRememberedCart = useCallback(() => {
+    cartIdRef.current = null
+    window.localStorage.removeItem(CART_ID_STORAGE_KEY)
+    setCart(null)
   }, [])
+
+  const rememberCart = useCallback(
+    async (nextCart: StorefrontCart | null) => {
+      if (!nextCart || hasStaleEmptyTotals(nextCart)) {
+        clearRememberedCart()
+        return null
+      }
+
+      const staleLineIds = nextCart.lines.nodes
+        .filter((line) => !isUsableLine(line))
+        .map((line) => line.id)
+
+      if (staleLineIds.length > 0) {
+        const data = await request<{
+          cartLinesRemove: {
+            cart: StorefrontCart | null
+            userErrors: StorefrontUserError[]
+            warnings: StorefrontWarning[]
+          }
+        }>(CART_LINES_REMOVE_MUTATION, {
+          cartId: nextCart.id,
+          lineIds: staleLineIds,
+        })
+
+        const message = userErrorMessage(
+          data.cartLinesRemove.userErrors,
+          data.cartLinesRemove.warnings,
+        )
+        if (message) throw new Error(message)
+        return await rememberCart(data.cartLinesRemove.cart)
+      }
+
+      if (nextCart.lines.nodes.length === 0) {
+        clearRememberedCart()
+        return null
+      }
+
+      cartIdRef.current = nextCart.id
+      window.localStorage.setItem(CART_ID_STORAGE_KEY, nextCart.id)
+      setCart(nextCart)
+      return nextCart
+    },
+    [clearRememberedCart, request],
+  )
 
   const refresh = useCallback(async () => {
     const cartId = cartIdRef.current ?? window.localStorage.getItem(CART_ID_STORAGE_KEY)
@@ -238,18 +349,16 @@ export function ShopifyCartProvider({ children }: { children: ReactNode }) {
     try {
       const data = await request<{ cart: StorefrontCart | null }>(CART_QUERY, { cartId })
       if (data.cart) {
-        rememberCart(data.cart)
+        await rememberCart(data.cart)
       } else {
-        cartIdRef.current = null
-        window.localStorage.removeItem(CART_ID_STORAGE_KEY)
-        setCart(null)
+        clearRememberedCart()
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load cart.")
     } finally {
       setLoading(false)
     }
-  }, [configured, rememberCart, request])
+  }, [clearRememberedCart, configured, rememberCart, request])
 
   useEffect(() => {
     if (!configured) return
@@ -272,8 +381,9 @@ export function ShopifyCartProvider({ children }: { children: ReactNode }) {
       if (!data.cartCreate.cart || message) {
         throw new Error(message || "Shopify could not create the cart.")
       }
-      rememberCart(data.cartCreate.cart)
-      return data.cartCreate.cart
+      const cleanCart = await rememberCart(data.cartCreate.cart)
+      if (!cleanCart) throw new Error("Shopify could not create the cart.")
+      return cleanCart
     },
     [rememberCart, request],
   )
@@ -301,8 +411,9 @@ export function ShopifyCartProvider({ children }: { children: ReactNode }) {
         if (!data.cartLinesAdd.cart || message) {
           throw new Error(message || "Shopify could not add this item to cart.")
         }
-        rememberCart(data.cartLinesAdd.cart)
-        return data.cartLinesAdd.cart
+        const cleanCart = await rememberCart(data.cartLinesAdd.cart)
+        if (!cleanCart) throw new Error("Shopify could not add this item to cart.")
+        return cleanCart
       } catch (err) {
         const message = err instanceof Error ? err.message : "Could not add item to cart."
         setError(message)
@@ -314,20 +425,116 @@ export function ShopifyCartProvider({ children }: { children: ReactNode }) {
     [createCart, rememberCart, request],
   )
 
+  const withLineRemoving = useCallback(
+    async (lineId: string, operation: () => Promise<StorefrontCart>) => {
+      setRemovingLineIds((ids) => (ids.includes(lineId) ? ids : [...ids, lineId]))
+      setError(null)
+      try {
+        return await operation()
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not update cart."
+        setError(message)
+        throw err
+      } finally {
+        setRemovingLineIds((ids) => ids.filter((id) => id !== lineId))
+      }
+    },
+    [],
+  )
+
+  const removeLine = useCallback(
+    async (lineId: string) =>
+      withLineRemoving(lineId, async () => {
+        const existingCartId =
+          cartIdRef.current ?? window.localStorage.getItem(CART_ID_STORAGE_KEY)
+        if (!existingCartId) throw new Error("Cart is not available.")
+
+        const data = await request<{
+          cartLinesRemove: {
+            cart: StorefrontCart | null
+            userErrors: StorefrontUserError[]
+            warnings: StorefrontWarning[]
+          }
+        }>(CART_LINES_REMOVE_MUTATION, {
+          cartId: existingCartId,
+          lineIds: [lineId],
+        })
+
+        const message = userErrorMessage(
+          data.cartLinesRemove.userErrors,
+          data.cartLinesRemove.warnings,
+        )
+        if (!data.cartLinesRemove.cart || message) {
+          throw new Error(message || "Shopify could not remove this item from cart.")
+        }
+        const cleanCart = await rememberCart(data.cartLinesRemove.cart)
+        return cleanCart ?? data.cartLinesRemove.cart
+      }),
+    [rememberCart, request, withLineRemoving],
+  )
+
+  const removeLineUnit = useCallback(
+    async (lineId: string, quantity: number) => {
+      if (quantity <= 1) return await removeLine(lineId)
+
+      return await withLineRemoving(lineId, async () => {
+        const existingCartId =
+          cartIdRef.current ?? window.localStorage.getItem(CART_ID_STORAGE_KEY)
+        if (!existingCartId) throw new Error("Cart is not available.")
+
+        const data = await request<{
+          cartLinesUpdate: {
+            cart: StorefrontCart | null
+            userErrors: StorefrontUserError[]
+            warnings: StorefrontWarning[]
+          }
+        }>(CART_LINES_UPDATE_MUTATION, {
+          cartId: existingCartId,
+          lines: [{ id: lineId, quantity: quantity - 1 }],
+        })
+
+        const message = userErrorMessage(
+          data.cartLinesUpdate.userErrors,
+          data.cartLinesUpdate.warnings,
+        )
+        if (!data.cartLinesUpdate.cart || message) {
+          throw new Error(message || "Shopify could not update this item in cart.")
+        }
+        const cleanCart = await rememberCart(data.cartLinesUpdate.cart)
+        return cleanCart ?? data.cartLinesUpdate.cart
+      })
+    },
+    [rememberCart, removeLine, request, withLineRemoving],
+  )
+
   const value = useMemo<CartContextValue>(
     () => ({
       cart,
       configured,
       loading,
       adding,
+      removingLineIds,
       error,
       checkoutUrl: cart?.checkoutUrl ?? null,
       totalQuantity: cart?.totalQuantity ?? 0,
       subtotal: cart?.cost.subtotalAmount ?? null,
       addVariant,
+      removeLine,
+      removeLineUnit,
       refresh,
     }),
-    [addVariant, adding, cart, configured, error, loading, refresh],
+    [
+      addVariant,
+      adding,
+      cart,
+      configured,
+      error,
+      loading,
+      refresh,
+      removeLine,
+      removeLineUnit,
+      removingLineIds,
+    ],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

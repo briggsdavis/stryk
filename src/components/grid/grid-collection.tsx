@@ -109,7 +109,9 @@ export function GridCollection({
           ))}
         </div>
       )}
-      <Footer />
+      <div className="mt-20 md:mt-28">
+        <Footer />
+      </div>
     </div>
   )
 }

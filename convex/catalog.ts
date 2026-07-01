@@ -156,6 +156,23 @@ async function deleteByProductId(
   }
 }
 
+async function markVariantsUnavailable(
+  ctx: MutationCtx,
+  productId: Id<"catalogProducts">,
+  syncedAt: number,
+) {
+  const rows = await ctx.db
+    .query("catalogProductVariants")
+    .withIndex("by_productId_and_sortRank", (q) => q.eq("productId", productId))
+    .take(2048)
+
+  for (const row of rows) {
+    if (row.availableForSale || row.syncedAt !== syncedAt) {
+      await ctx.db.patch(row._id, { availableForSale: false, syncedAt })
+    }
+  }
+}
+
 async function upsertFacetOption(
   ctx: MutationCtx,
   dimension: "color" | "category",
@@ -272,6 +289,52 @@ export const listCollections = query({
   },
 })
 
+export const listCollectionsWithProductPreviews = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    productLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const productLimit = Math.min(Math.max(args.productLimit ?? 4, 1), 4)
+    const result = await ctx.db
+      .query("catalogCollections")
+      .withIndex("by_isVisible_and_sortRank", (q) => q.eq("isVisible", true))
+      .paginate(args.paginationOpts)
+
+    const page = []
+    for (const collection of result.page) {
+      const links = await ctx.db
+        .query("catalogProductCollections")
+        .withIndex("by_collectionHandle_and_sortRank", (q) =>
+          q.eq("collectionHandle", collection.shopifyHandle),
+        )
+        .take(productLimit)
+      const products = []
+
+      for (const link of links) {
+        const product = await ctx.db.get(link.productId)
+        if (!product?.isVisible) continue
+
+        const variants = await ctx.db
+          .query("catalogProductVariants")
+          .withIndex("by_productId_and_sortRank", (q) => q.eq("productId", product._id))
+          .take(1)
+        const firstVariant = variants[0]
+
+        products.push({
+          _id: product._id,
+          title: product.title,
+          image: firstVariant?.image ?? product.image,
+        })
+      }
+
+      page.push({ collection, products })
+    }
+
+    return { ...result, page }
+  },
+})
+
 export const getCollection = query({
   args: { handle: v.string(), productLimit: v.number() },
   handler: async (ctx, args) => {
@@ -295,9 +358,8 @@ export const getCollection = query({
 })
 
 export const upsertSyncedProducts = internalMutation({
-  args: { products: v.array(syncedProductValidator) },
+  args: { products: v.array(syncedProductValidator), syncedAt: v.number() },
   handler: async (ctx, args) => {
-    const now = Date.now()
     let productCount = 0
     let collectionCount = 0
 
@@ -334,7 +396,7 @@ export const upsertSyncedProducts = internalMutation({
         sortRank: incoming.sortRank,
         isVisible: incoming.isVisible,
         shopifyUpdatedAt: incoming.shopifyUpdatedAt,
-        syncedAt: now,
+        syncedAt: args.syncedAt,
       }
 
       const productId = existingProduct
@@ -363,7 +425,7 @@ export const upsertSyncedProducts = internalMutation({
           currencyCode: variant.currencyCode,
           availableForSale: variant.availableForSale,
           sortRank: variant.sortRank,
-          syncedAt: now,
+          syncedAt: args.syncedAt,
         })
       }
 
@@ -376,7 +438,7 @@ export const upsertSyncedProducts = internalMutation({
           .unique()
         const collectionDoc = {
           ...collection,
-          syncedAt: now,
+          syncedAt: args.syncedAt,
         }
         const collectionId = existingCollection
           ? (await ctx.db.patch(existingCollection._id, collectionDoc), existingCollection._id)
@@ -387,20 +449,26 @@ export const upsertSyncedProducts = internalMutation({
           collectionId,
           collectionHandle: collection.shopifyHandle,
           sortRank: incoming.sortRank,
-          syncedAt: now,
+          syncedAt: args.syncedAt,
         })
         collectionCount++
       }
 
-      await upsertFacetOption(ctx, "color", incoming.colorKey, incoming.colorLabel, now)
-      await upsertFacetOption(ctx, "category", incoming.categoryKey, incoming.categoryLabel, now)
+      await upsertFacetOption(ctx, "color", incoming.colorKey, incoming.colorLabel, args.syncedAt)
+      await upsertFacetOption(
+        ctx,
+        "category",
+        incoming.categoryKey,
+        incoming.categoryLabel,
+        args.syncedAt,
+      )
 
       for (const filterKey of buildProductFilterKeys(incoming)) {
         await ctx.db.insert("catalogProductIndexEntries", {
           filterKey,
           productId,
           sortRank: incoming.sortRank,
-          syncedAt: now,
+          syncedAt: args.syncedAt,
         })
       }
 
@@ -408,5 +476,65 @@ export const upsertSyncedProducts = internalMutation({
     }
 
     return { productCount, collectionCount }
+  },
+})
+
+export const finalizeCatalogSyncBatch = internalMutation({
+  args: {
+    syncedAt: v.number(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 100, 1), 200)
+    let hiddenProductCount = 0
+    let hiddenCollectionCount = 0
+    let hiddenFacetOptionCount = 0
+
+    const staleProducts = await ctx.db
+      .query("catalogProducts")
+      .withIndex("by_syncedAt", (q) => q.lt("syncedAt", args.syncedAt))
+      .take(limit + 1)
+
+    for (const product of staleProducts.slice(0, limit)) {
+      if (product.isVisible || product.availableForSale) hiddenProductCount++
+      await ctx.db.patch(product._id, {
+        isVisible: false,
+        availableForSale: false,
+        syncedAt: args.syncedAt,
+      })
+      await deleteByProductId(ctx, "catalogProductCollections", product._id)
+      await deleteByProductId(ctx, "catalogProductIndexEntries", product._id)
+      await markVariantsUnavailable(ctx, product._id, args.syncedAt)
+    }
+
+    const staleCollections = await ctx.db
+      .query("catalogCollections")
+      .withIndex("by_syncedAt", (q) => q.lt("syncedAt", args.syncedAt))
+      .take(limit + 1)
+
+    for (const collection of staleCollections.slice(0, limit)) {
+      if (collection.isVisible) hiddenCollectionCount++
+      await ctx.db.patch(collection._id, { isVisible: false, syncedAt: args.syncedAt })
+    }
+
+    const staleFacetOptions = await ctx.db
+      .query("catalogFacetOptions")
+      .withIndex("by_syncedAt", (q) => q.lt("syncedAt", args.syncedAt))
+      .take(limit + 1)
+
+    for (const option of staleFacetOptions.slice(0, limit)) {
+      if (option.isVisible) hiddenFacetOptionCount++
+      await ctx.db.patch(option._id, { isVisible: false, syncedAt: args.syncedAt })
+    }
+
+    return {
+      hiddenProductCount,
+      hiddenCollectionCount,
+      hiddenFacetOptionCount,
+      hasMore:
+        staleProducts.length > limit ||
+        staleCollections.length > limit ||
+        staleFacetOptions.length > limit,
+    }
   },
 })

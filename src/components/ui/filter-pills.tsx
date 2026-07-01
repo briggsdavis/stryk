@@ -1,5 +1,5 @@
 import { clsx } from "clsx"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { activeFilterCount } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
@@ -30,6 +30,9 @@ function FilterGroupPill({
   onToggleOption: (value: string) => void
 }) {
   const count = active.length
+  const primarySelection = group.options.find((option) => option.value === active[0])
+  const buttonLabel = primarySelection?.label ?? group.label
+  const extraCount = count > 1 ? count - 1 : 0
   const popoverRef = useRef<HTMLDivElement>(null)
 
   // Animate the options panel in: the panel grows from the pill while the
@@ -95,10 +98,16 @@ function FilterGroupPill({
           count > 0
             ? "border-dark bg-dark text-white"
             : "border-dark/15 bg-canvas text-dark hover:border-dark/40",
-        )}
+          )}
       >
-        <HoverLabel>{group.label}</HoverLabel>
-        {count > 0 && <span className="text-xs opacity-80">· {count}</span>}
+        {primarySelection?.swatch && (
+          <span
+            className="block h-3 w-3 shrink-0 rounded-full border border-white/35"
+            style={{ background: primarySelection.swatch }}
+          />
+        )}
+        <HoverLabel>{buttonLabel}</HoverLabel>
+        {extraCount > 0 && <span className="text-xs opacity-80">+{extraCount}</span>}
         <span className="text-base leading-none transition-transform duration-300 group-hover:rotate-90">
           {open ? "−" : "+"}
         </span>
@@ -115,10 +124,24 @@ export function FilterPills({
   popoverSide = "top",
 }: FilterPillsProps) {
   const [openGroup, setOpenGroup] = useState<FilterKey | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const total = activeFilterCount(active)
 
+  useEffect(() => {
+    if (!openGroup) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node) || containerRef.current?.contains(target)) return
+      setOpenGroup(null)
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    return () => document.removeEventListener("pointerdown", handlePointerDown)
+  }, [openGroup])
+
   return (
-    <>
+    <div ref={containerRef} className="contents">
       {groups.map((group) => (
         <FilterGroupPill
           key={group.key}
@@ -138,6 +161,6 @@ export function FilterPills({
           <HoverLabel>Clear</HoverLabel>
         </button>
       )}
-    </>
+    </div>
   )
 }

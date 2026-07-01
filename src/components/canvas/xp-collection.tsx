@@ -11,7 +11,7 @@ import type { ActiveFilters } from "../../lib/filters"
 import { activeFilterCount, productMatches } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
 import type { Product } from "../../lib/types"
-import { XpProductItem } from "./xp-product-item"
+import { CANVAS_ITEM_WIDTH, XpProductItem } from "./xp-product-item"
 
 interface XpCollectionProps {
   products: Product[]
@@ -23,54 +23,110 @@ interface XpCollectionProps {
   onLayoutChange?: () => void
 }
 
-const COL_COUNT = 6
-const COL_OFFSETS = ["6vw", "18vw", "2vw", "14vw", "8vw", "20vw"]
-
-// The unfiltered canvas: every piece spread evenly across the staggered columns.
-function buildColumns(products: Product[]): Product[][] {
-  const cols: Product[][] = Array.from({ length: COL_COUNT }, () => [])
-  products.forEach((p, i) => cols[i % COL_COUNT].push(p))
-  return cols
+type LayoutItem = {
+  product: Product
+  width: number
+  left: number
+  top: number
 }
 
-// A filtered cluster: distribute the matched pieces across the columns so the
-// per-column heights follow a circle's chord profile (tall in the middle, short
-// at the edges). Combined with vertical centring of each column, the cluster's
-// outline reads as a rough circle/oval centred in the viewport.
-function buildCircularColumns(items: Product[]): Product[][] {
-  const n = items.length
-  if (n === 0) return []
+type HexCoord = {
+  q: number
+  r: number
+}
 
-  const weights = Array.from({ length: COL_COUNT }, (_, i) => {
-    const x = ((i + 0.5) / COL_COUNT) * 2 - 1 // column centre in (-1, 1)
-    return Math.sqrt(Math.max(0, 1 - x * x))
-  })
-  const wsum = weights.reduce((a, b) => a + b, 0)
+const HEX_DIRECTIONS: HexCoord[] = [
+  { q: 0, r: -1 },
+  { q: -1, r: 0 },
+  { q: -1, r: 1 },
+  { q: 0, r: 1 },
+  { q: 1, r: 0 },
+  { q: 1, r: -1 },
+]
 
-  const counts = weights.map((w) => Math.round((w / wsum) * n))
-  // Rounding rarely sums back to n exactly; nudge counts (center columns first)
-  // until it does.
-  let diff = n - counts.reduce((a, b) => a + b, 0)
-  const byWeight = weights.map((_, i) => i).sort((a, b) => weights[b] - weights[a])
-  let oi = 0
-  while (diff !== 0) {
-    const i = byWeight[oi % COL_COUNT]
-    if (diff > 0) {
-      counts[i]++
-      diff--
-    } else if (counts[i] > 0) {
-      counts[i]--
-      diff++
+function hexRing(radius: number): HexCoord[] {
+  if (radius === 0) return [{ q: 0, r: 0 }]
+
+  const coords: HexCoord[] = []
+  let q = radius
+  let r = 0
+
+  for (const direction of HEX_DIRECTIONS) {
+    for (let i = 0; i < radius; i++) {
+      coords.push({ q, r })
+      q += direction.q
+      r += direction.r
     }
-    oi++
   }
 
-  const cols: Product[][] = Array.from({ length: COL_COUNT }, () => [])
-  let k = 0
-  for (let i = 0; i < COL_COUNT; i++) {
-    for (let c = 0; c < counts[i]; c++) cols[i].push(items[k++])
+  return coords
+}
+
+function compactRing(radius: number, count: number): HexCoord[] {
+  const ring = hexRing(radius)
+  if (count >= ring.length) return ring
+
+  const start = Math.floor((ring.length - count) / 2)
+  return ring.slice(start, start + count)
+}
+
+function buildHexCoords(count: number): HexCoord[] {
+  if (count === 0) return []
+
+  const coords: HexCoord[] = [{ q: 0, r: 0 }]
+  let remaining = count - 1
+  let radius = 1
+
+  while (remaining > 0) {
+    const ringCount = Math.min(radius * 6, remaining)
+    coords.push(...compactRing(radius, ringCount))
+    remaining -= ringCount
+    radius++
   }
-  return cols
+
+  return coords
+}
+
+function buildCanvasLayout(products: Product[]): { items: LayoutItem[]; width: number; height: number } {
+  if (products.length === 0) return { items: [], width: 100, height: 100 }
+
+  const itemWidth = CANVAS_ITEM_WIDTH
+  const cellStep = itemWidth * 1.6
+  const worldPadding = itemWidth
+  const coords = buildHexCoords(products.length)
+
+  const roughItems = products.map((product, i) => {
+    const coord = coords[i]
+    const width = CANVAS_ITEM_WIDTH
+    return {
+      product,
+      width,
+      x: cellStep * (coord.q + coord.r / 2),
+      y: cellStep * (Math.sqrt(3) / 2) * coord.r,
+    }
+  })
+
+  const minX = Math.min(...roughItems.map((item) => item.x - item.width / 2)) - worldPadding
+  const maxX = Math.max(...roughItems.map((item) => item.x + item.width / 2)) + worldPadding
+  const minY = Math.min(...roughItems.map((item) => item.y - item.width / 2)) - worldPadding
+  const maxY = Math.max(...roughItems.map((item) => item.y + item.width / 2)) + worldPadding
+  const rawWidth = maxX - minX
+  const rawHeight = maxY - minY
+  const width = Math.max(100, rawWidth)
+  const height = Math.max(100, rawHeight)
+  const extraX = (width - rawWidth) / 2
+  const extraY = (height - rawHeight) / 2
+
+  return {
+    width,
+    height,
+    items: roughItems.map((item) => ({
+      product: item.product,
+      width: item.width,
+      left: item.x - item.width / 2 - minX + extraX,
+      top: item.y - item.width / 2 - minY + extraY,
+    })),
+  }
 }
 
 export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(function XpCollection(
@@ -96,26 +152,13 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   const [displayedFilters, setDisplayedFilters] = useState(filters)
   const isFiltering = activeFilterCount(displayedFilters) > 0
 
-  // Each piece keeps a stable width regardless of which column it lands in, so
-  // reclustering doesn't make thumbnails resize.
-  const widthIndexById = useMemo(() => {
-    const m = new Map<string, number>()
-    products.forEach((p, i) => m.set(p.id, i))
-    return m
-  }, [products])
-
   const layoutProducts = useMemo(
     () => (isFiltering ? products.filter((p) => productMatches(p, displayedFilters)) : products),
     [products, displayedFilters, isFiltering],
   )
 
-  const columns = useMemo(
-    () => (isFiltering ? buildCircularColumns(layoutProducts) : buildColumns(layoutProducts)),
-    [layoutProducts, isFiltering],
-  )
-  // Empty columns would still contribute horizontal gaps and break the cluster's
-  // symmetry, so drop them from the filtered layout.
-  const renderColumns = isFiltering ? columns.filter((c) => c.length > 0) : columns
+  const layout = useMemo(() => buildCanvasLayout(layoutProducts), [layoutProducts])
+  const productsKey = products.map((p) => p.id).join("|")
 
   // ── Filter crossfade ─────────────────────────────────────────────────────────
   // A filter change is a calm whole-cluster blur crossfade rather than per-piece
@@ -124,7 +167,7 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   // new cluster in. The canvas entrance owns the very first reveal, so both phases
   // skip the initial mount.
   const fadeOutFirstRef = useRef(true)
-  const fadeInFirstRef = useRef(true)
+  const pendingFilterSwapRef = useRef(false)
 
   // Phase 1: incoming filter differs -> blur the old cluster out, then swap.
   useEffect(() => {
@@ -135,11 +178,13 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
     if (filters === displayedFilters) return
     const collection = innerRef.current
     if (!collection) {
+      pendingFilterSwapRef.current = true
       setDisplayedFilters(filters)
       return
     }
     const incoming = filters
-    gsap.killTweensOf(collection)
+    pendingFilterSwapRef.current = true
+    gsap.killTweensOf(collection, "opacity,filter")
     gsap.to(collection, {
       opacity: 0,
       filter: "blur(12px)",
@@ -152,54 +197,70 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   // Phase 2: the swapped layout has committed and is still hidden -> make its
   // pieces visible, recentre, then blur the whole cluster back in.
   useLayoutEffect(() => {
-    if (fadeInFirstRef.current) {
-      fadeInFirstRef.current = false
+    if (!pendingFilterSwapRef.current) {
       return
     }
+    pendingFilterSwapRef.current = false
     const collection = innerRef.current
     if (!collection) return
 
     const items = collection.querySelectorAll<HTMLElement>(".xp-item")
-    gsap.set(items, { opacity: 1, scale: 1, filter: "blur(0px)" })
+    gsap.set(items, { clearProps: "filter,transform,opacity" })
 
     onLayoutChange?.()
 
-    gsap.killTweensOf(collection)
+    gsap.killTweensOf(collection, "opacity,filter")
     gsap.fromTo(
       collection,
       { opacity: 0, filter: "blur(12px)" },
-      { opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "power2.out" },
+      {
+        opacity: 1,
+        filter: "blur(0px)",
+        duration: 0.55,
+        ease: "power2.out",
+        onComplete: () => gsap.set(collection, { clearProps: "filter,opacity" }),
+      },
     )
   }, [displayedFilters, onLayoutChange])
+
+  const lastProductsKeyRef = useRef(productsKey)
+  useLayoutEffect(() => {
+    if (lastProductsKeyRef.current === productsKey) {
+      return
+    }
+    lastProductsKeyRef.current = productsKey
+    if (!pendingFilterSwapRef.current) {
+      const collection = innerRef.current
+      if (collection) {
+        gsap.killTweensOf(collection, "opacity,filter")
+        gsap.set(collection, { clearProps: "filter,opacity" })
+      }
+    }
+    onLayoutChange?.()
+  }, [productsKey, onLayoutChange])
 
   return (
     <div
       ref={setCollectionRef}
       className="xp-collection"
-      style={isFiltering ? { alignItems: "center" } : undefined}
+      style={{ width: `${layout.width}vw`, height: `${layout.height}vw` }}
     >
-      {renderColumns.map((col, ci) => (
-        <div
-          key={ci}
-          className="xp-column"
+      {layout.items.map((item) => (
+        <XpProductItem
+          key={item.product.id}
+          product={item.product}
+          onClick={onItemClick}
           style={{
-            marginTop: isFiltering ? 0 : COL_OFFSETS[ci],
-            marginRight: ci < renderColumns.length - 1 ? "12vw" : 0,
+            position: "absolute",
+            left: `${item.left}vw`,
+            top: `${item.top}vw`,
+            width: `${item.width}vw`,
           }}
-        >
-          {col.map((product) => (
-            <XpProductItem
-              key={product.id}
-              product={product}
-              index={widthIndexById.get(product.id) ?? 0}
-              onClick={onItemClick}
-              itemRef={(el) => {
-                if (el) itemRefs.current.set(product.id, el)
-                else itemRefs.current.delete(product.id)
-              }}
-            />
-          ))}
-        </div>
+          itemRef={(el) => {
+            if (el) itemRefs.current.set(item.product.id, el)
+            else itemRefs.current.delete(item.product.id)
+          }}
+        />
       ))}
     </div>
   )
