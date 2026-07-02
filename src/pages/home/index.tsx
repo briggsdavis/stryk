@@ -238,10 +238,7 @@ export function HomePage() {
       </div>
 
       {/* Focus panel */}
-      <FocusWrapper
-        product={focusedProduct}
-        onClose={handleCloseFocus}
-      />
+      <FocusWrapper product={focusedProduct} onClose={handleCloseFocus} />
 
       {/* Empty-filter message on the canvas */}
       {viewMode === "xp" && !focusedProduct && noMatches && (

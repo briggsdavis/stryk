@@ -437,10 +437,7 @@ export function CollectionPage() {
       {/* Featured products open into the focus panel with the same slide + morph
           as home: the pinned section slides aside, revealing the page background,
           so the panel stays transparent. */}
-      <FocusWrapper
-        product={focusedProduct}
-        onClose={handleClose}
-      />
+      <FocusWrapper product={focusedProduct} onClose={handleClose} />
     </div>
   )
 }

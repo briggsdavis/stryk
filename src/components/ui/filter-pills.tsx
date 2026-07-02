@@ -98,7 +98,7 @@ function FilterGroupPill({
           count > 0
             ? "border-dark bg-dark text-white"
             : "border-dark/15 bg-canvas text-dark hover:border-dark/40",
-          )}
+        )}
       >
         {primarySelection?.swatch && (
           <span

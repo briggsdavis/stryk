@@ -99,7 +99,10 @@ export function CollectionsPage() {
             </div>
             <div className="grid aspect-square w-full grid-cols-2 grid-rows-2 gap-1 overflow-hidden">
               {c.products.map((product) => (
-                <div key={product._id} className="relative min-h-0 min-w-0 overflow-hidden bg-dark/5">
+                <div
+                  key={product._id}
+                  className="relative min-h-0 min-w-0 overflow-hidden bg-dark/5"
+                >
                   <img
                     src={product.image}
                     alt={product.title}

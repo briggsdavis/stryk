@@ -445,8 +445,7 @@ export function ShopifyCartProvider({ children }: { children: ReactNode }) {
   const removeLine = useCallback(
     async (lineId: string) =>
       withLineRemoving(lineId, async () => {
-        const existingCartId =
-          cartIdRef.current ?? window.localStorage.getItem(CART_ID_STORAGE_KEY)
+        const existingCartId = cartIdRef.current ?? window.localStorage.getItem(CART_ID_STORAGE_KEY)
         if (!existingCartId) throw new Error("Cart is not available.")
 
         const data = await request<{
@@ -478,8 +477,7 @@ export function ShopifyCartProvider({ children }: { children: ReactNode }) {
       if (quantity <= 1) return await removeLine(lineId)
 
       return await withLineRemoving(lineId, async () => {
-        const existingCartId =
-          cartIdRef.current ?? window.localStorage.getItem(CART_ID_STORAGE_KEY)
+        const existingCartId = cartIdRef.current ?? window.localStorage.getItem(CART_ID_STORAGE_KEY)
         if (!existingCartId) throw new Error("Cart is not available.")
 
         const data = await request<{

@@ -87,7 +87,11 @@ function buildHexCoords(count: number): HexCoord[] {
   return coords
 }
 
-function buildCanvasLayout(products: Product[]): { items: LayoutItem[]; width: number; height: number } {
+function buildCanvasLayout(products: Product[]): {
+  items: LayoutItem[]
+  width: number
+  height: number
+} {
   if (products.length === 0) return { items: [], width: 100, height: 100 }
 
   const itemWidth = CANVAS_ITEM_WIDTH

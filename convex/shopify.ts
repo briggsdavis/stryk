@@ -497,7 +497,9 @@ async function finalizeCatalogSync(ctx: ActionCtx, syncStartedAt: number) {
   }
 
   if (hasMore) {
-    throw new Error("Catalog cleanup did not finish. Run sync again to continue pruning stale rows.")
+    throw new Error(
+      "Catalog cleanup did not finish. Run sync again to continue pruning stale rows.",
+    )
   }
 
   return totals

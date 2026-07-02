@@ -274,11 +274,6 @@
     cursor: none;
     position: relative;
     will-change: transform;
-    /* Drop shadow behind each canvas product. Matches the grid/featured shadow
-       (which sits 20% stronger than the original grid value: 0.16 → 0.19). The
-       image is object-cover inside an overflow-hidden button, so a box-shadow on
-       the element renders the shadow that a filter drop-shadow would get clipped. */
-    box-shadow: 0 18px 28px rgb(0 0 0 / 0.19);
   }
   .xp-item img {
     width: 100%;

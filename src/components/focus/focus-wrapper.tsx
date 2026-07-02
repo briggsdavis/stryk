@@ -20,9 +20,9 @@ interface FocusWrapperProps {
 type SizeKey = "8x8" | "12x12" | "16x16"
 
 const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
-  { key: "8x8", label: '8×8"' },
-  { key: "12x12", label: '12×12"' },
-  { key: "16x16", label: '16×16"' },
+  { key: "8x8", label: "8×8" },
+  { key: "12x12", label: "12×12" },
+  { key: "16x16", label: "16×16" },
 ]
 
 // The soft drop shadow the site's artwork images carry (grid + collection cards).
@@ -74,6 +74,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const dividerContainerRef = useRef<HTMLDivElement>(null)
   const galleryOverlayRef = useRef<HTMLDivElement>(null)
+  const galleryIndicatorRef = useRef<HTMLDivElement>(null)
 
   // Product details (description + purchase options) shown below the image.
   const detailsInnerRef = useRef<HTMLDivElement>(null)
@@ -94,8 +95,8 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const pointerStartXRef = useRef(0)
   const draggedRef = useRef(false)
   const [galleryActive, setGalleryActive] = useState(false)
+  const [galleryIndicatorVisible, setGalleryIndicatorVisible] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
-  const [hasScrolled, setHasScrolled] = useState(false)
 
   // Expanded (lightbox) view - current image morphs to a larger, centred
   // position over a white backdrop.
@@ -114,11 +115,9 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const [upsellOpen, setUpsellOpen] = useState(false)
   const upsellRef = useRef<HTMLDivElement>(null)
   // Add-to-cart button: once clicked it flips to an "Added" state. The button
-  // width is morphed (not snapped) between labels - see the layout effect below.
+  // label is animated between states - see the layout effect below.
   const [added, setAdded] = useState(false)
-  const cartBtnRef = useRef<HTMLButtonElement>(null)
   const cartLabelRef = useRef<HTMLSpanElement>(null)
-  const prevCartWidthRef = useRef<number | null>(null)
   const cartFirstRunRef = useRef(true)
   // True after the focus panel has opened, so repeated renders don't replay the
   // divider/close-button entrance.
@@ -216,35 +215,25 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
 
   const cartLabel =
     added && selectedVariant
-      ? `Add Another · $${price} →`
+      ? `Add Another · $${price}`
       : cartAdding
         ? "Adding..."
         : !cartConfigured
           ? "Cart unavailable"
           : currentIdx === 0
-            ? "Select Artwork →"
+            ? "Select Artwork"
             : selectedSize === null || withFrame === null
-              ? "Add to Cart →"
+              ? "Add to Cart"
               : selectedVariant
-                ? `Add to Cart · $${price} →`
+                ? `Add to Cart · $${price}`
                 : "Unavailable"
 
-  // Morph the add-to-cart button's width whenever its label changes (e.g. on
-  // "Add to Cart" → "Added to Cart") and cross-fade the new label in, so the
-  // size change animates instead of snapping. Mirrors the navbar pill morph.
+  // Cross-fade the add-to-cart label when it changes (e.g. Add to Cart -> Added).
   useLayoutEffect(() => {
-    const btn = cartBtnRef.current
-    if (!btn) return
-    const prevW = prevCartWidthRef.current
-    btn.style.width = "auto"
-    const targetW = Math.ceil(btn.getBoundingClientRect().width)
-    prevCartWidthRef.current = targetW
-    if (cartFirstRunRef.current || prevW == null) {
+    if (cartFirstRunRef.current) {
       cartFirstRunRef.current = false
-      btn.style.width = `${targetW}px`
       return
     }
-    gsap.fromTo(btn, { width: prevW }, { width: targetW, duration: 0.45, ease: "expo.out" })
     if (cartLabelRef.current) {
       gsap.fromTo(
         cartLabelRef.current,
@@ -287,8 +276,8 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
       setUpsellOpen(false)
       galleryActiveRef.current = false
       setGalleryActive(false)
+      setGalleryIndicatorVisible(false)
       setCurrentIdx(0)
-      setHasScrolled(false)
       currentIdxRef.current = 0
       animatingRef.current = false
       accDeltaRef.current = 0
@@ -302,8 +291,8 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     }
 
     currentIdxRef.current = 0
+    setGalleryIndicatorVisible(false)
     setCurrentIdx(0)
-    setHasScrolled(false)
     animatingRef.current = false
     accDeltaRef.current = 0
     lockedRef.current = false
@@ -318,6 +307,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     const timer = setTimeout(() => {
       galleryActiveRef.current = true
       setGalleryActive(true)
+      setGalleryIndicatorVisible(true)
     }, 1250)
     return () => clearTimeout(timer)
   }, [isOpen, product?.id])
@@ -331,7 +321,6 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
 
     animatingRef.current = true
     lockedRef.current = true
-    setHasScrolled(true)
 
     const curEl = imgRefs.current[cur]
     const nextEl = imgRefs.current[next]
@@ -522,6 +511,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const handleClose = () => {
     galleryActiveRef.current = false
     animatingRef.current = false
+    setGalleryIndicatorVisible(false)
     // Slide the upsell panel back down as part of the close.
     setUpsellOpen(false)
 
@@ -530,6 +520,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
       Boolean,
     ) as HTMLElement[]
     gsap.to(textEls, { opacity: 0, y: -6, duration: 0.25, stagger: 0.03, ease: "power2.in" })
+    gsap.to(galleryIndicatorRef.current, { opacity: 0, duration: 0.2, ease: "power2.in" })
 
     const triggerClose = () => {
       // Hide the gallery overlay instantly so the morphing canvas beneath is clean
@@ -696,13 +687,13 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
 
     const aspect = frame.offsetWidth / frame.offsetHeight
     const isMd = window.innerWidth >= 768
-    const titleTop = isMd ? 96 : 64
-    const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
-    const topReserve = titleTop + titleFont + 22
+    const titleTop = isMd ? 40 : 32
+    const titleFont = Math.min(Math.max(window.innerWidth * 0.06, 36), 72)
+    const topReserve = titleTop + titleFont + 10
 
     // The strip is anchored at bottom-8 (32px); keep a gap above it.
     const STRIP_OFFSET = 32
-    const GAP = 28
+    const GAP = 22
     const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
 
     const maxW = Math.min(window.innerWidth * 0.36, 440)
@@ -752,17 +743,24 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         className="absolute inset-y-0 left-0 overflow-hidden"
         style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
       >
-        {/* Product name - top left */}
+        {/* Product name */}
         <h2
           ref={collectionNameRef}
-          className="pointer-events-none absolute top-16 left-6 z-20 leading-none font-medium text-dark md:top-24 md:left-10"
-          style={{ fontSize: "clamp(3rem, 7vw, 6rem)", letterSpacing: "-0.04em", opacity: 0 }}
+          className="pointer-events-none relative z-20 mt-8 ml-8 leading-none font-medium text-dark md:mt-10 md:ml-10"
+          style={{ fontSize: "clamp(2.25rem, 6vw, 4.5rem)", letterSpacing: "-0.04em", opacity: 0 }}
         >
           {product?.name}
         </h2>
 
         {/* Image area */}
-        <div id="focus-image-frame" className="absolute" style={{ inset: 0, margin: "auto" }}>
+        <div
+          id="focus-image-frame"
+          className={clsx(
+            "absolute transition-shadow duration-700 ease-out",
+            currentIdx !== 0 && IMAGE_SHADOW,
+          )}
+          style={{ inset: 0, margin: "auto" }}
+        >
           <div id="focus-image-slot" className="pointer-events-none absolute inset-0 z-[1]" />
 
           {/* Gallery overlay - fades in after morph, canvas bg fills the gap between sliding images */}
@@ -824,52 +822,31 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
               </span>
             </button>
           )}
+
+          <div
+            ref={galleryIndicatorRef}
+            className="absolute top-full left-1/2 z-[4] mt-4 flex -translate-x-1/2 items-center gap-1.5"
+            style={{
+              opacity: galleryActive && galleryIndicatorVisible ? 1 : 0,
+              transition: "opacity 0.4s ease",
+            }}
+          >
+            {galleryImages.map((_, i) => (
+              <div
+                key={i}
+                className={clsx(
+                  "rounded-full bg-dark transition-all duration-700 ease-out",
+                  i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
+                )}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Bottom strip - gallery indicator + details */}
+        {/* Bottom strip - details */}
         <div ref={stripRef} className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
-          {/* Gallery indicator */}
-          <div className="min-w-0">
-            <div
-              className="mb-3 flex items-center gap-3"
-              style={{ opacity: galleryActive ? 1 : 0, transition: "opacity 0.4s ease" }}
-            >
-              <div className="flex items-center gap-1.5">
-                {galleryImages.map((_, i) => (
-                  <div
-                    key={i}
-                    className={clsx(
-                      "rounded-full bg-dark transition-all duration-700 ease-out",
-                      i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
-                    )}
-                  />
-                ))}
-              </div>
-              <span
-                className="flex items-center gap-1.5 text-[10px] font-medium tracking-widest text-dark/60 uppercase transition-opacity duration-500"
-                style={{ opacity: hasScrolled ? 0 : 1 }}
-              >
-                Scroll to explore
-                <svg
-                  viewBox="0 0 16 8"
-                  fill="none"
-                  className="scroll-hint-arrow h-2 w-4 text-dark/60"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M1 4h13M11 1l3 3-3 3"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-            </div>
-          </div>
-
           {/* Details - description, options, explore collection */}
-          <div ref={detailsInnerRef} className="flex items-end justify-between gap-6 pt-3">
+          <div ref={detailsInnerRef} className="flex items-end justify-between gap-6">
             {/* Left: description + explore collection */}
             <div className="min-w-0">
               <p
@@ -895,17 +872,16 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
               </button>
             </div>
 
-            {/* Right: size row → frame + cart row */}
-            <div ref={optionsRef} className="flex flex-shrink-0 flex-col items-start gap-1.5">
-              {/* Size */}
-              <div className="flex items-center gap-1">
+            {/* Right: purchase controls */}
+            <div ref={optionsRef} className="grid w-[22rem] flex-shrink-0 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5">
                 {SIZE_OPTIONS.map(({ key, label }) => (
                   <button
                     key={key}
                     onClick={() => setSelectedSize(key)}
                     aria-pressed={selectedSize === key}
                     className={clsx(
-                      "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                      "group flex min-w-0 items-center justify-center rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors",
                       selectedSize === key
                         ? "border-dark bg-dark text-white"
                         : "border-dark/20 text-dark hover:border-dark/40",
@@ -916,14 +892,13 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
                 ))}
                 <button
                   onClick={handleCustomSize}
-                  className="group rounded-lg border border-dark/20 px-2.5 py-1.5 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
+                  className="group flex min-w-0 items-center justify-center rounded-lg border border-dark/20 px-2 py-2 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
                 >
                   <HoverLabel>Custom</HoverLabel>
                 </button>
               </div>
 
-              {/* Frame toggle + Add to Cart */}
-              <div className="flex items-center gap-1">
+              <div className="grid grid-cols-2 gap-1.5">
                 {(
                   [
                     { value: true, label: "Framed" },
@@ -935,7 +910,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
                     onClick={() => setWithFrame(value)}
                     aria-pressed={withFrame === value}
                     className={clsx(
-                      "group rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                      "group flex min-w-0 items-center justify-center rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors",
                       withFrame === value
                         ? "border-dark bg-dark text-white"
                         : "border-dark/20 text-dark hover:border-dark/40",
@@ -944,26 +919,25 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
                     <HoverLabel>{label}</HoverLabel>
                   </button>
                 ))}
-                <button
-                  ref={cartBtnRef}
-                  aria-label={added ? "Add another to cart" : "Add to cart"}
-                  disabled={!canAddToCart}
-                  onClick={async (e) => {
-                    e.preventDefault()
-                    if (canAddToCart) await handleAddToCart()
-                  }}
-                  className={clsx(
-                    "group ml-1 inline-flex justify-center overflow-hidden rounded-lg px-3 py-1.5 text-[11px] font-medium tracking-wide whitespace-nowrap transition-colors",
-                    canAddToCart
-                      ? "bg-dark text-white hover:opacity-70"
-                      : "cursor-not-allowed bg-dark/20 text-dark/40",
-                  )}
-                >
-                  <span ref={cartLabelRef} className="inline-block">
-                    <HoverLabel>{cartLabel}</HoverLabel>
-                  </span>
-                </button>
               </div>
+              <button
+                aria-label={added ? "Add another to cart" : "Add to cart"}
+                disabled={!canAddToCart}
+                onClick={async (e) => {
+                  e.preventDefault()
+                  if (canAddToCart) await handleAddToCart()
+                }}
+                className={clsx(
+                  "group flex min-w-0 items-center justify-center overflow-hidden rounded-lg border px-2 py-2 text-[11px] font-medium tracking-wide whitespace-nowrap transition-colors",
+                  canAddToCart
+                    ? "border-dark bg-dark text-white hover:opacity-70"
+                    : "cursor-not-allowed border-dark/20 bg-dark/20 text-dark/40",
+                )}
+              >
+                <span ref={cartLabelRef} className="inline-block">
+                  <HoverLabel>{cartLabel}</HoverLabel>
+                </span>
+              </button>
               {cartError && (
                 <p className="max-w-[17rem] text-[10px] leading-4 text-red-700">{cartError}</p>
               )}
