@@ -5,8 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
+import {
+  ChartCard,
+  Donut,
+  Funnel,
+  HBars,
+  LineChart,
+  RankRows,
+  StatCard,
+} from "../../components/admin/charts"
 import { ErrorBoundary } from "../../components/ui/error-boundary"
 import { Navbar } from "../../components/ui/navbar"
+import { buildRange, RANGE_OPTIONS, type RangeKey } from "../../lib/analytics-ranges"
 import {
   MAX_POPUP_MEDIA,
   POPUP_ACTION_OPTIONS,
@@ -23,19 +33,51 @@ import {
 } from "../../lib/marketing"
 
 type AuthMode = "signIn" | "signUp"
-type AdminSection = "about" | "global" | "announcements" | "popups" | "catalog" | "inquiries"
+type AdminSection =
+  | "analytics"
+  | "announcements"
+  | "popups"
+  | "pageAbout"
+  | "pageGlobal"
+  | "catalog"
+  | "inquiries"
 type AnnouncementScope = "home" | "all"
 
 type PopupMediaItem = { type: PopupMediaType; storageId: Id<"_storage">; url: string | null }
 
-const SECTIONS: Array<{ key: AdminSection; label: string }> = [
-  { key: "about", label: "About Page" },
-  { key: "global", label: "Footer / Global" },
-  { key: "announcements", label: "Announcement Bar" },
-  { key: "popups", label: "Pop-ups" },
-  { key: "catalog", label: "Catalog Sync" },
-  { key: "inquiries", label: "Inquiries" },
+type NavItem = { key: AdminSection; label: string }
+type NavEntry = { kind: "item"; item: NavItem } | { kind: "group"; label: string; items: NavItem[] }
+
+// Sidebar layout: Analytics first, then the dropdown groups, then the rest.
+const NAV: NavEntry[] = [
+  { kind: "item", item: { key: "analytics", label: "Analytics" } },
+  {
+    kind: "group",
+    label: "Marketing",
+    items: [
+      { key: "announcements", label: "Announcement Bar" },
+      { key: "popups", label: "Pop-ups" },
+    ],
+  },
+  {
+    kind: "group",
+    label: "Page Editor",
+    items: [
+      { key: "pageAbout", label: "About" },
+      { key: "pageGlobal", label: "Global / Footer" },
+    ],
+  },
+  { kind: "item", item: { key: "catalog", label: "Catalog Sync" } },
+  { kind: "item", item: { key: "inquiries", label: "Inquiries" } },
 ]
+
+// Which group (if any) owns a section — used to auto-expand the right dropdown.
+function groupOf(section: AdminSection): string | null {
+  for (const entry of NAV) {
+    if (entry.kind === "group" && entry.items.some((i) => i.key === section)) return entry.label
+  }
+  return null
+}
 
 const blankAnnouncement = {
   id: undefined as Id<"announcementBars"> | undefined,
@@ -146,32 +188,80 @@ export function AdminPage() {
 }
 
 function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void }) {
-  const [section, setSection] = useState<AdminSection>("announcements")
+  const [section, setSection] = useState<AdminSection>("analytics")
+  // Expanded dropdown groups. Start with the group owning the active section
+  // open so its item is visible.
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const initial = new Set<string>()
+    const owner = groupOf("analytics")
+    if (owner) initial.add(owner)
+    return initial
+  })
   const catalogSync = useCatalogSync()
+
+  const go = (next: AdminSection) => {
+    setSection(next)
+    const owner = groupOf(next)
+    if (owner) setExpanded((prev) => new Set(prev).add(owner))
+  }
+
+  const toggleGroup = (label: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
 
   return (
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-dark/10 bg-light/60 px-5 py-6 backdrop-blur md:w-80">
-        <button
-          type="button"
-          className="mb-10 text-left"
-          onClick={() => setSection("announcements")}
-        >
+        <button type="button" className="mb-10 text-left" onClick={() => go("analytics")}>
           <img src="/stryk-logo.png" alt="Stryk" className="h-7 w-auto" />
         </button>
-        <nav className="flex flex-1 flex-col gap-2">
-          {SECTIONS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setSection(item.key)}
-              className={`rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${
-                section === item.key ? "bg-dark text-white" : "text-dark/65 hover:bg-dark/5"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
+          {NAV.map((entry) =>
+            entry.kind === "item" ? (
+              <NavButton
+                key={entry.item.key}
+                label={entry.item.label}
+                active={section === entry.item.key}
+                onClick={() => go(entry.item.key)}
+              />
+            ) : (
+              <div key={entry.label}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(entry.label)}
+                  className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-xs font-semibold tracking-[0.14em] text-dark/50 uppercase transition-colors hover:bg-dark/5"
+                >
+                  {entry.label}
+                  <span
+                    aria-hidden="true"
+                    className={clsx(
+                      "text-[10px] transition-transform",
+                      expanded.has(entry.label) && "rotate-180",
+                    )}
+                  >
+                    ▼
+                  </span>
+                </button>
+                {expanded.has(entry.label) && (
+                  <div className="mt-1 mb-1 flex flex-col gap-1 pl-3">
+                    {entry.items.map((item) => (
+                      <NavButton
+                        key={item.key}
+                        label={item.label}
+                        active={section === item.key}
+                        nested
+                        onClick={() => go(item.key)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ),
+          )}
         </nav>
         <div className="border-t border-dark/10 pt-5">
           <p className="mb-3 text-xs break-words text-dark/50">{email}</p>
@@ -188,7 +278,7 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
               <button
                 type="button"
                 onClick={() => {
-                  setSection("catalog")
+                  go("catalog")
                   void catalogSync.runSync()
                 }}
                 disabled={catalogSync.isSyncing}
@@ -219,16 +309,51 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
               error and retries the panel. Without this, a throw in one panel
               (e.g. a failing Convex query) would unmount the whole dashboard. */}
           <ErrorBoundary key={section} fallback={(error) => <PanelError error={error} />}>
-            {section === "about" && <Placeholder title="About Page" />}
-            {section === "global" && <Placeholder title="Footer / Global" />}
+            {section === "analytics" && <AnalyticsPanel />}
             {section === "announcements" && <AnnouncementsPanel />}
             {section === "popups" && <PopupsPanel />}
+            {section === "pageAbout" && (
+              <Placeholder title="About" eyebrow="Page editor">
+                Controls for editing the About page will live here.
+              </Placeholder>
+            )}
+            {section === "pageGlobal" && (
+              <Placeholder title="Global / Footer" eyebrow="Page editor">
+                Controls for site-wide footer and global content will live here.
+              </Placeholder>
+            )}
             {section === "catalog" && <CatalogSyncPanel sync={catalogSync} />}
             {section === "inquiries" && <InquiriesPanel />}
           </ErrorBoundary>
         </div>
       </section>
     </div>
+  )
+}
+
+function NavButton({
+  label,
+  active,
+  nested = false,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  nested?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors",
+        nested && "py-2",
+        active ? "bg-dark text-white" : "text-dark/65 hover:bg-dark/5",
+      )}
+    >
+      {label}
+    </button>
   )
 }
 
@@ -251,13 +376,21 @@ function PanelError({ error }: { error: Error }) {
   )
 }
 
-function Placeholder({ title }: { title: string }) {
+function Placeholder({
+  title,
+  eyebrow = "Coming next",
+  children,
+}: {
+  title: string
+  eyebrow?: string
+  children?: React.ReactNode
+}) {
   return (
     <section>
-      <AdminHeader title={title} eyebrow="Coming next" />
+      <AdminHeader title={title} eyebrow={eyebrow} />
       <div className="rounded-lg border border-dark/10 bg-light/45 p-8">
         <p className="text-sm text-dark/60">
-          This dashboard section is reserved for future editing controls.
+          {children ?? "This dashboard section is reserved for future editing controls."}
         </p>
       </div>
     </section>
@@ -344,6 +477,146 @@ function CatalogSyncPanel({ sync }: { sync: CatalogSync }) {
   )
 }
 
+function AnalyticsPanel() {
+  const [range, setRange] = useState<RangeKey>("1w")
+  // Re-anchor "now" whenever the range changes so switching tabs refreshes the
+  // window (and buckets) to the current moment.
+  const now = useMemo(() => Date.now(), [range])
+  const built = useMemo(() => buildRange(range, now), [range, now])
+  const data = useQuery(api.analytics.getOverview, {
+    buckets: built.buckets,
+    prevStart: built.prevStart,
+    prevEnd: built.prevEnd,
+  })
+
+  const totals = data?.totals
+  const prior = data?.prior
+
+  // Prior-period comparison line under a stat card. Only page views, visitors,
+  // and checkout clicks carry a prior baseline; the rest show a neutral note.
+  const priorSub = (current: number | undefined, previous: number | undefined) => {
+    if (!prior?.hasPrior || previous === undefined || current === undefined)
+      return "— no prior data"
+    if (previous === 0) return "— no prior data"
+    const pct = ((current - previous) / previous) * 100
+    const up = pct >= 0
+    return (
+      <span className={up ? "text-emerald-600" : "text-red-600"}>
+        {up ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}% vs. prior
+      </span>
+    )
+  }
+
+  return (
+    <section className="space-y-8">
+      <AdminHeader title="Analytics" eyebrow="Traffic, conversion & paths" />
+
+      {/* Time-range selector */}
+      <div className="flex flex-wrap gap-2">
+        {RANGE_OPTIONS.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setRange(option.key)}
+            className={clsx(
+              "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+              range === option.key
+                ? "border-[#b5502f] bg-[#b5502f] text-white"
+                : "border-dark/15 text-dark/65 hover:border-dark/35",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {data === undefined ? (
+        <p className="text-sm text-dark/55">Loading analytics...</p>
+      ) : (
+        <>
+          {/* Stat tiles */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <StatCard
+              label="Page Views"
+              value={(totals?.pageViews ?? 0).toLocaleString()}
+              sub={priorSub(totals?.pageViews, prior?.pageViews)}
+            />
+            <StatCard
+              label="Visitors"
+              value={(totals?.visitors ?? 0).toLocaleString()}
+              sub={priorSub(totals?.visitors, prior?.visitors)}
+            />
+            <StatCard
+              label="Product Views"
+              value={(totals?.productViews ?? 0).toLocaleString()}
+              sub="— no prior data"
+            />
+            <StatCard
+              label="Add to Cart"
+              value={(totals?.addToCarts ?? 0).toLocaleString()}
+              sub="— no prior data"
+            />
+            <StatCard
+              label="Checkout Clicks"
+              value={(totals?.checkoutClicks ?? 0).toLocaleString()}
+              sub={priorSub(totals?.checkoutClicks, prior?.checkoutClicks)}
+            />
+            <StatCard
+              label="Checkout Rate"
+              value={`${((totals?.conversionRate ?? 0) * 100).toFixed(1)}%`}
+              sub="of visitors"
+            />
+          </div>
+
+          {/* Traffic over time */}
+          <ChartCard title="Traffic Over Time">
+            <LineChart data={data.trafficBuckets} />
+          </ChartCard>
+
+          {/* Top pages + sources */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ChartCard title="Top Pages">
+              <HBars items={data.topPages} emptyLabel="No page views yet." />
+            </ChartCard>
+            <ChartCard title="Where Views Come From">
+              <Donut items={data.sources} emptyLabel="No page views yet." />
+            </ChartCard>
+          </div>
+
+          {/* Conversion funnel */}
+          <ChartCard title="Conversion Funnel">
+            <p className="mb-5 text-sm text-dark/55">
+              Order = clicked through to Shopify checkout; completed purchases happen on Shopify and
+              aren&apos;t tracked here.
+            </p>
+            <Funnel
+              steps={[
+                { label: "Visited site", value: data.funnel.visited },
+                { label: "Viewed a product", value: data.funnel.viewedProduct },
+                { label: "Added to cart", value: data.funnel.addedToCart },
+                { label: "Clicked checkout", value: data.funnel.checkout },
+              ]}
+            />
+          </ChartCard>
+
+          {/* Breakdowns */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <ChartCard title="Checkout Clicks by Source">
+              <RankRows items={data.checkoutBySource} emptyLabel="No data yet." />
+            </ChartCard>
+            <ChartCard title="Top Added-to-Cart Products">
+              <RankRows items={data.topAddedProducts} emptyLabel="No data yet." />
+            </ChartCard>
+            <ChartCard title="Other CTA Clicks">
+              <RankRows items={data.ctaClicks} emptyLabel="No data yet." />
+            </ChartCard>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
 function AnnouncementsPanel() {
   const announcements = useQuery(api.marketing.listAnnouncements)
   const saveAnnouncement = useMutation(api.marketing.saveAnnouncement)
@@ -363,109 +636,143 @@ function AnnouncementsPanel() {
 
   return (
     <section className="space-y-8">
-      <AdminHeader title="Announcement Bar" eyebrow="Site-wide banner" />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-48">Announcement Bar</h1>
+          <p className="mt-2 text-sm text-dark/55">
+            Only one bar can be active at a time. Activating one turns the others off.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="admin-primary"
+          onClick={() => setEditing(blankAnnouncement)}
+        >
+          + New bar
+        </button>
+      </div>
       {message && <p className="rounded-lg bg-loam/10 px-4 py-3 text-sm text-loam">{message}</p>}
 
-      <div className="grid gap-8 xl:grid-cols-[1fr_0.9fr]">
-        <div className="admin-card">
-          <PanelTitle title="New announcement" />
-          <AnnouncementEditor
-            key="new"
-            initial={blankAnnouncement}
-            submitLabel="Create announcement"
-            onSave={async (form) => {
-              await persist(form)
-              setMessage("Announcement created.")
-            }}
-          />
-        </div>
-
-        <div className="admin-card">
-          <PanelTitle title="Saved announcements" />
-          <div className="space-y-3">
-            {announcements === undefined && <p className="text-sm text-dark/55">Loading...</p>}
-            {announcements?.length === 0 && (
-              <p className="text-sm text-dark/55">No announcements yet.</p>
-            )}
-            {announcements?.map((announcement) => (
-              <div
-                key={announcement._id}
-                className={clsx(
-                  "rounded-lg border p-4 transition-colors",
-                  announcement.isActive
-                    ? "border-emerald-500/40 bg-emerald-500/5"
-                    : "border-dark/10",
-                )}
+      <div className="space-y-3">
+        {announcements === undefined && <p className="text-sm text-dark/55">Loading...</p>}
+        {announcements?.length === 0 && (
+          <p className="rounded-lg border border-dashed border-dark/15 px-5 py-8 text-center text-sm text-dark/45">
+            No announcement bars yet. Create one to get started.
+          </p>
+        )}
+        {announcements?.map((announcement) => (
+          <div
+            key={announcement._id}
+            className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-dark/10 bg-light/45 p-4"
+          >
+            <div className="min-w-[16rem] flex-1">
+              <AnnouncementPreview
+                text={announcement.text}
+                buttonLabel={announcement.buttonLabel}
+                backgroundColor={announcement.backgroundColor}
+                textColor={announcement.textColor}
+              />
+            </div>
+            <div className="min-w-[7rem]">
+              <p className="font-medium text-dark">{announcement.title || "Untitled"}</p>
+              <p className="text-sm text-dark/45">
+                {announcement.scope === "home" ? "Home page only" : "All pages"}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-dark/70">
+                <input
+                  type="checkbox"
+                  checked={announcement.isActive}
+                  onChange={(e) =>
+                    void setActive({ id: announcement._id, isActive: e.target.checked })
+                  }
+                  className="h-4 w-4 accent-[#b5502f]"
+                />
+                {announcement.isActive ? "On" : "Off"}
+              </label>
+              <button
+                type="button"
+                className="admin-secondary"
+                onClick={() =>
+                  setEditing({
+                    id: announcement._id,
+                    title: announcement.title,
+                    text: announcement.text,
+                    buttonLabel: announcement.buttonLabel ?? "",
+                    buttonLink: announcement.buttonLink ?? "",
+                    backgroundColor: announcement.backgroundColor,
+                    textColor: announcement.textColor,
+                    scope: announcement.scope === "off" ? "home" : announcement.scope,
+                    isActive: announcement.isActive,
+                  })
+                }
               >
-                <div className="mb-3 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium">{announcement.title}</p>
-                    <p className="mt-1 text-sm text-dark/55">{announcement.text}</p>
-                    <p className="mt-1 text-xs text-dark/40">
-                      {announcement.scope === "home" ? "Home page only" : "Every page"}
-                    </p>
-                  </div>
-                  <ToggleSwitch
-                    label="Active"
-                    checked={announcement.isActive}
-                    onChange={(isActive) => void setActive({ id: announcement._id, isActive })}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="admin-secondary"
-                    onClick={() =>
-                      setEditing({
-                        id: announcement._id,
-                        title: announcement.title,
-                        text: announcement.text,
-                        buttonLabel: announcement.buttonLabel ?? "",
-                        buttonLink: announcement.buttonLink ?? "",
-                        backgroundColor: announcement.backgroundColor,
-                        textColor: announcement.textColor,
-                        scope: announcement.scope === "off" ? "home" : announcement.scope,
-                        isActive: announcement.isActive,
-                      })
-                    }
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-secondary"
-                    onClick={() => void deleteAnnouncement({ id: announcement._id })}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+                Edit
+              </button>
+              <button
+                type="button"
+                className="admin-secondary border-red-500/40 text-red-600 hover:bg-red-500 hover:text-white"
+                onClick={() => void deleteAnnouncement({ id: announcement._id })}
+              >
+                Delete
+              </button>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
 
       {editing && (
         <Modal
-          title={`Editing: ${editing.title || "Untitled announcement"}`}
+          title={editing.id ? "Edit announcement" : "New announcement"}
           eyebrow="Announcement bar"
           onClose={() => setEditing(null)}
         >
           <AnnouncementEditor
-            key={editing.id}
+            key={editing.id ?? "new"}
             initial={editing}
-            submitLabel="Save changes"
+            submitLabel={editing.id ? "Save changes" : "Create announcement"}
             showActiveToggle
             onCancel={() => setEditing(null)}
             onSave={async (form) => {
               await persist(form)
               setEditing(null)
-              setMessage("Announcement updated.")
+              setMessage(form.id ? "Announcement updated." : "Announcement created.")
             }}
           />
         </Modal>
       )}
     </section>
+  )
+}
+
+// A faithful mini-render of the live announcement bar, used as the row preview.
+function AnnouncementPreview({
+  text,
+  buttonLabel,
+  backgroundColor,
+  textColor,
+}: {
+  text: string
+  buttonLabel?: string
+  backgroundColor: string
+  textColor: string
+}) {
+  return (
+    <div
+      className="flex items-center justify-center gap-3 rounded-lg px-5 py-3 text-center text-sm font-medium"
+      style={{ backgroundColor, color: textColor }}
+    >
+      <span className="truncate">{text || "Announcement text"}</span>
+      {buttonLabel && (
+        <span
+          className="shrink-0 rounded-full px-3 py-1 text-xs"
+          style={{ border: `1px solid ${textColor}`, color: textColor }}
+        >
+          {buttonLabel}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -643,112 +950,134 @@ function PopupsPanel() {
 
   return (
     <section className="space-y-8">
-      <AdminHeader title="Pop-ups" eyebrow="Saved pop-ups and slide-ins" />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-48">Pop-up</h1>
+          <p className="mt-2 text-sm text-dark/55">
+            Two active pop-ups can&apos;t occupy the same position.
+          </p>
+        </div>
+        <button type="button" className="admin-primary" onClick={() => setEditing(blankPopup)}>
+          + New pop-up
+        </button>
+      </div>
       {message && <p className="rounded-lg bg-loam/10 px-4 py-3 text-sm text-loam">{message}</p>}
 
-      <div className="grid gap-8 xl:grid-cols-[1fr_0.9fr]">
-        <div className="admin-card">
-          <PanelTitle title="New pop-up" />
-          <PopupEditor
-            key="new"
-            initial={blankPopup}
-            submitLabel="Create pop-up"
-            onSave={async (form) => {
-              const id = await persist(form)
-              setMessage("Pop-up created.")
-              return id
-            }}
-          />
-        </div>
-
-        <div className="admin-card">
-          <PanelTitle title="Saved pop-ups" />
-          <div className="space-y-3">
-            {popups === undefined && <p className="text-sm text-dark/55">Loading...</p>}
-            {popups?.length === 0 && <p className="text-sm text-dark/55">No pop-ups yet.</p>}
-            {popups?.map((popup) => (
-              <div
-                key={popup._id}
-                className={clsx(
-                  "rounded-lg border p-4 transition-colors",
-                  popup.isActive ? "border-emerald-500/40 bg-emerald-500/5" : "border-dark/10",
-                )}
-              >
-                <div className="mb-3 flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    {popup.media[0] &&
-                      (popup.media[0].type === "video" ? (
-                        <video
-                          src={popup.media[0].url ?? undefined}
-                          aria-label="Video thumbnail"
-                          muted
-                          className="h-12 w-12 flex-shrink-0 rounded object-cover"
-                        />
-                      ) : (
-                        <img
-                          src={popup.media[0].url ?? undefined}
-                          alt=""
-                          className="h-12 w-12 flex-shrink-0 rounded object-cover"
-                        />
-                      ))}
-                    <div>
-                      <p className="font-medium">{popup.title || popup.heading || "Untitled"}</p>
-                      <p className="mt-1 text-xs text-dark/40">
-                        {popup.position} · {describeTrigger(popup)} · {popup.media.length} slide
-                        {popup.media.length === 1 ? "" : "s"}
-                      </p>
-                    </div>
-                  </div>
-                  <ToggleSwitch
-                    label="Active"
-                    checked={popup.isActive}
-                    onChange={(isActive) => void setActive({ id: popup._id, isActive })}
+      <div className="space-y-3">
+        {popups === undefined && <p className="text-sm text-dark/55">Loading...</p>}
+        {popups?.length === 0 && (
+          <p className="rounded-lg border border-dashed border-dark/15 px-5 py-8 text-center text-sm text-dark/45">
+            No pop-ups yet. Create one to get started.
+          </p>
+        )}
+        {popups?.map((popup) => (
+          <div
+            key={popup._id}
+            className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-dark/10 bg-light/45 p-4"
+          >
+            <div className="flex min-w-[16rem] flex-1 items-center gap-4">
+              {popup.media[0] ? (
+                popup.media[0].type === "video" ? (
+                  <video
+                    src={popup.media[0].url ?? undefined}
+                    aria-label="Video thumbnail"
+                    muted
+                    className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
                   />
+                ) : (
+                  <img
+                    src={popup.media[0].url ?? undefined}
+                    alt=""
+                    className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
+                  />
+                )
+              ) : (
+                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-dark/5 text-dark/30">
+                  ▢
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="admin-secondary"
-                    onClick={() => setEditing(popupToForm(popup))}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-secondary"
-                    onClick={() => void deletePopup({ id: popup._id })}
-                  >
-                    Delete
-                  </button>
-                </div>
+              )}
+              <div className="min-w-0">
+                <p className="truncate font-medium text-dark">
+                  {popup.title || popup.heading || "Untitled"}
+                </p>
+                <p className="mt-0.5 truncate text-sm text-dark/45">
+                  {describePopupSummary(popup)}
+                </p>
               </div>
-            ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-dark/70">
+                <input
+                  type="checkbox"
+                  checked={popup.isActive}
+                  onChange={(e) => void setActive({ id: popup._id, isActive: e.target.checked })}
+                  className="h-4 w-4 accent-[#b5502f]"
+                />
+                {popup.isActive ? "On" : "Off"}
+              </label>
+              <button
+                type="button"
+                className="admin-secondary"
+                onClick={() => setEditing(popupToForm(popup))}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="admin-secondary border-red-500/40 text-red-600 hover:bg-red-500 hover:text-white"
+                onClick={() => void deletePopup({ id: popup._id })}
+              >
+                Delete
+              </button>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
 
       {editing && (
         <Modal
-          title={`Editing: ${editing.title || editing.heading || "Untitled pop-up"}`}
+          title={editing.id ? "Edit pop-up" : "New pop-up"}
           eyebrow="Pop-up"
           onClose={() => setEditing(null)}
         >
           <PopupEditor
-            key={editing.id}
+            key={editing.id ?? "new"}
             initial={editing}
-            submitLabel="Save changes"
+            submitLabel={editing.id ? "Save changes" : "Create pop-up"}
             showActiveToggle
             onCancel={() => setEditing(null)}
             onSave={async (form) => {
               await persist(form)
               setEditing(null)
-              setMessage("Pop-up updated.")
+              setMessage(form.id ? "Pop-up updated." : "Pop-up created.")
             }}
           />
         </Modal>
       )}
     </section>
   )
+}
+
+// One-line summary for a pop-up row: position · frequency · trigger · capture.
+function describePopupSummary(popup: {
+  position: PopupPosition
+  frequency: PopupFrequency
+  emailCaptureEnabled: boolean
+  delaySeconds: number
+  triggerType?: PopupTriggerType
+  action?: PopupAction
+  pages?: PopupPage[]
+}): string {
+  const position = popup.position
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+  const frequency = POPUP_FREQUENCY_OPTIONS.find((o) => o.value === popup.frequency)?.label ?? ""
+  const trigger =
+    popup.triggerType === "action" ? describeTrigger(popup) : `after ${popup.delaySeconds}s`
+  const parts = [position, frequency, trigger]
+  if (popup.emailCaptureEnabled) parts.push("email capture")
+  return parts.filter(Boolean).join(" · ")
 }
 
 // Human-readable trigger summary for the saved-pop-up list.
@@ -1064,15 +1393,27 @@ const INQUIRY_TYPE_FILTERS: Array<{ value: InquiryTypeFilter; label: string }> =
 
 function InquiriesPanel() {
   const [tab, setTab] = useState<InquiryTab>("contact")
+  // Fetched here for the top count cards; the child list components re-use the
+  // same (deduped) Convex subscriptions for their own rendering.
+  const contactInquiries = useQuery(api.inquiries.listContactInquiries)
+  const emailCaptures = useQuery(api.inquiries.listPopupEmailCaptures)
+
+  const count = (rows: unknown[] | undefined) => (rows === undefined ? "—" : rows.length.toString())
 
   return (
     <section className="space-y-8">
-      <AdminHeader title="Inquiries" eyebrow="Contact form and pop-up captures" />
-      <div className="inline-flex rounded-lg border border-dark/15 p-1">
+      <AdminHeader title="Inquiries" eyebrow="Contact form and email captures" />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard label="Contact Form" value={count(contactInquiries)} />
+        <StatCard label="Email Captures" value={count(emailCaptures)} />
+      </div>
+
+      <div className="inline-flex rounded-full border border-dark/15 p-1">
         {(
           [
-            { key: "contact", label: "Contact inquiries" },
-            { key: "captures", label: "Email captures" },
+            { key: "contact", label: "Contact Form" },
+            { key: "captures", label: "Email Captures" },
           ] as const
         ).map((item) => (
           <button
@@ -1080,8 +1421,8 @@ function InquiriesPanel() {
             type="button"
             onClick={() => setTab(item.key)}
             className={clsx(
-              "rounded-md px-4 py-2 text-sm font-medium transition-colors",
-              tab === item.key ? "bg-dark text-white" : "text-dark/60 hover:bg-dark/5",
+              "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+              tab === item.key ? "bg-[#b5502f] text-white" : "text-dark/60 hover:bg-dark/5",
             )}
           >
             {item.label}
@@ -1196,28 +1537,116 @@ function ContactInquiries() {
 function EmailCaptures() {
   const popupEmails = useQuery(api.inquiries.listPopupEmailCaptures)
   const [search, setSearch] = useState("")
+  const [source, setSource] = useState("all")
+  const [copied, setCopied] = useState(false)
+
+  const sources = useMemo(() => {
+    if (!popupEmails) return []
+    return [...new Set(popupEmails.map((item) => item.source))].sort()
+  }, [popupEmails])
 
   const filtered = useMemo(() => {
     if (!popupEmails) return popupEmails
     const term = search.trim().toLowerCase()
-    return term
-      ? popupEmails.filter((item) => item.email.toLowerCase().includes(term))
-      : popupEmails
-  }, [popupEmails, search])
+    return popupEmails.filter((item) => {
+      if (source !== "all" && item.source !== source) return false
+      if (term && !item.email.toLowerCase().includes(term)) return false
+      return true
+    })
+  }, [popupEmails, search, source])
+
+  const downloadCsv = () => {
+    if (!filtered) return
+    const rows = [
+      ["email", "source", "captured_at"],
+      ...filtered.map((item) => [
+        item.email,
+        item.source,
+        new Date(item._creationTime).toISOString(),
+      ]),
+    ]
+    // Quote every field so commas/quotes in values can't break columns.
+    const csv = rows
+      .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+      .join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `email-captures-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const copyEmails = async () => {
+    if (!filtered) return
+    try {
+      await navigator.clipboard.writeText(filtered.map((item) => item.email).join(", "))
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard blocked (permissions/insecure context) — silently ignore.
+    }
+  }
 
   return (
     <div className="admin-card">
-      <PanelTitle title="Pop-up email captures" />
-      <div className="mb-4 max-w-sm">
-        <TextInput label="Search email" value={search} onChange={setSearch} />
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          aria-label="Search emails"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search..."
+          className="min-w-[10rem] flex-1 rounded-lg border border-dark/15 bg-canvas px-4 py-2.5 text-sm outline-none focus:border-dark/45"
+        />
+        <select
+          aria-label="Filter by source"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          className="min-w-[12rem] rounded-lg border border-dark/15 bg-canvas px-4 py-2.5 text-sm outline-none focus:border-dark/45"
+        >
+          <option value="all">All sources</option>
+          {sources.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="admin-secondary"
+          onClick={downloadCsv}
+          disabled={!filtered || filtered.length === 0}
+        >
+          Download CSV
+        </button>
+        <button
+          type="button"
+          className="admin-secondary"
+          onClick={() => void copyEmails()}
+          disabled={!filtered || filtered.length === 0}
+        >
+          {copied ? "Copied!" : "Copy emails"}
+        </button>
+        <span className="text-sm text-dark/45">
+          {filtered === undefined ? "" : `${filtered.length} result(s)`}
+        </span>
       </div>
+
       <div className="divide-y divide-dark/10">
         {filtered === undefined && <p className="text-sm text-dark/55">Loading...</p>}
-        {filtered?.length === 0 && <p className="text-sm text-dark/55">No matching emails.</p>}
+        {filtered?.length === 0 && (
+          <p className="py-3 text-sm text-dark/45">No email captures yet.</p>
+        )}
         {filtered?.map((item) => (
-          <div key={item._id} className="flex flex-wrap justify-between gap-3 py-3 text-sm">
-            <span>{item.email}</span>
-            <span className="text-dark/45">
+          <div
+            key={item._id}
+            className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+          >
+            <span className="font-medium text-dark">{item.email}</span>
+            <span className="flex items-center gap-3 text-dark/45">
+              <span className="rounded-full bg-dark/5 px-2.5 py-0.5 text-xs">{item.source}</span>
               {new Date(item._creationTime).toLocaleDateString()}
             </span>
           </div>

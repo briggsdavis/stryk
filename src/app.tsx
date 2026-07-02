@@ -1,4 +1,5 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router"
+import { AnalyticsTracker } from "./components/analytics-tracker"
 import { PublicMarketing } from "./components/marketing/public-marketing"
 import { CustomCursor } from "./components/ui/custom-cursor"
 import { ErrorBoundary } from "./components/ui/error-boundary"
@@ -14,6 +15,7 @@ export default function App() {
   return (
     <Router>
       <TransitionProvider>
+        <AnalyticsTracker />
         <CustomCursor />
         {/* Marketing is non-critical: never let a failure here blank the site. */}
         <ErrorBoundary>
