@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react"
 import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
+import { track } from "../../lib/analytics"
 import {
   onPopupAction,
   pageFromPath,
@@ -83,7 +84,13 @@ export function PublicMarketing() {
         >
           <span>{announcement.text}</span>
           {announcement.buttonLabel && announcement.buttonLink && (
-            <Link to={announcement.buttonLink} className="underline underline-offset-4">
+            <Link
+              to={announcement.buttonLink}
+              onClick={() =>
+                track("cta_click", { label: `Announcement · ${announcement.buttonLabel}` })
+              }
+              className="underline underline-offset-4"
+            >
               {announcement.buttonLabel}
             </Link>
           )}
@@ -218,7 +225,10 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
       {(popup.buttonEnabled ?? true) && popup.buttonLabel && popup.buttonLink && (
         <Link
           to={popup.buttonLink}
-          onClick={dismiss}
+          onClick={() => {
+            track("cta_click", { label: `Pop-up · ${popup.buttonLabel}` })
+            dismiss()
+          }}
           className="group inline-flex rounded-lg border border-dark/20 px-5 py-3 text-sm font-medium transition-colors hover:bg-dark hover:text-white"
         >
           <HoverLabel>{popup.buttonLabel}</HoverLabel>

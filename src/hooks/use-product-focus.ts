@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react"
+import { track } from "../lib/analytics"
 import { gsap } from "../lib/gsap"
 import { emitPopupAction } from "../lib/marketing"
 import type { Product } from "../lib/types"
@@ -32,6 +33,7 @@ export function useProductFocus() {
     (product: Product, el: HTMLElement, shiftEl?: HTMLElement | null) => {
       if (isFocusedRef.current) return
       emitPopupAction("product")
+      track("product_view", { label: product.name })
       isFocusedRef.current = true
       shiftElRef.current = shiftEl ?? null
 

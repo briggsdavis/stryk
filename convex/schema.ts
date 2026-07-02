@@ -109,6 +109,30 @@ export default defineSchema({
     email: v.string(),
     source: v.string(),
   }).index("by_email", ["email"]),
+  // Cookieless behavioural analytics. One row per tracked interaction on the
+  // public site. `visitorId` is a random id kept in the browser's localStorage
+  // (no PII); `ts` is the server-stamped event time so range queries stay
+  // reliable regardless of client clock skew.
+  analyticsEvents: defineTable({
+    visitorId: v.string(),
+    type: v.union(
+      v.literal("page_view"),
+      v.literal("product_view"),
+      v.literal("add_to_cart"),
+      v.literal("checkout_click"),
+      v.literal("cta_click"),
+    ),
+    // Route path for page views; product handle/id context otherwise.
+    path: v.optional(v.string()),
+    // Human-readable label: page name, product title, or CTA button text.
+    label: v.optional(v.string()),
+    // Traffic source for the visitor's session (Direct, Google, a referrer
+    // host) — attached to every event so any metric can break down by source.
+    source: v.optional(v.string()),
+    ts: v.number(),
+  })
+    .index("by_type_and_ts", ["type", "ts"])
+    .index("by_ts", ["ts"]),
   catalogProducts: defineTable({
     shopifyProductId: v.string(),
     shopifyHandle: v.string(),

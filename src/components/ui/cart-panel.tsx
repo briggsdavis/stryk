@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { useShopifyCart } from "../../hooks/use-shopify-cart"
+import { track } from "../../lib/analytics"
 import { HoverLabel } from "./hover-label"
 
 function formatMoney(amount: string | undefined, currencyCode: string | undefined) {
@@ -218,6 +219,10 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
             target={checkoutUrl ? "_blank" : undefined}
             rel="noopener noreferrer"
             aria-disabled={!checkoutUrl}
+            onClick={() => {
+              // The conversion signal: clicked through to Shopify checkout.
+              if (checkoutUrl) track("checkout_click", { label: `Cart (${totalQuantity})` })
+            }}
             className={`group flex w-full items-center justify-center rounded-lg px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300 ${
               checkoutUrl ? "bg-dark hover:opacity-80" : "pointer-events-none bg-dark/25"
             }`}

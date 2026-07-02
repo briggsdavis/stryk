@@ -486,7 +486,7 @@ export function CollectionPage() {
             src={galleryImages[i % Math.max(galleryImages.length, 1)]}
             alt=""
             loading="lazy"
-            className="absolute aspect-square rounded-sm object-cover shadow-xl shadow-dark/10"
+            className="absolute aspect-square object-cover shadow-xl shadow-dark/10"
             style={{
               top: s.top,
               bottom: s.bottom,

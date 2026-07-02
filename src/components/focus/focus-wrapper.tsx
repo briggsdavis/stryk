@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { useShopifyCart } from "../../hooks/use-shopify-cart"
+import { track } from "../../lib/analytics"
 import { gsap } from "../../lib/gsap"
 import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
@@ -257,6 +258,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     if (!product || !selectedVariant || cartAdding) return
     const variantToAdd = selectedVariant
     await addVariant(variantToAdd.shopifyVariantId, 1)
+    track("add_to_cart", { label: product.name })
     setAdded(true)
     setUpsellOpen(true)
   }
