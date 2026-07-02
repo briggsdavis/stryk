@@ -27,6 +27,9 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 
 // The soft drop shadow the site's artwork images carry (grid + collection cards).
 const IMAGE_SHADOW = "shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
+// The individual product view lifts artworks 2/3/4 a little more strongly than the
+// shared card shadow - ~30% more visible (0.19 -> 0.25 opacity).
+const FOCUS_IMAGE_SHADOW = "shadow-[0_18px_28px_rgba(0,0,0,0.25)]"
 const UPSELL_SLOT_COUNT = 4
 const EMPTY_UPSELL_SLOT_KEYS = Array.from(
   { length: UPSELL_SLOT_COUNT },
@@ -757,7 +760,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
           id="focus-image-frame"
           className={clsx(
             "absolute transition-shadow duration-700 ease-out",
-            currentIdx !== 0 && IMAGE_SHADOW,
+            currentIdx !== 0 && FOCUS_IMAGE_SHADOW,
           )}
           style={{ inset: 0, margin: "auto" }}
         >

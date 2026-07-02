@@ -2,6 +2,7 @@ import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react"
 import { clsx } from "clsx"
 import { useAction, useMutation, useQuery } from "convex/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Link } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { ErrorBoundary } from "../../components/ui/error-boundary"
@@ -146,6 +147,7 @@ export function AdminPage() {
 
 function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void }) {
   const [section, setSection] = useState<AdminSection>("announcements")
+  const catalogSync = useCatalogSync()
 
   return (
     <div className="flex min-h-screen">
@@ -179,6 +181,39 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
         </div>
       </aside>
       <section className="min-h-screen flex-1 pl-72 md:pl-80">
+        {/* Sticky action bar - stays pinned at the top while panels scroll. */}
+        <div className="sticky top-0 z-30 border-b border-dark/10 bg-canvas/85 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-8 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSection("catalog")
+                  void catalogSync.runSync()
+                }}
+                disabled={catalogSync.isSyncing}
+                className="inline-flex items-center gap-2 rounded-lg bg-dark px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-50"
+              >
+                <span
+                  aria-hidden="true"
+                  className={clsx(
+                    "text-base leading-none",
+                    catalogSync.isSyncing && "animate-spin",
+                  )}
+                >
+                  ⟳
+                </span>
+                {catalogSync.isSyncing ? "Syncing..." : "Sync catalog"}
+              </button>
+              <button type="button" className="admin-secondary">
+                Shopify store
+              </button>
+            </div>
+            <Link to="/" className="admin-secondary gap-1.5">
+              <span aria-hidden="true">←</span> Back to site
+            </Link>
+          </div>
+        </div>
         <div className="mx-auto w-full max-w-6xl px-8 py-10">
           {/* Keyed by section so switching tabs clears a previously caught
               error and retries the panel. Without this, a throw in one panel
@@ -188,7 +223,7 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
             {section === "global" && <Placeholder title="Footer / Global" />}
             {section === "announcements" && <AnnouncementsPanel />}
             {section === "popups" && <PopupsPanel />}
-            {section === "catalog" && <CatalogSyncPanel />}
+            {section === "catalog" && <CatalogSyncPanel sync={catalogSync} />}
             {section === "inquiries" && <InquiriesPanel />}
           </ErrorBoundary>
         </div>
@@ -229,14 +264,18 @@ function Placeholder({ title }: { title: string }) {
   )
 }
 
-function CatalogSyncPanel() {
+type CatalogSync = ReturnType<typeof useCatalogSync>
+
+// Shared Shopify sync so both the sticky top-nav button and the Catalog Sync
+// panel drive - and report on - the same run.
+function useCatalogSync() {
   const syncCatalogPage = useAction(api.shopify.syncCatalogPageForAdmin)
   const finalizeCatalogSync = useAction(api.shopify.finalizeCatalogSyncForAdmin)
   const [isSyncing, setIsSyncing] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const runSync = async () => {
+  const runSync = useCallback(async () => {
     setIsSyncing(true)
     setMessage("Starting Shopify sync...")
     setError(null)
@@ -274,7 +313,13 @@ function CatalogSyncPanel() {
     } finally {
       setIsSyncing(false)
     }
-  }
+  }, [syncCatalogPage, finalizeCatalogSync])
+
+  return { runSync, isSyncing, message, error }
+}
+
+function CatalogSyncPanel({ sync }: { sync: CatalogSync }) {
+  const { runSync, isSyncing, message, error } = sync
 
   return (
     <section className="space-y-8">

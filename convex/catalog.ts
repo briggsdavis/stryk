@@ -295,7 +295,7 @@ export const listCollectionsWithProductPreviews = query({
     productLimit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const productLimit = Math.min(Math.max(args.productLimit ?? 4, 1), 4)
+    const productLimit = Math.min(Math.max(args.productLimit ?? 4, 1), 12)
     const result = await ctx.db
       .query("catalogCollections")
       .withIndex("by_isVisible_and_sortRank", (q) => q.eq("isVisible", true))
