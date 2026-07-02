@@ -337,6 +337,27 @@
     transform: scale(1.03);
   }
 
+  /* Collections page card preview - horizontal snap track of 2x2 collages.
+     Drag or swipe left/right to page through more of the collection. */
+  .collection-preview-track {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    touch-action: pan-y;
+    scrollbar-width: none;
+    cursor: grab;
+  }
+  .collection-preview-track:active {
+    cursor: grabbing;
+  }
+  .collection-preview-track::-webkit-scrollbar {
+    display: none;
+  }
+  .collection-preview-page {
+    scroll-snap-align: start;
+  }
+
   /* Upsell "complete your set" recommendation slots - horizontal snap track,
      drag or arrow to cycle through other recommended pieces. */
   .rec-track {

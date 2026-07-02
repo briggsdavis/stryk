@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
@@ -45,8 +45,10 @@ const SPOTS: {
   r: number
 }[] = [
   { top: "3%", left: "4%", w: "13vw", r: -4 },
-  { top: "-3%", left: "27%", w: "20vw", r: 2 },
-  { top: "5%", left: "53%", w: "14vw", r: -3 },
+  // The two pieces straddling the centre sit a little higher than the rest so
+  // they arc over the collection name + explore button, closing the circle.
+  { top: "-11%", left: "27%", w: "20vw", r: 2 },
+  { top: "-4%", left: "53%", w: "14vw", r: -3 },
   { top: "2%", right: "4%", w: "13vw", r: 5 },
   { top: "40%", left: "1%", w: "15vw", r: 3 },
   { top: "44%", right: "2%", w: "14vw", r: -2 },
@@ -54,6 +56,11 @@ const SPOTS: {
   { bottom: "-3%", left: "45%", w: "18vw", r: 2 },
   { bottom: "5%", right: "9%", w: "13vw", r: 4 },
 ]
+
+// The horizontal "Products from this collection" panel shows a featured slice;
+// the rest surface below via the "View more" grid, capped at nine.
+const FEATURED_COUNT = 8
+const VIEW_MORE_COUNT = 9
 
 export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -97,6 +104,13 @@ export function CollectionPage() {
   const closingRef = useRef<HTMLElement>(null)
 
   const products = useMemo(() => collection?.products ?? [], [collection])
+  const featuredProducts = useMemo(() => products.slice(0, FEATURED_COUNT), [products])
+  const moreProducts = useMemo(
+    () => products.slice(FEATURED_COUNT, FEATURED_COUNT + VIEW_MORE_COUNT),
+    [products],
+  )
+  const [showMore, setShowMore] = useState(false)
+  const moreGridRef = useRef<HTMLDivElement>(null)
   const heroImage = products[0]?.image ?? ""
   const galleryImages = useMemo(() => products.flatMap((p) => p.images ?? [p.image]), [products])
 
@@ -253,6 +267,32 @@ export function CollectionPage() {
     }
   }, [collection])
 
+  // Collapse the "View more" grid when navigating to a different collection.
+  useEffect(() => {
+    setShowMore(false)
+  }, [slug])
+
+  // Blur the extra products in one by one as the grid expands, then let the
+  // pinned closing screen recompute its trigger against the taller page.
+  useEffect(() => {
+    if (!showMore || !moreGridRef.current) return
+    const cards = moreGridRef.current.querySelectorAll<HTMLElement>("[data-more-card]")
+    gsap.fromTo(
+      cards,
+      { opacity: 0, y: 24, filter: "blur(12px)", scale: 0.97 },
+      {
+        opacity: 1,
+        y: 0,
+        filter: "blur(0px)",
+        scale: 1,
+        duration: 0.6,
+        ease: "power3.out",
+        stagger: 0.08,
+      },
+    )
+    ScrollTrigger.refresh()
+  }, [showMore])
+
   if (collection === undefined) {
     return <div className="h-screen bg-canvas text-dark" />
   }
@@ -345,7 +385,7 @@ export function CollectionPage() {
                   Products from this collection
                 </h2>
               </div>
-              {products.map((product) => (
+              {featuredProducts.map((product) => (
                 <div key={product.id} data-product-card className="flex flex-col">
                   <button
                     type="button"
@@ -376,6 +416,60 @@ export function CollectionPage() {
           </div>
         </div>
       </section>
+
+      {/* ── View more — the page turns vertical; reveal the rest of the
+          collection in a grid, each piece opening with the same left-hand morph ── */}
+      {moreProducts.length > 0 && (
+        <section className="px-6 pt-[10vh] pb-[4vh] md:px-16">
+          <div className="mx-auto max-w-6xl">
+            {!showMore ? (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowMore(true)}
+                  aria-expanded={false}
+                  className="group inline-flex items-center gap-2 rounded-lg border border-dark/20 px-5 py-3 text-sm font-medium text-dark transition-colors hover:border-dark/40"
+                >
+                  <HoverLabel>View more</HoverLabel>
+                  <span className="text-dark/50 transition-transform duration-300 group-hover:translate-y-0.5">
+                    ↓
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <div ref={moreGridRef} className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-3">
+                {moreProducts.map((product) => (
+                  <div key={product.id} data-more-card className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        const img = e.currentTarget.querySelector("img")
+                        // No background to slide aside here (normal vertical flow) -
+                        // the focus panel simply morphs in over the left-hand side.
+                        if (img) beginFocus(product, img)
+                      }}
+                      aria-label={`Open ${product.name}`}
+                      className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
+                    >
+                      <span className="absolute inset-0 flex items-center justify-center p-[14%]">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
+                        />
+                      </span>
+                      <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
+                        <ExpandIcon />
+                      </span>
+                    </button>
+                    <p className="mt-3 text-sm text-dark/70">{product.name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Break before the closing screen */}
       <div className="h-[14vh]" />
