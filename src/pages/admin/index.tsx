@@ -534,6 +534,13 @@ function AnalyticsPanel() {
         <p className="text-sm text-dark/55">Loading analytics...</p>
       ) : (
         <>
+          {data.truncated && (
+            <p className="rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-700">
+              This range has a very high number of events — figures below are a sample of the most
+              recent activity. Pick a shorter range for exact counts.
+            </p>
+          )}
+
           {/* Stat tiles */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <StatCard
