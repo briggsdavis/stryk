@@ -14,10 +14,13 @@ const eventType = v.union(
 
 type EventType = Doc<"analyticsEvents">["type"]
 
-// Ceiling on how many rows a single overview pull scans per event type. Well
-// above this store's expected volume; if a window ever exceeds it the numbers
-// become a (still-useful) sample rather than an exact count.
-const SCAN_CAP = 20000
+// Convex caps how many documents a single query may read (~16k). The overview
+// reads the current window in one pass and the prior window in another, so both
+// caps together must stay comfortably under that ceiling. If a window holds more
+// rows than its cap, the query returns a (still-useful) sample and flags
+// `truncated` so the UI can say so, rather than throwing.
+const MAIN_SCAN_CAP = 10000
+const PREV_SCAN_CAP = 3000
 
 // Public, unauthenticated: the storefront records its own events. Deliberately
 // tolerant — a bad/oversized field must never break the visitor's page.
@@ -45,11 +48,18 @@ export const recordEvent = mutation({
   },
 })
 
-async function fetchType(ctx: QueryCtx, type: EventType, since: number, until: number) {
+// Read every event in [since, until] in a single time-ordered scan, bounded by
+// `cap`. One scan across all types (rather than one per type) keeps total
+// document reads predictable and well under Convex's per-query limit.
+async function scanWindow(ctx: QueryCtx, since: number, until: number, cap: number) {
   return await ctx.db
     .query("analyticsEvents")
-    .withIndex("by_type_and_ts", (q) => q.eq("type", type).gte("ts", since).lte("ts", until))
-    .take(SCAN_CAP)
+    .withIndex("by_ts", (q) => q.gte("ts", since).lte("ts", until))
+    .take(cap)
+}
+
+function ofType(rows: Doc<"analyticsEvents">[], type: EventType) {
+  return rows.filter((row) => row.type === type)
 }
 
 // Tally a string dimension into a sorted, capped list of {label, count}.
@@ -88,18 +98,21 @@ export const getOverview = query({
     const since = buckets[0].start
     const until = buckets[buckets.length - 1].end
 
-    const [pageViews, productViews, addToCarts, checkoutClicks, ctaClicks] = await Promise.all([
-      fetchType(ctx, "page_view", since, until),
-      fetchType(ctx, "product_view", since, until),
-      fetchType(ctx, "add_to_cart", since, until),
-      fetchType(ctx, "checkout_click", since, until),
-      fetchType(ctx, "cta_click", since, until),
+    // Two bounded scans: the current window and the prior window.
+    const [current, previous] = await Promise.all([
+      scanWindow(ctx, since, until, MAIN_SCAN_CAP),
+      scanWindow(ctx, args.prevStart, args.prevEnd, PREV_SCAN_CAP),
     ])
+    const truncated = current.length >= MAIN_SCAN_CAP
 
-    // Prior-period totals — only the headline counts, so a single page_view
-    // scan of the previous window is enough to know whether prior data exists.
-    const prevPageViews = await fetchType(ctx, "page_view", args.prevStart, args.prevEnd)
-    const prevCheckouts = await fetchType(ctx, "checkout_click", args.prevStart, args.prevEnd)
+    const pageViews = ofType(current, "page_view")
+    const productViews = ofType(current, "product_view")
+    const addToCarts = ofType(current, "add_to_cart")
+    const checkoutClicks = ofType(current, "checkout_click")
+    const ctaClicks = ofType(current, "cta_click")
+
+    const prevPageViews = ofType(previous, "page_view")
+    const prevCheckouts = ofType(previous, "checkout_click")
 
     // Traffic over time: page views + distinct visitors per bucket.
     const trafficBuckets = buckets.map((bucket) => {
@@ -119,6 +132,9 @@ export const getOverview = query({
     const sourceOf = (row: Doc<"analyticsEvents">) => row.source || "Direct"
 
     return {
+      // True when the window held more rows than the scan cap, so the numbers
+      // below are a sample of the most recent activity, not an exact count.
+      truncated,
       totals: {
         pageViews: pageViews.length,
         visitors,
