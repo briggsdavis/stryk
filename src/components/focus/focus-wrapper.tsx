@@ -830,21 +830,26 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
 
           <div
             ref={galleryIndicatorRef}
-            className="absolute top-full left-1/2 z-[4] mt-4 flex -translate-x-1/2 items-center gap-1.5"
+            className="absolute top-full left-1/2 z-[4] mt-4 flex -translate-x-1/2 flex-col items-center gap-2"
             style={{
               opacity: galleryActive && galleryIndicatorVisible ? 1 : 0,
               transition: "opacity 0.4s ease",
             }}
           >
-            {galleryImages.map((_, i) => (
-              <div
-                key={i}
-                className={clsx(
-                  "rounded-full bg-dark transition-all duration-700 ease-out",
-                  i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
-                )}
-              />
-            ))}
+            <div className="flex items-center gap-1.5">
+              {galleryImages.map((_, i) => (
+                <div
+                  key={i}
+                  className={clsx(
+                    "rounded-full bg-dark transition-all duration-700 ease-out",
+                    i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
+                  )}
+                />
+              ))}
+            </div>
+            {galleryImages.length > 1 && (
+              <p className="text-[11px] tracking-wide text-dark/45">Scroll to select artwork</p>
+            )}
           </div>
         </div>
 
