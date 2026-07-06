@@ -1,0 +1,17 @@
+# Stryk
+
+> Stryk curates rare vintage matchbox and matchbook art from around the world and reissues it as archival fine-art prints, available framed or unframed in multiple sizes.
+
+Stryk is an online art store established in 2021 in New York. We source matchbox and matchbook labels from estate sales, flea markets, and specialist dealers across Japan, Kenya, France, Germany, Italy, and the United States, then reproduce them as acid-free, archival-grade prints. Every piece is researched for provenance and sold with the history it earned.
+
+## Pages
+
+- [Artworks](/): Browse the full catalog of available prints on an interactive canvas or grid.
+- [Collections](/collections): Curated groupings of related pieces.
+- [About](/about): Our story, sourcing philosophy, and sustainability practices.
+- [Contact](/contact): Custom print inquiries and general questions.
+
+## Guidance for crawlers and language models
+
+- Product, collection, and editorial pages are available for indexing and reference.
+- The `/admin` area is private and should not be crawled, indexed, or used for training.

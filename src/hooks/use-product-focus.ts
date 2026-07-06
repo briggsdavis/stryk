@@ -8,6 +8,19 @@ import type { Product } from "../lib/types"
 // take its place.
 const CANVAS_SHIFT = "60vw"
 
+// Reflect the focused artwork in the URL as a `?artwork=<slug>` query param
+// (and clear it on close) without touching react-router: we keep the current
+// route matched and its history state intact, so nothing re-renders and the
+// open morph is undisturbed. The param is purely cosmetic - a reload still
+// resolves the real path, which simply ignores it.
+function setArtworkParam(slug: string | null) {
+  if (typeof window === "undefined") return
+  const url = new URL(window.location.href)
+  if (slug) url.searchParams.set("artwork", slug)
+  else url.searchParams.delete("artwork")
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
+}
+
 function getReturnStyle(el: HTMLElement) {
   const copy = document.createElement("div")
   copy.setAttribute("style", el.getAttribute("style") ?? "")
@@ -34,6 +47,7 @@ export function useProductFocus() {
       if (isFocusedRef.current) return
       emitPopupAction("product")
       track("product_view", { label: product.name })
+      if (product.slug) setArtworkParam(product.slug)
       isFocusedRef.current = true
       shiftElRef.current = shiftEl ?? null
 
@@ -116,6 +130,7 @@ export function useProductFocus() {
   )
 
   const handleClose = useCallback(() => {
+    setArtworkParam(null)
     const el = focusedElRef.current
     const placeholder = placeholderRef.current
     if (!el || !placeholder?.parentElement) {
