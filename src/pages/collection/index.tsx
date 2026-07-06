@@ -434,7 +434,10 @@ export function CollectionPage() {
                   <div key={product.id} data-more-card>
                     {/* No background to slide aside here (normal vertical flow) -
                         the focus panel simply morphs in over the left-hand side. */}
-                    <CollectionProductCard product={product} onOpen={(p, img) => beginFocus(p, img)} />
+                    <CollectionProductCard
+                      product={product}
+                      onOpen={(p, img) => beginFocus(p, img)}
+                    />
                   </div>
                 ))}
               </div>

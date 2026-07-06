@@ -67,6 +67,7 @@ type TrafficPoint = { label: string; pageViews: number; visitors: number }
 
 export function LineChart({ data }: { data: TrafficPoint[] }) {
   const gradId = useId()
+  const titleId = useId()
   const [hover, setHover] = useState<number | null>(null)
 
   const W = 820
@@ -97,8 +98,7 @@ export function LineChart({ data }: { data: TrafficPoint[] }) {
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
-        role="img"
-        aria-label="Page views and visitors over time"
+        aria-labelledby={titleId}
         onMouseLeave={() => setHover(null)}
         onMouseMove={(e) => {
           const rect = e.currentTarget.getBoundingClientRect()
@@ -107,6 +107,7 @@ export function LineChart({ data }: { data: TrafficPoint[] }) {
           setHover(Math.max(0, Math.min(points.length - 1, i)))
         }}
       >
+        <title id={titleId}>Page views and visitors over time</title>
         <defs>
           <linearGradient id={`${gradId}-pv`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={SERIES_VIEWS} stopOpacity="0.28" />
@@ -288,6 +289,7 @@ export function Donut({
   items: Array<{ label: string; count: number }>
   emptyLabel: string
 }) {
+  const titleId = useId()
   const total = items.reduce((sum, i) => sum + i.count, 0)
   if (total === 0) return <EmptyState label={emptyLabel} />
 
@@ -303,12 +305,8 @@ export function Donut({
 
   return (
     <div className="flex flex-col items-center gap-5">
-      <svg
-        viewBox="0 0 160 160"
-        className="h-44 w-44 -rotate-90"
-        role="img"
-        aria-label="Traffic sources"
-      >
+      <svg viewBox="0 0 160 160" className="h-44 w-44 -rotate-90" aria-labelledby={titleId}>
+        <title id={titleId}>Traffic sources</title>
         {segments.map((seg, i) => {
           const frac = seg.count / total
           const len = Math.max(0, frac * C - gap)

@@ -14,9 +14,7 @@ import { HomePage } from "./pages/home/index"
 // The admin dashboard (charts, analytics ranges, and its own heavy deps) is
 // behind auth and never needed by public visitors, so keep it out of the main
 // bundle that gates first paint — load it on demand when /admin is opened.
-const AdminPage = lazy(() =>
-  import("./pages/admin/index").then((m) => ({ default: m.AdminPage })),
-)
+const AdminPage = lazy(() => import("./pages/admin/index").then((m) => ({ default: m.AdminPage })))
 
 export default function App() {
   return (

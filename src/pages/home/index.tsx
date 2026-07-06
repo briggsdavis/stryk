@@ -256,13 +256,14 @@ export function HomePage() {
         <ZoomControls level={zoomLevel} onZoomIn={zoomIn} onZoomOut={zoomOut} />
       )}
 
-      {viewMode === "xp" && !focusedProduct && (
-        // Lifted above the bottom control bar on mobile; the gesture is a finger
-        // drag on touch, a scroll on desktop.
-        <p className="fixed bottom-28 left-6 z-10 text-[10px] font-medium tracking-widest text-dark/30 uppercase md:bottom-9 md:left-10">
-          {isMobile ? "Drag to explore" : "Scroll to navigate"}
-        </p>
-      )}
+      {viewMode === "xp" &&
+        !focusedProduct && (
+          // Lifted above the bottom control bar on mobile; the gesture is a finger
+          // drag on touch, a scroll on desktop.
+          <p className="fixed bottom-28 left-6 z-10 text-[10px] font-medium tracking-widest text-dark/30 uppercase md:bottom-9 md:left-10">
+            {isMobile ? "Drag to explore" : "Scroll to navigate"}
+          </p>
+        )}
     </div>
   )
 }

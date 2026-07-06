@@ -790,10 +790,14 @@ function SampleNote() {
 function AnalyticsPanel() {
   const [view, setView] = useState<AnalyticsView>("general")
   const [range, setRange] = useState<RangeKey>("1w")
+  const [now, setNow] = useState(() => Date.now())
   // Re-anchor "now" whenever the range changes so switching tabs refreshes the
   // window (and buckets) to the current moment.
-  const now = useMemo(() => Date.now(), [range])
   const built = useMemo(() => buildRange(range, now), [range, now])
+  const selectRange = (nextRange: RangeKey) => {
+    setRange(nextRange)
+    setNow(Date.now())
+  }
 
   return (
     <section className="space-y-8">
@@ -822,7 +826,7 @@ function AnalyticsPanel() {
           <button
             key={option.key}
             type="button"
-            onClick={() => setRange(option.key)}
+            onClick={() => selectRange(option.key)}
             className={clsx(
               "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
               range === option.key

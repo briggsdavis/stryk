@@ -214,7 +214,7 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
       requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)))
     }, delay)
     return () => window.clearTimeout(showId)
-  }, [shouldRender, popup.delaySeconds, immediate])
+  }, [shouldRender, popup.delaySeconds, popup._id, popup.heading, popup.title, immediate])
 
   const dismiss = () => {
     if (popup.frequency !== "everyVisit") {
