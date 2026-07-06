@@ -5,19 +5,24 @@ import { useEffect, useState } from "react"
 // hints) stays in sync with the CSS breakpoints.
 export const MOBILE_QUERY = "(max-width: 767px)"
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => {
+// Generic reactive matchMedia hook. `query` should be a stable string literal.
+export function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => {
     if (typeof window === "undefined") return false
-    return window.matchMedia(MOBILE_QUERY).matches
+    return window.matchMedia(query).matches
   })
 
   useEffect(() => {
-    const mql = window.matchMedia(MOBILE_QUERY)
-    const onChange = () => setIsMobile(mql.matches)
+    const mql = window.matchMedia(query)
+    const onChange = () => setMatches(mql.matches)
     onChange()
     mql.addEventListener("change", onChange)
     return () => mql.removeEventListener("change", onChange)
-  }, [])
+  }, [query])
 
-  return isMobile
+  return matches
+}
+
+export function useIsMobile() {
+  return useMediaQuery(MOBILE_QUERY)
 }
