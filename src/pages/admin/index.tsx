@@ -38,20 +38,35 @@ import {
 } from "../../lib/marketing"
 
 type AuthMode = "signIn" | "signUp"
-type AdminSection =
+type StaticAdminSection =
   | "analytics"
   | "announcements"
   | "popups"
   | "pageAbout"
   | "pageGlobal"
-  | "catalog"
   | "inquiries"
+type CollectionSection = `collection:${string}`
+type AdminSection = StaticAdminSection | CollectionSection
 type AnnouncementScope = "home" | "all"
 
 type PopupMediaItem = { type: PopupMediaType; storageId: Id<"_storage">; url: string | null }
 
 type NavItem = { key: AdminSection; label: string }
 type NavEntry = { kind: "item"; item: NavItem } | { kind: "group"; label: string; items: NavItem[] }
+type CollectionImageForm = { storageId: Id<"_storage"> | null; url: string | null }
+type CollectionSpecForm = { label: string; value: string }
+
+const COLLECTIONS_NAV_LABEL = "Collections"
+const COLLECTION_SECTION_PREFIX = "collection:"
+const COLLECTIONS_NAV_ARGS = {
+  paginationOpts: { numItems: 250, cursor: null as string | null },
+}
+const COLLECTION_IMAGE_SLOTS = [
+  { label: "Hero image", ratio: "4:5", aspectRatio: "4 / 5" },
+  { label: "Spec image", ratio: "16:9", aspectRatio: "16 / 9" },
+  { label: "Full-bleed image", ratio: "1:1", aspectRatio: "1 / 1" },
+  { label: "Framed image", ratio: "4:5", aspectRatio: "4 / 5" },
+] as const
 
 // Sidebar layout: Analytics first, then the dropdown groups, then the rest.
 const NAV: NavEntry[] = [
@@ -66,19 +81,35 @@ const NAV: NavEntry[] = [
   },
   {
     kind: "group",
+    label: COLLECTIONS_NAV_LABEL,
+    items: [],
+  },
+  {
+    kind: "group",
     label: "Page Editor",
     items: [
       { key: "pageAbout", label: "About" },
       { key: "pageGlobal", label: "Global / Footer" },
     ],
   },
-  { kind: "item", item: { key: "catalog", label: "Catalog Sync" } },
   { kind: "item", item: { key: "inquiries", label: "Inquiries" } },
 ]
 
+function collectionSection(handle: string): CollectionSection {
+  return `${COLLECTION_SECTION_PREFIX}${handle}`
+}
+
+function isCollectionSection(section: AdminSection): section is CollectionSection {
+  return section.startsWith(COLLECTION_SECTION_PREFIX)
+}
+
+function collectionHandleFromSection(section: CollectionSection) {
+  return section.slice(COLLECTION_SECTION_PREFIX.length)
+}
+
 // Which group (if any) owns a section — used to auto-expand the right dropdown.
-function groupOf(section: AdminSection): string | null {
-  for (const entry of NAV) {
+function groupOf(section: AdminSection, entries: NavEntry[] = NAV): string | null {
+  for (const entry of entries) {
     if (entry.kind === "group" && entry.items.some((i) => i.key === section)) return entry.label
   }
   return null
@@ -203,10 +234,34 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
     return initial
   })
   const catalogSync = useCatalogSync()
+  const collections = useQuery(api.catalog.listCollections, COLLECTIONS_NAV_ARGS)
+  const collectionItems = useMemo<NavItem[]>(
+    () =>
+      (collections?.page ?? []).map((collection) => ({
+        key: collectionSection(collection.shopifyHandle),
+        label: collection.title,
+      })),
+    [collections],
+  )
+  const navEntries = useMemo<NavEntry[]>(
+    () =>
+      NAV.map((entry) =>
+        entry.kind === "group" && entry.label === COLLECTIONS_NAV_LABEL
+          ? { ...entry, items: collectionItems }
+          : entry,
+      ),
+    [collectionItems],
+  )
+  const selectedCollection =
+    isCollectionSection(section) && collections?.page
+      ? collections.page.find(
+          (collection) => collectionSection(collection.shopifyHandle) === section,
+        )
+      : null
 
   const go = (next: AdminSection) => {
     setSection(next)
-    const owner = groupOf(next)
+    const owner = groupOf(next, navEntries)
     if (owner) setExpanded((prev) => new Set(prev).add(owner))
   }
 
@@ -221,11 +276,8 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   return (
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-dark/10 bg-light/60 px-5 py-6 backdrop-blur md:w-80">
-        <button type="button" className="mb-10 text-left" onClick={() => go("analytics")}>
-          <img src="/stryk-logo.png" alt="Stryk" className="h-7 w-auto" />
-        </button>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-          {NAV.map((entry) =>
+        <nav className="mt-16 flex flex-1 flex-col gap-1 overflow-y-auto">
+          {navEntries.map((entry) =>
             entry.kind === "item" ? (
               <NavButton
                 key={entry.item.key}
@@ -262,6 +314,16 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
                         onClick={() => go(item.key)}
                       />
                     ))}
+                    {entry.label === COLLECTIONS_NAV_LABEL &&
+                      collections === undefined &&
+                      entry.items.length === 0 && (
+                        <p className="px-4 py-2 text-sm text-dark/40">Loading...</p>
+                      )}
+                    {entry.label === COLLECTIONS_NAV_LABEL &&
+                      collections !== undefined &&
+                      entry.items.length === 0 && (
+                        <p className="px-4 py-2 text-sm text-dark/40">No collections</p>
+                      )}
                   </div>
                 )}
               </div>
@@ -272,10 +334,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
           <div className="flex flex-col gap-2">
             <button
               type="button"
-              onClick={() => {
-                go("catalog")
-                void catalogSync.runSync()
-              }}
+              onClick={() => void catalogSync.runSync()}
               disabled={catalogSync.isSyncing}
               className="admin-primary w-full gap-2"
             >
@@ -316,6 +375,14 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
             {section === "analytics" && <AnalyticsPanel />}
             {section === "announcements" && <AnnouncementsPanel />}
             {section === "popups" && <PopupsPanel />}
+            {isCollectionSection(section) && (
+              <CollectionAdminPanel
+                collectionHandle={
+                  selectedCollection?.shopifyHandle ?? collectionHandleFromSection(section)
+                }
+                title={selectedCollection?.title ?? "Collection"}
+              />
+            )}
             {section === "pageAbout" && (
               <Placeholder title="About" eyebrow="Page editor">
                 Controls for editing the About page will live here.
@@ -326,7 +393,6 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
                 Controls for site-wide footer and global content will live here.
               </Placeholder>
             )}
-            {section === "catalog" && <CatalogSyncPanel sync={catalogSync} />}
             {section === "inquiries" && <InquiriesPanel />}
           </ErrorBoundary>
         </div>
@@ -401,27 +467,262 @@ function Placeholder({
   )
 }
 
-type CatalogSync = ReturnType<typeof useCatalogSync>
+function blankCollectionImages(): CollectionImageForm[] {
+  return COLLECTION_IMAGE_SLOTS.map(() => ({ storageId: null, url: null }))
+}
 
-// Shared Shopify sync so both the sticky top-nav button and the Catalog Sync
-// panel drive - and report on - the same run.
+function blankCollectionSpecs(): CollectionSpecForm[] {
+  return Array.from({ length: 3 }, () => ({ label: "", value: "" }))
+}
+
+function useCollectionImageUploader() {
+  const generateUploadUrl = useMutation(api.catalog.generateCollectionImageUploadUrl)
+  return useCallback(
+    async (file: File) => {
+      const uploadUrl = await generateUploadUrl()
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+      if (!res.ok) throw new Error("Upload failed")
+      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> }
+      return storageId
+    },
+    [generateUploadUrl],
+  )
+}
+
+function CollectionAdminPanel({
+  collectionHandle,
+  title,
+}: {
+  collectionHandle: string
+  title: string
+}) {
+  const settings = useQuery(api.catalog.getCollectionPageSettingsForAdmin, { collectionHandle })
+  const saveSettings = useMutation(api.catalog.saveCollectionPageSettings)
+  const upload = useCollectionImageUploader()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [images, setImages] = useState<CollectionImageForm[]>(() => blankCollectionImages())
+  const [specs, setSpecs] = useState<CollectionSpecForm[]>(() => blankCollectionSpecs())
+  const [activeSlot, setActiveSlot] = useState<number | null>(null)
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (settings === undefined) return
+
+    setImages(
+      COLLECTION_IMAGE_SLOTS.map((_, index) => {
+        const image = settings?.pageSettings?.heroImages[index]
+        return { storageId: image?.storageId ?? null, url: image?.url ?? null }
+      }),
+    )
+    setSpecs(settings?.pageSettings?.specs ?? blankCollectionSpecs())
+    setMessage(null)
+    setError(null)
+  }, [settings])
+
+  const openUploader = (slot: number) => {
+    setActiveSlot(slot)
+    fileInputRef.current?.click()
+  }
+
+  const handleUpload = async (files: FileList | null) => {
+    if (activeSlot === null || !files?.[0]) return
+
+    const slot = activeSlot
+    setUploadingSlot(slot)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const file = files[0]
+      const storageId = await upload(file)
+      const url = URL.createObjectURL(file)
+      setImages((prev) => prev.map((image, index) => (index === slot ? { storageId, url } : image)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.")
+    } finally {
+      setUploadingSlot(null)
+      setActiveSlot(null)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  const save = async () => {
+    const heroImages = images.map((image) => image.storageId)
+    if (heroImages.some((storageId) => storageId === null)) {
+      setError("Upload all four images before saving.")
+      return
+    }
+
+    const cleanedSpecs = specs.map((spec) => ({
+      label: spec.label.trim(),
+      value: spec.value.trim(),
+    }))
+    if (cleanedSpecs.some((spec) => !spec.label || !spec.value)) {
+      setError("Fill all three specification rows before saving.")
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    setMessage(null)
+    try {
+      await saveSettings({
+        collectionHandle,
+        heroImages: heroImages as Id<"_storage">[],
+        specs: cleanedSpecs,
+      })
+      setMessage("Saved.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (settings === undefined) {
+    return (
+      <section>
+        <h1 className="text-48">{title}</h1>
+        <p className="mt-8 text-sm text-dark/55">Loading...</p>
+      </section>
+    )
+  }
+
+  if (settings === null) {
+    return (
+      <section>
+        <h1 className="text-48">{title}</h1>
+        <p className="mt-8 text-sm text-dark/55">Collection not found.</p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="space-y-8">
+      <h1 className="text-48">{title}</h1>
+      <form
+        className="space-y-8"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void save()
+        }}
+      >
+        <div className="admin-card">
+          <PanelTitle title="Images" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {COLLECTION_IMAGE_SLOTS.map((slot, index) => {
+              const image = images[index]
+              const isUploading = uploadingSlot === index
+              return (
+                <div
+                  key={slot.label}
+                  className="flex h-full flex-col rounded-lg border border-dark/10 p-3"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-dark">{slot.label}</p>
+                    <span className="rounded-full bg-dark/5 px-2.5 py-1 text-xs text-dark/45">
+                      {slot.ratio}
+                    </span>
+                  </div>
+                  <div
+                    className="mx-auto flex w-full max-w-52 items-center justify-center overflow-hidden rounded-lg border border-dark/15 bg-canvas"
+                    style={{ aspectRatio: slot.aspectRatio }}
+                  >
+                    {image?.url ? (
+                      <img src={image.url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-sm text-dark/40">
+                        {isUploading ? "Uploading..." : "No image"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-auto pt-4">
+                    <button
+                      type="button"
+                      className="admin-secondary w-full py-2"
+                      disabled={uploadingSlot !== null}
+                      onClick={() => openUploader(index)}
+                    >
+                      {image?.url ? "Replace" : "Upload"}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            aria-label="Upload collection image"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => void handleUpload(event.target.files)}
+          />
+        </div>
+
+        <div className="admin-card">
+          <PanelTitle title="Specifications" />
+          <div className="space-y-2">
+            {specs.map((spec, index) => (
+              <div key={index} className="grid gap-4 md:grid-cols-2">
+                <TextInput
+                  label={`Label ${index + 1}`}
+                  value={spec.label}
+                  onChange={(label) =>
+                    setSpecs((prev) =>
+                      prev.map((item, itemIndex) =>
+                        itemIndex === index ? { ...item, label } : item,
+                      ),
+                    )
+                  }
+                  required
+                />
+                <TextInput
+                  label={`Value ${index + 1}`}
+                  value={spec.value}
+                  onChange={(value) =>
+                    setSpecs((prev) =>
+                      prev.map((item, itemIndex) =>
+                        itemIndex === index ? { ...item, value } : item,
+                      ),
+                    )
+                  }
+                  required
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {message && <p className="rounded-lg bg-loam/10 px-4 py-3 text-sm text-loam">{message}</p>}
+        {error && (
+          <p className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700">{error}</p>
+        )}
+        <button type="submit" className="admin-primary" disabled={saving || uploadingSlot !== null}>
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </form>
+    </section>
+  )
+}
+
 function useCatalogSync() {
   const syncCatalogPage = useAction(api.shopify.syncCatalogPageForAdmin)
   const finalizeCatalogSync = useAction(api.shopify.finalizeCatalogSyncForAdmin)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   const runSync = useCallback(async () => {
     setIsSyncing(true)
-    setMessage("Starting Shopify sync...")
-    setError(null)
 
     try {
       let after: string | undefined
-      let pageCount = 0
-      let productCount = 0
-      let collectionCount = 0
       let hasNextPage = true
       let syncStartedAt: number | undefined
 
@@ -429,56 +730,20 @@ function useCatalogSync() {
         // eslint-disable-next-line no-await-in-loop
         const result = await syncCatalogPage({ first: 25, after, syncStartedAt })
         syncStartedAt = result.syncStartedAt
-        pageCount += 1
-        productCount += result.productCount
-        collectionCount += result.collectionCount
         hasNextPage = result.hasNextPage && !!result.nextCursor
         after = result.nextCursor ?? undefined
-        setMessage(`Synced ${productCount} products across ${pageCount} page(s)...`)
       }
 
       if (syncStartedAt === undefined) throw new Error("Shopify sync did not start.")
-      setMessage("Finalizing sync and pruning deleted Shopify products...")
-      const cleanup = await finalizeCatalogSync({ syncStartedAt })
-
-      setMessage(
-        `Sync complete. Updated ${productCount} products and ${collectionCount} collection links. Hid ${cleanup.hiddenProductCount} stale products, ${cleanup.hiddenCollectionCount} stale collections, and ${cleanup.hiddenFacetOptionCount} stale filters.`,
-      )
+      await finalizeCatalogSync({ syncStartedAt })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Shopify sync failed.")
-      setMessage(null)
+      console.error(err)
     } finally {
       setIsSyncing(false)
     }
   }, [syncCatalogPage, finalizeCatalogSync])
 
-  return { runSync, isSyncing, message, error }
-}
-
-function CatalogSyncPanel({ sync }: { sync: CatalogSync }) {
-  const { runSync, isSyncing, message, error } = sync
-
-  return (
-    <section className="space-y-8">
-      <AdminHeader title="Catalog Sync" eyebrow="Shopify products" />
-      <div className="admin-card">
-        <PanelTitle title="Sync from Shopify" />
-        <p className="mb-5 max-w-2xl text-sm leading-6 text-dark/60">
-          Pull the latest Shopify products, variants, images, prices, and collection membership into
-          Convex.
-        </p>
-        <button type="button" className="admin-primary" disabled={isSyncing} onClick={runSync}>
-          {isSyncing ? "Syncing..." : "Run Shopify sync"}
-        </button>
-        {message && (
-          <p className="mt-4 rounded-lg bg-loam/10 px-4 py-3 text-sm text-loam">{message}</p>
-        )}
-        {error && (
-          <p className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700">{error}</p>
-        )}
-      </div>
-    </section>
-  )
+  return { runSync, isSyncing }
 }
 
 function AnalyticsPanel() {
@@ -640,6 +905,7 @@ function AnnouncementsPanel() {
   const persist = async (form: AnnouncementForm) => {
     await saveAnnouncement({
       ...form,
+      title: form.text.trim() || form.title,
       buttonLabel: form.buttonLabel || undefined,
       buttonLink: form.buttonLink || undefined,
     })
@@ -684,24 +950,12 @@ function AnnouncementsPanel() {
                 textColor={announcement.textColor}
               />
             </div>
-            <div className="min-w-[7rem]">
-              <p className="font-medium text-dark">{announcement.title || "Untitled"}</p>
-              <p className="text-sm text-dark/45">
-                {announcement.scope === "home" ? "Home page only" : "All pages"}
-              </p>
-            </div>
             <div className="flex items-center gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-dark/70">
-                <input
-                  type="checkbox"
-                  checked={announcement.isActive}
-                  onChange={(e) =>
-                    void setActive({ id: announcement._id, isActive: e.target.checked })
-                  }
-                  className="h-4 w-4 accent-[#b5502f]"
-                />
-                {announcement.isActive ? "On" : "Off"}
-              </label>
+              <ToggleSwitch
+                label="Activate announcement bar"
+                checked={announcement.isActive}
+                onChange={(isActive) => void setActive({ id: announcement._id, isActive })}
+              />
               <button
                 type="button"
                 className="admin-secondary"
@@ -743,7 +997,6 @@ function AnnouncementsPanel() {
             key={editing.id ?? "new"}
             initial={editing}
             submitLabel={editing.id ? "Save changes" : "Create announcement"}
-            showActiveToggle
             onCancel={() => setEditing(null)}
             onSave={async (form) => {
               await persist(form)
@@ -771,15 +1024,12 @@ function AnnouncementPreview({
 }) {
   return (
     <div
-      className="flex items-center justify-center gap-3 rounded-lg px-5 py-3 text-center text-sm font-medium"
+      className="flex min-h-11 items-center justify-center gap-4 rounded-lg px-5 py-3 text-center text-sm"
       style={{ backgroundColor, color: textColor }}
     >
       <span className="truncate">{text || "Announcement text"}</span>
       {buttonLabel && (
-        <span
-          className="shrink-0 rounded-full px-3 py-1 text-xs"
-          style={{ border: `1px solid ${textColor}`, color: textColor }}
-        >
+        <span className="shrink-0 underline underline-offset-4" style={{ color: textColor }}>
           {buttonLabel}
         </span>
       )}
@@ -792,13 +1042,11 @@ function AnnouncementPreview({
 function AnnouncementEditor({
   initial,
   submitLabel,
-  showActiveToggle = false,
   onSave,
   onCancel,
 }: {
   initial: AnnouncementForm
   submitLabel: string
-  showActiveToggle?: boolean
   onSave: (form: AnnouncementForm) => Promise<void>
   onCancel?: () => void
 }) {
@@ -818,12 +1066,6 @@ function AnnouncementEditor({
 
   return (
     <form onSubmit={(event) => void submit(event)}>
-      <TextInput
-        label="Internal title"
-        value={form.title}
-        onChange={(title) => setForm((prev) => ({ ...prev, title }))}
-        required
-      />
       <TextInput
         label="Announcement text"
         value={form.text}
@@ -857,18 +1099,10 @@ function AnnouncementEditor({
         value={form.scope}
         onChange={(scope) => setForm((prev) => ({ ...prev, scope }))}
         options={[
-          { value: "home", label: "Home page only" },
+          { value: "home", label: "Home" },
           { value: "all", label: "Every page" },
         ]}
       />
-      {showActiveToggle && (
-        <SwitchInput
-          label="Active"
-          description="Only one announcement can be live at a time."
-          checked={form.isActive}
-          onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
-        />
-      )}
       <div className="flex gap-2">
         <button type="submit" className="admin-primary" disabled={saving}>
           {saving ? "Saving..." : submitLabel}
@@ -937,7 +1171,7 @@ function PopupsPanel() {
   const persist = async (form: PopupForm) => {
     return await savePopup({
       id: form.id,
-      title: form.title,
+      title: form.heading.trim() || form.text.trim(),
       heading: form.heading,
       text: form.text,
       buttonEnabled: form.buttonEnabled,
@@ -1009,7 +1243,7 @@ function PopupsPanel() {
               )}
               <div className="min-w-0">
                 <p className="truncate font-medium text-dark">
-                  {popup.title || popup.heading || "Untitled"}
+                  {popup.heading || popup.text || "Untitled"}
                 </p>
                 <p className="mt-0.5 truncate text-sm text-dark/45">
                   {describePopupSummary(popup)}
@@ -1017,15 +1251,11 @@ function PopupsPanel() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-dark/70">
-                <input
-                  type="checkbox"
-                  checked={popup.isActive}
-                  onChange={(e) => void setActive({ id: popup._id, isActive: e.target.checked })}
-                  className="h-4 w-4 accent-[#b5502f]"
-                />
-                {popup.isActive ? "On" : "Off"}
-              </label>
+              <ToggleSwitch
+                label="Activate pop-up"
+                checked={popup.isActive}
+                onChange={(isActive) => void setActive({ id: popup._id, isActive })}
+              />
               <button
                 type="button"
                 className="admin-secondary"
@@ -1055,7 +1285,6 @@ function PopupsPanel() {
             key={editing.id ?? "new"}
             initial={editing}
             submitLabel={editing.id ? "Save changes" : "Create pop-up"}
-            showActiveToggle
             onCancel={() => setEditing(null)}
             onSave={async (form) => {
               await persist(form)
@@ -1110,13 +1339,11 @@ function describeTrigger(popup: {
 function PopupEditor({
   initial,
   submitLabel,
-  showActiveToggle = false,
   onSave,
   onCancel,
 }: {
   initial: PopupForm
   submitLabel: string
-  showActiveToggle?: boolean
   onSave: (form: PopupForm) => Promise<Id<"popups"> | void>
   onCancel?: () => void
 }) {
@@ -1264,12 +1491,6 @@ function PopupEditor({
         onChange={(event) => void handleFiles(event.target.files)}
       />
 
-      <TextInput
-        label="Internal title"
-        value={form.title}
-        onChange={(title) => setForm((prev) => ({ ...prev, title }))}
-        required
-      />
       <div className="grid gap-4 md:grid-cols-2">
         <TextInput
           label="Heading"
@@ -1357,13 +1578,6 @@ function PopupEditor({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {showActiveToggle && (
-          <SwitchInput
-            label="Active"
-            checked={form.isActive}
-            onChange={(isActive) => setForm((prev) => ({ ...prev, isActive }))}
-          />
-        )}
         <SwitchInput
           label="Email capture"
           checked={form.emailCaptureEnabled}
@@ -1879,14 +2093,14 @@ function ToggleSwitch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={clsx(
-        "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors",
-        checked ? "bg-emerald-500" : "bg-dark/20",
+        "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full p-1 transition-colors focus-visible:ring-2 focus-visible:ring-loam/35 focus-visible:outline-none",
+        checked ? "bg-loam" : "bg-dark/15",
       )}
     >
       <span
         className={clsx(
           "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
-          checked ? "translate-x-[22px]" : "translate-x-0.5",
+          checked ? "translate-x-5" : "translate-x-0",
         )}
       />
     </button>

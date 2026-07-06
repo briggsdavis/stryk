@@ -87,7 +87,7 @@ export function useProductFocus() {
 
       document.body.appendChild(el)
       gsap.killTweensOf(el)
-      gsap.set(el, { position: "fixed", margin: 0, zIndex: 9000, scale: 1 })
+      gsap.set(el, { position: "fixed", margin: 0, zIndex: 900, scale: 1 })
 
       if (shiftElRef.current) {
         gsap.to(shiftElRef.current, { x: CANVAS_SHIFT, duration: 1.1, ease: "expo.inOut" })
@@ -140,7 +140,7 @@ export function useProductFocus() {
     const toRect = { left: pr.left - shift, top: pr.top, width: pr.width, height: pr.height }
 
     document.body.appendChild(el)
-    gsap.set(el, { position: "fixed", margin: 0, zIndex: 9000, scale: 1 })
+    gsap.set(el, { position: "fixed", margin: 0, zIndex: 900, scale: 1 })
 
     if (shiftEl) gsap.to(shiftEl, { x: 0, duration: 1.1, ease: "expo.inOut" })
 

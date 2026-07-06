@@ -1,8 +1,6 @@
 import { clsx } from "clsx"
-import { useQuery } from "convex/react"
-import { type CSSProperties, useEffect, useRef, useState } from "react"
-import { useLocation } from "react-router"
-import { api } from "../../../convex/_generated/api"
+import { type CSSProperties, type MouseEvent, useEffect, useRef, useState } from "react"
+import { Link, useLocation } from "react-router"
 import type { ActiveFilters, FilterGroup, FilterKey } from "../../lib/filters"
 import { useTransitionBack, useTransitionNavigate } from "../../lib/transition"
 import type { ViewMode } from "../../lib/types"
@@ -153,12 +151,6 @@ export function Navbar({
   // not reachable from the menu - so it's the only page that needs a back button.
   // ("/collections" is the menu-reachable index and intentionally doesn't match.)
   const showBack = location.pathname.startsWith("/collection/")
-  // When the announcement bar is live it occupies the top edge, so nudge the
-  // logo and view toggle down to clear it (with a little breathing room).
-  const announcement = useQuery(api.marketing.activeAnnouncement, {
-    route: location.pathname === "/" ? "home" : "other",
-  })
-  const barActive = !!announcement
   const [panel, setPanel] = useState<Panel>("none")
   const [cartOpen, setCartOpen] = useState(false)
   const menuOpen = panel === "menu"
@@ -173,8 +165,19 @@ export function Navbar({
     if (showCta) setPanel("none")
   }, [showCta])
 
-  const handleLinkClick = (to: string) => {
+  const handleLinkClick = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
     setPanel("none")
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return
+    }
+    event.preventDefault()
     transitionNavigate(to)
   }
 
@@ -184,10 +187,7 @@ export function Navbar({
   return (
     <>
       {/* Top-left: logo */}
-      <div
-        className="fixed top-6 left-6 z-[500] flex items-center gap-3 transition-[top] duration-300 md:left-10"
-        style={barActive ? { top: "3.5rem" } : undefined}
-      >
+      <div className="site-top-6 fixed left-6 z-[500] flex items-center gap-3 transition-[top] duration-300 md:left-10">
         <button
           onClick={() => transitionNavigate("/")}
           aria-label="Stryk - home"
@@ -199,10 +199,7 @@ export function Navbar({
 
       {/* Top-center: view toggle - single capsule, dots left of label */}
       {showViewToggle && viewMode && onToggleView && (
-        <div
-          className="fixed top-5 left-1/2 z-[500] -translate-x-1/2 transition-[top] duration-300"
-          style={barActive ? { top: "3.5rem" } : undefined}
-        >
+        <div className="site-top-5 fixed left-1/2 z-[500] -translate-x-1/2 transition-[top] duration-300">
           <button
             onClick={onToggleView}
             aria-label={viewMode === "xp" ? "Switch to grid view" : "Switch to experience view"}
@@ -264,14 +261,16 @@ export function Navbar({
           {LINKS.map(({ label, to }) => {
             const isActive = location.pathname === to
             return (
-              <button
+              <Link
                 key={to}
-                onClick={() => handleLinkClick(to)}
+                to={to}
+                onClick={(event) => handleLinkClick(event, to)}
+                aria-current={isActive ? "page" : undefined}
                 className="group flex items-center gap-1.5 rounded-lg bg-dark px-5 py-3 text-sm font-medium whitespace-nowrap text-white"
               >
                 {isActive && <span className="block h-1.5 w-1.5 rounded-full bg-white" />}
                 <HoverLabel>{label}</HoverLabel>
-              </button>
+              </Link>
             )
           })}
         </ExpandingControl>

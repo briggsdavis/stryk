@@ -1,6 +1,6 @@
 import { clsx } from "clsx"
 import { useMutation, useQuery } from "convex/react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { track } from "../../lib/analytics"
@@ -44,10 +44,36 @@ export function PublicMarketing() {
   const page = pageFromPath(location.pathname)
   const announcement = useQuery(api.marketing.activeAnnouncement, { route })
   const popups = useQuery(api.marketing.activePopups) as PublicPopup[] | undefined
+  const announcementRef = useRef<HTMLDivElement>(null)
 
   // Pop-ups armed by a user action (filter/product/collection click). Stored by
   // id so each fires independently and its card manages its own dismissal.
   const [armed, setArmed] = useState<Set<string>>(new Set())
+
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const bar = announcementRef.current
+
+    if (!announcement || !bar) {
+      root.style.removeProperty("--announcement-bar-height")
+      return
+    }
+
+    const syncHeight = () => {
+      root.style.setProperty("--announcement-bar-height", `${bar.offsetHeight}px`)
+    }
+    syncHeight()
+
+    const resizeObserver = new ResizeObserver(syncHeight)
+    resizeObserver.observe(bar)
+    window.addEventListener("resize", syncHeight)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener("resize", syncHeight)
+      root.style.removeProperty("--announcement-bar-height")
+    }
+  }, [announcement])
 
   const actionPopups = useMemo(
     () => (popups ?? []).filter((p) => p.triggerType === "action"),
@@ -79,7 +105,8 @@ export function PublicMarketing() {
     <>
       {announcement && (
         <div
-          className="fixed top-0 right-0 left-0 z-[1100] flex min-h-11 items-center justify-center gap-4 px-5 py-3 text-center text-sm"
+          ref={announcementRef}
+          className="sticky top-0 z-[3000] flex min-h-11 items-center justify-center gap-4 px-5 py-3 text-center text-sm"
           style={{ backgroundColor: announcement.backgroundColor, color: announcement.textColor }}
         >
           <span>{announcement.text}</span>

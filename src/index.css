@@ -36,6 +36,7 @@
 /* ── Easing ── */
 :root {
   --ease-ui: cubic-bezier(0.625, 0.05, 0, 1);
+  --announcement-bar-height: 0px;
 }
 
 /* ── Page fade transitions (View Transitions API) ── */
@@ -107,6 +108,32 @@
 
 /* ── Typography scale ── */
 @layer components {
+  .site-screen {
+    height: calc(100dvh - var(--announcement-bar-height));
+  }
+
+  .site-min-screen {
+    min-height: calc(100dvh - var(--announcement-bar-height));
+  }
+
+  .site-top-5 {
+    top: calc(var(--announcement-bar-height) + 1.25rem);
+  }
+
+  .site-top-6 {
+    top: calc(var(--announcement-bar-height) + 1.5rem);
+  }
+
+  .site-top-close {
+    top: calc(var(--announcement-bar-height) + 1.5rem);
+  }
+
+  @media (min-width: 48rem) {
+    .site-top-close {
+      top: calc(var(--announcement-bar-height) + 2rem);
+    }
+  }
+
   .text-160 {
     font-family: var(--font-title);
     font-size: clamp(4rem, 8.33vw, 10rem);
@@ -297,7 +324,10 @@
 
   .focus-wrapper {
     position: fixed;
-    inset: 0;
+    top: var(--announcement-bar-height);
+    right: 0;
+    bottom: 0;
+    left: 0;
     z-index: 800;
     pointer-events: none;
   }
@@ -336,27 +366,6 @@
   }
   .grid-card:hover .grid-card-slide img {
     transform: scale(1.03);
-  }
-
-  /* Collections page card preview - horizontal snap track of 2x2 collages.
-     Drag or swipe left/right to page through more of the collection. */
-  .collection-preview-track {
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    overscroll-behavior-x: contain;
-    touch-action: pan-y;
-    scrollbar-width: none;
-    cursor: grab;
-  }
-  .collection-preview-track:active {
-    cursor: grabbing;
-  }
-  .collection-preview-track::-webkit-scrollbar {
-    display: none;
-  }
-  .collection-preview-page {
-    scroll-snap-align: start;
   }
 
   /* Upsell "complete your set" recommendation slots - horizontal snap track,
@@ -406,8 +415,11 @@
   /* ── Focus panel ── */
   .focus-wrapper {
     position: fixed;
-    inset: 0;
-    z-index: 1000;
+    top: var(--announcement-bar-height);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 800;
     pointer-events: none;
   }
   .focus-wrapper.active {

@@ -183,7 +183,10 @@ export function HomePage() {
   )
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden" style={{ background: "#f0ede6" }}>
+    <div
+      className="site-screen relative w-screen overflow-hidden"
+      style={{ background: "#f0ede6" }}
+    >
       <Navbar
         viewMode={viewMode}
         onToggleView={toggleView}

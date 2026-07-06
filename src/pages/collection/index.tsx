@@ -35,6 +35,10 @@ function Spec({ label, value }: { label: string; value: string }) {
   )
 }
 
+function hasFourImages(images: string[]): images is [string, string, string, string] {
+  return images.length === 4 && images.every(Boolean)
+}
+
 // Fixed spots arranging the closing artworks around the centred collection name.
 const SPOTS: {
   top?: string
@@ -62,6 +66,14 @@ const SPOTS: {
 const FEATURED_COUNT = 8
 const VIEW_MORE_COUNT = 9
 
+function announcementBarHeight() {
+  return (
+    Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--announcement-bar-height"),
+    ) || 0
+  )
+}
+
 export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
@@ -80,6 +92,9 @@ export function CollectionPage() {
       description: collectionResult.collection.description ?? "",
       materials: collectionResult.collection.materials ?? "",
       palette: collectionResult.collection.palette ?? "Beige",
+      isConfigured: collectionResult.pageSettings !== null,
+      pageImages: collectionResult.pageSettings?.heroImages.map((image) => image.url) ?? [],
+      specs: collectionResult.pageSettings?.specs ?? [],
       products: collectionResult.products.map((product) => ({
         ...catalogProductToProduct(product),
         collectionName: collectionResult.collection.title,
@@ -91,7 +106,7 @@ export function CollectionPage() {
 
   // Pause smooth-scroll while a product is focused so wheel input drives the
   // focus gallery (advancing between a product's images) instead of the page.
-  useLenis(!!collection && !focusedProduct)
+  useLenis(!!collection && collection.isConfigured && !focusedProduct)
 
   const pinRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -111,7 +126,6 @@ export function CollectionPage() {
   )
   const [showMore, setShowMore] = useState(false)
   const moreGridRef = useRef<HTMLDivElement>(null)
-  const heroImage = products[0]?.image ?? ""
   const galleryImages = useMemo(() => products.flatMap((p) => p.images ?? [p.image]), [products])
 
   // Horizontal scroll: pin the intro section and translate its track sideways
@@ -119,7 +133,7 @@ export function CollectionPage() {
   // The sideways motion is a scrubbed tween so the per-panel reveals can hook
   // into its progress via `containerAnimation`.
   useEffect(() => {
-    if (!collection) return
+    if (!collection?.isConfigured) return
     const pin = pinRef.current
     const track = trackRef.current
     if (!pin || !track) return
@@ -132,7 +146,7 @@ export function CollectionPage() {
         ease: "none",
         scrollTrigger: {
           trigger: pin,
-          start: "top top",
+          start: () => `top top+=${announcementBarHeight()}`,
           end: () => `+=${getDist()}`,
           pin: true,
           scrub: true,
@@ -311,6 +325,16 @@ export function CollectionPage() {
     )
   }
 
+  if (!collection.isConfigured || !hasFourImages(collection.pageImages)) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-6 bg-canvas text-dark">
+        <p className="text-64">Collection page not configured</p>
+      </div>
+    )
+  }
+
+  const [heroImage, specImage, bigImage, framedImage] = collection.pageImages
+
   return (
     <div className="bg-canvas text-dark">
       <Navbar />
@@ -332,16 +356,14 @@ export function CollectionPage() {
                 <p className="mb-2 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Specifications
                 </p>
-                <Spec label="Products" value={String(products.length)} />
-                <Spec label="Materials" value={collection.materials} />
-                <Spec label="Color palette" value={collection.palette} />
-                {products[1] && (
-                  <img
-                    src={products[1].image}
-                    alt=""
-                    className="mt-6 aspect-[16/9] w-full object-cover shadow-xl shadow-dark/10"
-                  />
-                )}
+                {collection.specs.map((spec, index) => (
+                  <Spec key={`${index}-${spec.label}`} label={spec.label} value={spec.value} />
+                ))}
+                <img
+                  src={specImage}
+                  alt=""
+                  className="mt-6 aspect-[16/9] w-full object-cover shadow-xl shadow-dark/10"
+                />
               </div>
             </div>
           </div>
@@ -351,7 +373,7 @@ export function CollectionPage() {
             <div className="h-full w-[58vw] shrink-0 overflow-hidden">
               <img
                 ref={bigImgRef}
-                src={products[2]?.image ?? heroImage}
+                src={bigImage}
                 alt=""
                 className="h-full w-[120%] max-w-none object-cover will-change-transform"
               />
@@ -363,7 +385,7 @@ export function CollectionPage() {
             >
               <img
                 ref={framedImgRef}
-                src={products[3]?.image ?? heroImage}
+                src={framedImage}
                 alt=""
                 className="h-full w-full object-cover"
               />
@@ -486,7 +508,7 @@ export function CollectionPage() {
             src={galleryImages[i % Math.max(galleryImages.length, 1)]}
             alt=""
             loading="lazy"
-            className="absolute aspect-square object-cover shadow-xl shadow-dark/10"
+            className="absolute aspect-square object-cover"
             style={{
               top: s.top,
               bottom: s.bottom,
@@ -515,7 +537,7 @@ export function CollectionPage() {
               event.preventDefault()
               transitionNavigate("/collections")
             }}
-            className="group mt-8 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium text-dark transition-colors hover:border-dark/40"
+            className="group mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-4 py-2.5 text-sm font-medium text-dark transition-colors hover:border-dark/40"
           >
             <HoverLabel>Explore collections</HoverLabel>
             <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>

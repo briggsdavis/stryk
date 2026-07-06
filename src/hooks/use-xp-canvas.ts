@@ -114,14 +114,15 @@ export function useXpCanvas(active: boolean, navigationLockedRef?: RefObject<boo
       if (!wrapper || !collection) return
       const cfg = ZOOM_CONFIGS[level]
       const prevCfg = ZOOM_CONFIGS[prevLevel]
+      const viewport = wrapper.parentElement ?? wrapper
+      const vw = viewport.clientWidth
+      const vh = viewport.clientHeight
 
-      // Shift the collection so the canvas point at viewport center stays centered.
+      // Shift the collection so the canvas point at the host center stays centered.
       // Derivation: the canvas center point in wrapper-local coords is
       //   P = wFactor * vw/2 - collection.x
-      // For P to stay at viewport center after zoom, new collection.x must be:
+      // For P to stay at host center after zoom, new collection.x must be:
       //   new_x = old_x + (newWFactor - oldWFactor) * vw/2
-      const vw = window.innerWidth
-      const vh = window.innerHeight
       const newXraw = positionRef.current.x + ((cfg.wFactor - prevCfg.wFactor) * vw) / 2
       const newYraw = positionRef.current.y + ((cfg.hFactor - prevCfg.hFactor) * vh) / 2
 
@@ -140,10 +141,10 @@ export function useXpCanvas(active: boolean, navigationLockedRef?: RefObject<boo
       gsap.to(collection, { x: newX, y: newY, duration: 1.5, ease: "expo.inOut" })
       gsap.to(wrapper, {
         scale: cfg.scale,
-        width: `${cfg.wFactor * 100}vw`,
-        height: `${cfg.hFactor * 100}vh`,
-        left: `${(1 - cfg.wFactor) * 50}vw`,
-        top: `${(1 - cfg.hFactor) * 50}vh`,
+        width: cfg.wFactor * vw,
+        height: cfg.hFactor * vh,
+        left: ((1 - cfg.wFactor) * vw) / 2,
+        top: ((1 - cfg.hFactor) * vh) / 2,
         duration: 1.5,
         ease: "expo.inOut",
         onComplete: () => {
@@ -168,8 +169,8 @@ export function useXpCanvas(active: boolean, navigationLockedRef?: RefObject<boo
       const cfg = ZOOM_CONFIGS[2]
       gsap.set(wrapper, {
         scale: cfg.scale,
-        width: `${cfg.wFactor * 100}vw`,
-        height: `${cfg.hFactor * 100}vh`,
+        width: "100%",
+        height: "100%",
         left: 0,
         top: 0,
       })
@@ -177,9 +178,10 @@ export function useXpCanvas(active: boolean, navigationLockedRef?: RefObject<boo
       setZoomLevel(2)
     }
 
-    // Measure against the base viewport size: at rest the wrapper is 100vw×100vh.
-    const centerX = (window.innerWidth - collection.scrollWidth) / 2
-    const centerY = (window.innerHeight - collection.scrollHeight) / 2
+    // Measure against the host size: at rest the wrapper fills its route panel.
+    const viewport = wrapper.parentElement ?? wrapper
+    const centerX = (viewport.clientWidth - collection.scrollWidth) / 2
+    const centerY = (viewport.clientHeight - collection.scrollHeight) / 2
     positionRef.current = { x: centerX, y: centerY }
     targetRef.current = { x: centerX, y: centerY }
     cancelAnimationFrame(rafRef.current)
@@ -284,7 +286,8 @@ export function useXpCanvas(active: boolean, navigationLockedRef?: RefObject<boo
     const items = collection.querySelectorAll<HTMLElement>(".xp-item")
 
     // Allow items at the edges to be visible during the zoomed-out entrance -
-    // the wrapper's layout box is 100vw×100vh so overflow:hidden would clip them.
+    // the wrapper's layout box matches the route panel, so overflow:hidden would
+    // clip them.
     gsap.set(wrapper, { scale: 0.85, transformOrigin: "center center", overflow: "visible" })
     gsap.set(items, { opacity: 1, scale: 1, clearProps: "filter" })
 

@@ -1,8 +1,5 @@
 import { clsx } from "clsx"
-import { useQuery } from "convex/react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useLocation } from "react-router"
-import { api } from "../../../convex/_generated/api"
 import { useShopifyCart } from "../../hooks/use-shopify-cart"
 import { track } from "../../lib/analytics"
 import { gsap } from "../../lib/gsap"
@@ -51,15 +48,16 @@ function mediaKey(src: string | undefined) {
   return src?.split("?")[0] ?? ""
 }
 
+function upsellPromptForCount(count: number) {
+  if (count >= 4) return "Fourth artwork unlocked"
+  if (count === 3) return "Add another artwork free"
+  if (count === 2) return "Add one more, get the fourth free"
+  if (count === 1) return "Add two more, get the fourth free"
+  return "Add three artworks, get the fourth free"
+}
+
 export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const transitionNavigate = useTransitionNavigate()
-  // The announcement bar (z-1100, root level) renders above the focus wrapper,
-  // so when it's live the lightbox close button must drop below it - aligned with
-  // the navbar logo/FAB, which the navbar shifts to 3.5rem under the same bar.
-  const location = useLocation()
-  const announcement = useQuery(api.marketing.activeAnnouncement, {
-    route: location.pathname === "/" ? "home" : "other",
-  })
   const {
     cart,
     addVariant,
@@ -70,7 +68,6 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     removeLineUnit,
     removingLineIds,
   } = useShopifyCart()
-  const barActive = !!announcement
   const collectionNameRef = useRef<HTMLHeadingElement>(null)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
   const optionsRef = useRef<HTMLDivElement>(null)
@@ -146,6 +143,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const [upsellSlots, setUpsellSlots] = useState<UpsellSlot[]>(
     EMPTY_UPSELL_SLOT_KEYS.map(() => null),
   )
+  const upsellPrompt = upsellPromptForCount(cartArtworkItems.length)
 
   useEffect(() => {
     setUpsellSlots((currentSlots) => {
@@ -702,7 +700,8 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
 
     const maxW = Math.min(window.innerWidth * 0.36, 440)
-    const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 160)
+    const panelHeight = panelRef.current?.offsetHeight ?? window.innerHeight
+    const maxH = Math.max(panelHeight - topReserve - bottomReserve, 160)
     let tw = maxW
     let th = tw / aspect
     if (th > maxH) {
@@ -976,37 +975,18 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
           className="absolute right-0 border-t border-dark/20 bg-canvas"
           style={{ left: "60vw", top: "36vh", bottom: 0, display: "none" }}
         >
-          <div className="flex h-full flex-col px-6 py-6 md:px-9">
+          <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-6 md:px-9">
             {/* Top center: continue shopping - dismisses the panel, cart kept */}
-            <div className="mb-5 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setUpsellOpen(false)}
-                aria-label="Continue shopping"
-                className="group flex items-center gap-2 rounded-full border border-dark/20 bg-canvas px-4 py-2 text-[11px] font-medium tracking-wide text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-                    <path
-                      d="M2.5 3.5H5l1.8 9.2a1.2 1.2 0 0 0 1.18.95h7.3a1.2 1.2 0 0 0 1.17-.9l1.45-5.6H6.2"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="9" cy="19" r="1.4" fill="currentColor" />
-                    <circle cx="16" cy="19" r="1.4" fill="currentColor" />
-                  </svg>
-                </span>
-                <HoverLabel>Continue shopping · cart updated</HoverLabel>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setUpsellOpen(false)}
+              aria-label="Continue shopping"
+              className="group flex items-center gap-2 rounded-full border border-dark/20 bg-canvas px-4 py-2 text-[11px] font-medium tracking-wide text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
+            >
+              <HoverLabel>{upsellPrompt}</HoverLabel>
+            </button>
 
-            <div className="mx-auto flex w-full max-w-[18rem] flex-1 flex-col">
-              <p className="mb-4 text-[10px] font-medium tracking-widest text-dark/50 uppercase">
-                Complete your set
-              </p>
-
+            <div className="mx-auto w-full max-w-[18rem]">
               <div className="grid grid-cols-2 gap-3">
                 {EMPTY_UPSELL_SLOT_KEYS.map((slotKey, slotIndex) => {
                   const artwork = upsellSlots[slotIndex]
@@ -1062,22 +1042,20 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
                   )
                 })}
               </div>
-
-              <div className="mt-auto pt-5">
-                <a
-                  href={checkoutUrl ?? undefined}
-                  target={checkoutUrl ? "_blank" : undefined}
-                  rel="noopener noreferrer"
-                  aria-disabled={!checkoutUrl}
-                  className={clsx(
-                    "group flex w-full items-center justify-center rounded-lg px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300",
-                    checkoutUrl ? "bg-dark hover:opacity-80" : "pointer-events-none bg-dark/25",
-                  )}
-                >
-                  <HoverLabel>Proceed to checkout</HoverLabel>
-                </a>
-              </div>
             </div>
+
+            <a
+              href={checkoutUrl ?? undefined}
+              target={checkoutUrl ? "_blank" : undefined}
+              rel="noopener noreferrer"
+              aria-disabled={!checkoutUrl}
+              className={clsx(
+                "group flex w-full max-w-[18rem] items-center justify-center rounded-lg px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300",
+                checkoutUrl ? "bg-dark hover:opacity-80" : "pointer-events-none bg-dark/25",
+              )}
+            >
+              <HoverLabel>Proceed to checkout</HoverLabel>
+            </a>
           </div>
         </div>
       )}
@@ -1129,8 +1107,8 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             type="button"
             onClick={closeExpanded}
             aria-label="Close expanded image"
-            className="absolute top-6 right-6 z-[3] flex h-11 w-11 items-center justify-center rounded-none border border-dark/20 bg-white text-dark transition-all duration-300 hover:rounded-lg hover:bg-dark hover:text-white md:top-8 md:right-8"
-            style={barActive ? { opacity: 0, top: "3.5rem" } : { opacity: 0 }}
+            className="site-top-close absolute right-6 z-[3] flex h-11 w-11 items-center justify-center rounded-none border border-dark/20 bg-white text-dark transition-all duration-300 hover:rounded-lg hover:bg-dark hover:text-white md:right-8"
+            style={{ opacity: 0 }}
           >
             <svg viewBox="0 0 12 12" fill="none" className="h-3.5 w-3.5">
               <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" />

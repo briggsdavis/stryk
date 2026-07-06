@@ -181,6 +181,20 @@ export default defineSchema({
     .index("by_shopifyHandle", ["shopifyHandle"])
     .index("by_isVisible_and_sortRank", ["isVisible", "sortRank"])
     .index("by_syncedAt", ["syncedAt"]),
+  collectionPageSettings: defineTable({
+    collectionId: v.id("catalogCollections"),
+    collectionHandle: v.string(),
+    heroImages: v.array(v.id("_storage")),
+    specs: v.array(
+      v.object({
+        label: v.string(),
+        value: v.string(),
+      }),
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_collectionId", ["collectionId"])
+    .index("by_collectionHandle", ["collectionHandle"]),
   catalogProductCollections: defineTable({
     productId: v.id("catalogProducts"),
     collectionId: v.id("catalogCollections"),

@@ -2,13 +2,19 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
-import { internalMutation, query } from "./_generated/server"
-import type { MutationCtx } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
+import type { MutationCtx, QueryCtx } from "./_generated/server"
+import { requireAdmin } from "./admin"
 
 const filterValidator = v.object({
   color: v.array(v.string()),
   category: v.array(v.string()),
   collection: v.array(v.string()),
+})
+
+const collectionPageSpecValidator = v.object({
+  label: v.string(),
+  value: v.string(),
 })
 
 const syncedCollectionValidator = v.object({
@@ -197,6 +203,42 @@ async function upsertFacetOption(
   else await ctx.db.insert("catalogFacetOptions", doc)
 }
 
+function cleanCollectionSpecs(specs: { label: string; value: string }[]) {
+  if (specs.length !== 3) {
+    throw new Error("Collection pages must have exactly three specification rows.")
+  }
+
+  const cleaned = specs.map((spec) => ({
+    label: spec.label.trim(),
+    value: spec.value.trim(),
+  }))
+
+  if (cleaned.some((spec) => !spec.label || !spec.value)) {
+    throw new Error("Every specification row needs a label and value.")
+  }
+
+  return cleaned
+}
+
+async function resolveCollectionPageSettings(
+  ctx: QueryCtx,
+  settings: Doc<"collectionPageSettings">,
+) {
+  const heroImages = await Promise.all(
+    settings.heroImages.map(async (storageId) => {
+      const url = await ctx.storage.getUrl(storageId)
+      if (!url) throw new Error("A collection page image is missing from Convex storage.")
+      return { storageId, url }
+    }),
+  )
+
+  if (heroImages.length !== 4) {
+    throw new Error("Collection page settings must have exactly four images.")
+  }
+
+  return { ...settings, heroImages }
+}
+
 export const listProducts = query({
   args: {
     filters: filterValidator,
@@ -289,6 +331,87 @@ export const listCollections = query({
   },
 })
 
+export const generateCollectionImageUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx)
+    return await ctx.storage.generateUploadUrl()
+  },
+})
+
+export const getCollectionPageSettingsForAdmin = query({
+  args: { collectionHandle: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    const collection = await ctx.db
+      .query("catalogCollections")
+      .withIndex("by_shopifyHandle", (q) => q.eq("shopifyHandle", args.collectionHandle))
+      .unique()
+    if (!collection) return null
+
+    const settings = await ctx.db
+      .query("collectionPageSettings")
+      .withIndex("by_collectionHandle", (q) => q.eq("collectionHandle", args.collectionHandle))
+      .unique()
+
+    return {
+      collection,
+      pageSettings: settings ? await resolveCollectionPageSettings(ctx, settings) : null,
+    }
+  },
+})
+
+export const saveCollectionPageSettings = mutation({
+  args: {
+    collectionHandle: v.string(),
+    heroImages: v.array(v.id("_storage")),
+    specs: v.array(collectionPageSpecValidator),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    if (args.heroImages.length !== 4) {
+      throw new Error("Collection pages must have exactly four images.")
+    }
+
+    const collection = await ctx.db
+      .query("catalogCollections")
+      .withIndex("by_shopifyHandle", (q) => q.eq("shopifyHandle", args.collectionHandle))
+      .unique()
+    if (!collection) throw new Error("Collection not found.")
+
+    const specs = cleanCollectionSpecs(args.specs)
+    const existing = await ctx.db
+      .query("collectionPageSettings")
+      .withIndex("by_collectionHandle", (q) => q.eq("collectionHandle", args.collectionHandle))
+      .unique()
+
+    const doc = {
+      collectionId: collection._id,
+      collectionHandle: args.collectionHandle,
+      heroImages: args.heroImages,
+      specs,
+      updatedAt: Date.now(),
+    }
+
+    if (existing) {
+      const keptIds = new Set(args.heroImages)
+      for (const storageId of existing.heroImages) {
+        if (!keptIds.has(storageId)) {
+          try {
+            await ctx.storage.delete(storageId)
+          } catch {
+            // already deleted / missing - ignore
+          }
+        }
+      }
+      await ctx.db.patch(existing._id, doc)
+      return existing._id
+    }
+
+    return await ctx.db.insert("collectionPageSettings", doc)
+  },
+})
+
 export const listCollectionsWithProductPreviews = query({
   args: {
     paginationOpts: paginationOptsValidator,
@@ -353,7 +476,17 @@ export const getCollection = query({
       const product = await ctx.db.get(link.productId)
       if (product?.isVisible) products.push(product)
     }
-    return { collection, products }
+
+    const settings = await ctx.db
+      .query("collectionPageSettings")
+      .withIndex("by_collectionHandle", (q) => q.eq("collectionHandle", args.handle))
+      .unique()
+
+    return {
+      collection,
+      products,
+      pageSettings: settings ? await resolveCollectionPageSettings(ctx, settings) : null,
+    }
   },
 })
 

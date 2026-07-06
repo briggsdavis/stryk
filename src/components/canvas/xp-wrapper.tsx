@@ -19,7 +19,7 @@ export const XpWrapper = forwardRef<HTMLDivElement, XpWrapperProps>(function XpW
 ) {
   // Always rendered so GSAP refs stay alive; visibility controlled by parent opacity
   return (
-    <div ref={ref} className="xp-wrapper" style={{ width: "100vw", height: "100vh" }}>
+    <div ref={ref} className="xp-wrapper" style={{ width: "100%", height: "100%" }}>
       <XpCollection
         ref={collectionRef}
         products={products}
