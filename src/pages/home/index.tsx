@@ -8,6 +8,7 @@ import { EmptyFilterState } from "../../components/ui/empty-filter-state"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
 import { useHomeCatalog } from "../../hooks/use-home-catalog"
+import { useIsMobile } from "../../hooks/use-is-mobile"
 import { useProductFocus } from "../../hooks/use-product-focus"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
 import type { ActiveFilters, FilterKey } from "../../lib/filters"
@@ -22,6 +23,7 @@ const PROXIMITY_RADIUS = 220
 type WithVTA = Document & { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
 
 export function HomePage() {
+  const isMobile = useIsMobile()
   const [viewMode, setViewMode] = useState<ViewMode>("xp")
   const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
   const { products, filterGroups } = useHomeCatalog(filters)
@@ -255,8 +257,10 @@ export function HomePage() {
       )}
 
       {viewMode === "xp" && !focusedProduct && (
-        <p className="fixed bottom-9 left-6 z-10 text-[10px] font-medium tracking-widest text-dark/30 uppercase md:left-10">
-          Scroll to navigate
+        // Lifted above the bottom control bar on mobile; the gesture is a finger
+        // drag on touch, a scroll on desktop.
+        <p className="fixed bottom-28 left-6 z-10 text-[10px] font-medium tracking-widest text-dark/30 uppercase md:bottom-9 md:left-10">
+          {isMobile ? "Drag to explore" : "Scroll to navigate"}
         </p>
       )}
     </div>

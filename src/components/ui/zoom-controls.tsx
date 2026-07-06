@@ -9,7 +9,9 @@ interface ZoomControlsProps {
 
 export function ZoomControls({ level, onZoomIn, onZoomOut }: ZoomControlsProps) {
   return (
-    <div className="fixed right-8 bottom-8 z-[200] flex flex-col items-center gap-2">
+    // On mobile the menu/filter/cart bar sits centred at the bottom, so lift the
+    // zoom controls clear of it; on desktop they stay in the bottom-right corner.
+    <div className="fixed right-6 bottom-28 z-[200] flex flex-col items-center gap-2 md:right-8 md:bottom-8">
       <div className="flex flex-row items-center gap-1">
         <button
           onClick={onZoomOut}

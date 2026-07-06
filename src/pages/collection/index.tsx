@@ -2,6 +2,7 @@ import { useQuery } from "convex/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { api } from "../../../convex/_generated/api"
+import { CollectionProductCard } from "../../components/collection/collection-product-card"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { Footer } from "../../components/ui/footer"
 import { HoverLabel } from "../../components/ui/hover-label"
@@ -11,20 +12,6 @@ import { useProductFocus } from "../../hooks/use-product-focus"
 import { catalogProductToProduct } from "../../lib/catalog"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
-
-function ExpandIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-      <path
-        d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 function Spec({ label, value }: { label: string; value: string }) {
   return (
@@ -408,30 +395,13 @@ export function CollectionPage() {
                 </h2>
               </div>
               {featuredProducts.map((product) => (
-                <div key={product.id} data-product-card className="flex flex-col">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const img = e.currentTarget.querySelector("img")
-                      // Slide the pinned section aside (it's the fixed element, so
-                      // it can be translated directly) as the image morphs in.
-                      if (img) beginFocus(product, img, pinRef.current)
-                    }}
-                    aria-label={`Open ${product.name}`}
-                    className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
-                  >
-                    <span className="absolute inset-0 flex items-center justify-center p-[14%]">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
-                      />
-                    </span>
-                    <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
-                      <ExpandIcon />
-                    </span>
-                  </button>
-                  <p className="mt-3 text-sm text-dark/70">{product.name}</p>
+                <div key={product.id} data-product-card>
+                  {/* Slide the pinned section aside (it's the fixed element, so it
+                      can be translated directly) as the image morphs in. */}
+                  <CollectionProductCard
+                    product={product}
+                    onOpen={(p, img) => beginFocus(p, img, pinRef.current)}
+                  />
                 </div>
               ))}
             </div>
@@ -461,30 +431,10 @@ export function CollectionPage() {
             ) : (
               <div ref={moreGridRef} className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-3">
                 {moreProducts.map((product) => (
-                  <div key={product.id} data-more-card className="flex flex-col">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const img = e.currentTarget.querySelector("img")
-                        // No background to slide aside here (normal vertical flow) -
-                        // the focus panel simply morphs in over the left-hand side.
-                        if (img) beginFocus(product, img)
-                      }}
-                      aria-label={`Open ${product.name}`}
-                      className="group relative aspect-square w-full rounded-xl border border-dark/15 transition-colors hover:border-dark/30"
-                    >
-                      <span className="absolute inset-0 flex items-center justify-center p-[14%]">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="max-h-full max-w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.19)]"
-                        />
-                      </span>
-                      <span className="absolute top-3 right-3 text-dark/40 transition-all duration-300 group-hover:scale-110 group-hover:text-dark">
-                        <ExpandIcon />
-                      </span>
-                    </button>
-                    <p className="mt-3 text-sm text-dark/70">{product.name}</p>
+                  <div key={product.id} data-more-card>
+                    {/* No background to slide aside here (normal vertical flow) -
+                        the focus panel simply morphs in over the left-hand side. */}
+                    <CollectionProductCard product={product} onOpen={(p, img) => beginFocus(p, img)} />
                   </div>
                 ))}
               </div>
