@@ -1,5 +1,5 @@
 import { clsx } from "clsx"
-import { type ReactNode, useLayoutEffect, useRef } from "react"
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { useIsMobile } from "../../hooks/use-is-mobile"
 import { gsap } from "../../lib/gsap"
 import { HoverLabel } from "./hover-label"
@@ -44,6 +44,12 @@ export function ExpandingControl({
   const columnRef = useRef<HTMLDivElement>(null)
   const prevTriggerWidthRef = useRef<number | null>(null)
   const firstRunRef = useRef(true)
+  const [renderMobileStack, setRenderMobileStack] = useState(open)
+
+  useLayoutEffect(() => {
+    if (isMobile || open) return
+    setRenderMobileStack(false)
+  }, [isMobile, open])
 
   // ── Desktop: horizontal glide ─────────────────────────────────────────────
   useLayoutEffect(() => {
@@ -135,7 +141,7 @@ export function ExpandingControl({
     if (!isMobile) return
     const trigger = triggerRef.current
     const column = columnRef.current
-    if (!column) return
+    if (open) setRenderMobileStack(true)
 
     // Morph the trigger into a 42px circle when open, back to its labelled width
     // when closed (measured with width:auto, the way the desktop path does it).
@@ -163,6 +169,11 @@ export function ExpandingControl({
       }
     }
 
+    if (!column) {
+      firstRunRef.current = false
+      return
+    }
+
     // Some children (e.g. <FilterPills>) render a `display:contents` wrapper that
     // has no box to animate; step into it so the real pills are the stack items.
     const items = (Array.from(column.children) as HTMLElement[]).flatMap((el) =>
@@ -179,6 +190,7 @@ export function ExpandingControl({
     }
 
     if (open) {
+      gsap.set(column, { autoAlpha: 1 })
       gsap.fromTo(
         items,
         { opacity: 0, y: 14, scale: 0.9 },
@@ -192,6 +204,10 @@ export function ExpandingControl({
         duration: 0.25,
         stagger: 0.04,
         ease: "power2.in",
+        onComplete: () => {
+          gsap.set(column, { autoAlpha: 0 })
+          setRenderMobileStack(false)
+        },
       })
     }
   }, [open, isMobile])
@@ -239,11 +255,15 @@ export function ExpandingControl({
 
       {/* Mobile stack - the options rise vertically out of the trigger, nearest
           item closest to the button. Anchored above so nothing runs off-screen. */}
-      {isMobile && (
+      {isMobile && (open || renderMobileStack) && (
         <div
           ref={columnRef}
-          className="absolute bottom-full left-1/2 mb-3 flex w-max -translate-x-1/2 flex-col-reverse items-center gap-2"
-          style={{ pointerEvents: open ? "auto" : "none" }}
+          className="absolute bottom-full left-1/2 mb-3 flex w-max -translate-x-1/2 flex-col-reverse items-stretch gap-2"
+          style={{
+            opacity: open || renderMobileStack ? 1 : 0,
+            pointerEvents: open ? "auto" : "none",
+            visibility: open || renderMobileStack ? "visible" : "hidden",
+          }}
         >
           {children}
         </div>

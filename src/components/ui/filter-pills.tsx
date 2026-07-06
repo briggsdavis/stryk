@@ -94,7 +94,7 @@ function FilterGroupPill({
         onClick={onToggle}
         aria-expanded={open}
         className={clsx(
-          "group flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-300",
+          "group relative flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-center text-sm font-medium whitespace-nowrap transition-colors duration-300",
           count > 0
             ? "border-dark bg-dark text-white"
             : "border-dark/15 bg-canvas text-dark hover:border-dark/40",
@@ -108,7 +108,7 @@ function FilterGroupPill({
         )}
         <HoverLabel>{buttonLabel}</HoverLabel>
         {extraCount > 0 && <span className="text-xs opacity-80">+{extraCount}</span>}
-        <span className="text-base leading-none transition-transform duration-300 group-hover:rotate-90">
+        <span className="absolute right-3 text-base leading-none transition-transform duration-300 group-hover:rotate-90">
           {open ? "−" : "+"}
         </span>
       </button>

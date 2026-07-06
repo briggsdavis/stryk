@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import { track } from "../lib/analytics"
 import { gsap } from "../lib/gsap"
 import { emitPopupAction } from "../lib/marketing"
@@ -61,6 +62,8 @@ export function useProductFocus() {
         isFocusedRef.current = false
         return
       }
+      const panel = slot.closest("[data-focus-panel]") as HTMLElement | null
+      if (panel) panel.scrollTop = 0
 
       focusedElRef.current = el
       originalStyleRef.current = getReturnStyle(el)
@@ -77,35 +80,45 @@ export function useProductFocus() {
       const aspect = fromRect.width / fromRect.height
       const frame = document.getElementById("focus-image-frame")
       if (frame) {
-        // Reserve a band at the top for the collection title and one at the
-        // bottom for the info/options strip, then size + centre the image
-        // within what's left. <FocusWrapper /> re-measures the strip after it
-        // renders and fine-tunes from this estimate.
         const isMd = window.innerWidth >= 768
-        const titleTop = isMd ? 96 : 64
-        const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
-        const topReserve = titleTop + titleFont + 22
-        // Mobile stacks the info + options below the image, so it needs a taller
-        // bottom reserve than the desktop side-by-side strip.
-        const bottomReserve = isMd ? 240 : 320
-
-        // Mobile fills nearly the full width; desktop keeps the artwork within the
-        // left panel.
-        const maxW = isMd ? Math.min(window.innerWidth * 0.36, 440) : window.innerWidth * 0.86
-        const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
-        let tw = maxW
-        let th = tw / aspect
-        if (th > maxH) {
-          th = maxH
-          tw = th * aspect
+        if (!isMd) {
+          const maxW = window.innerWidth * 0.86
+          const maxH = Math.max(window.innerHeight * 0.62, 240)
+          let tw = maxW
+          let th = tw / aspect
+          if (th > maxH) {
+            th = maxH
+            tw = th * aspect
+          }
+          frame.style.width = `${tw}px`
+          frame.style.height = `${th}px`
+          frame.style.top = ""
+          frame.style.bottom = ""
+        } else {
+          // Reserve a band at the top for the collection title and one at the
+          // bottom for the info/options strip, then size + centre the image
+          // within what's left. <FocusWrapper /> re-measures the strip after it
+          // renders and fine-tunes from this estimate.
+          const titleTop = 96
+          const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
+          const topReserve = titleTop + titleFont + 22
+          const bottomReserve = 240
+          const maxW = Math.min(window.innerWidth * 0.36, 440)
+          const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
+          let tw = maxW
+          let th = tw / aspect
+          if (th > maxH) {
+            th = maxH
+            tw = th * aspect
+          }
+          frame.style.width = `${tw}px`
+          frame.style.height = `${th}px`
+          frame.style.top = `${topReserve}px`
+          frame.style.bottom = `${bottomReserve}px`
         }
-        frame.style.width = `${tw}px`
-        frame.style.height = `${th}px`
-        frame.style.top = `${topReserve}px`
-        frame.style.bottom = `${bottomReserve}px`
       }
 
-      setFocusedProduct(product)
+      flushSync(() => setFocusedProduct(product))
       const toRect = slot.getBoundingClientRect()
 
       document.body.appendChild(el)

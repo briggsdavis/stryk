@@ -41,20 +41,46 @@ type AddedArtwork = {
   lineQuantity: number
   image: string
   alt: string
+  dealKey: string | null
 }
 
 type UpsellSlot = AddedArtwork | null
+type SelectedOption = { name: string; value: string }
 
 function mediaKey(src: string | undefined) {
   return src?.split("?")[0] ?? ""
 }
 
-function upsellPromptForCount(count: number) {
-  if (count >= 4) return "Fourth artwork unlocked"
-  if (count === 3) return "Add another artwork free"
-  if (count === 2) return "Add one more, get the fourth free"
-  if (count === 1) return "Add two more, get the fourth free"
-  return "Add three artworks, get the fourth free"
+function optionValue(options: SelectedOption[], name: string) {
+  return options.find((option) => option.name.toLowerCase() === name)?.value
+}
+
+function normalizeDealPart(value: string | undefined) {
+  return value
+    ?.trim()
+    .toLowerCase()
+    .replace(/×/g, "x")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+}
+
+function dealMeta({
+  sizeKey,
+  sizeLabel,
+  frameKey,
+  frameLabel,
+}: {
+  sizeKey?: string
+  sizeLabel?: string
+  frameKey?: string
+  frameLabel?: string
+}) {
+  const normalizedSize = normalizeDealPart(sizeKey ?? sizeLabel)
+  const normalizedFrame = normalizeDealPart(frameKey ?? frameLabel)
+
+  return {
+    key: normalizedSize && normalizedFrame ? `${normalizedSize}:${normalizedFrame}` : null,
+  }
 }
 
 export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
@@ -96,6 +122,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   // Left/right drag (mouse or touch) to advance the gallery.
   const pointerActiveRef = useRef(false)
   const pointerStartXRef = useRef(0)
+  const pointerStartYRef = useRef(0)
   const draggedRef = useRef(false)
   const [galleryActive, setGalleryActive] = useState(false)
   const [galleryIndicatorVisible, setGalleryIndicatorVisible] = useState(false)
@@ -117,6 +144,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   // "Complete your set" upsell panel, revealed after a piece is added to cart.
   const [upsellOpen, setUpsellOpen] = useState(false)
   const upsellRef = useRef<HTMLDivElement>(null)
+  const [upsellDealKey, setUpsellDealKey] = useState<string | null>(null)
   // Add-to-cart button: once clicked it flips to an "Added" state. The button
   // label is animated between states - see the layout effect below.
   const [added, setAdded] = useState(false)
@@ -131,12 +159,16 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         .flatMap((line) => {
           const merchandise = line.merchandise
           if (!merchandise) return []
+          const sizeLabel = optionValue(merchandise.selectedOptions, "size")
+          const frameLabel = optionValue(merchandise.selectedOptions, "frame")
+          const deal = dealMeta({ sizeLabel, frameLabel })
           return Array.from({ length: line.quantity }, (_, i) => ({
             id: `${line.id}:${i}`,
             lineId: line.id,
             lineQuantity: line.quantity,
             image: merchandise.image?.url ?? "",
             alt: merchandise.image?.altText ?? merchandise.product.title,
+            dealKey: deal.key,
           }))
         })
         .filter((artwork) => artwork.image),
@@ -145,41 +177,6 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const [upsellSlots, setUpsellSlots] = useState<UpsellSlot[]>(
     EMPTY_UPSELL_SLOT_KEYS.map(() => null),
   )
-  const upsellPrompt = upsellPromptForCount(cartArtworkItems.length)
-
-  useEffect(() => {
-    setUpsellSlots((currentSlots) => {
-      const remainingItems = [...cartArtworkItems]
-      const nextSlots = currentSlots.map((slot) => {
-        if (!slot) return null
-
-        const nextItemIndex = remainingItems.findIndex((item) => item.id === slot.id)
-        if (nextItemIndex === -1) return null
-
-        const [nextItem] = remainingItems.splice(nextItemIndex, 1)
-        return nextItem
-      })
-
-      for (const item of remainingItems) {
-        const openSlotIndex = nextSlots.findIndex((slot) => slot === null)
-        if (openSlotIndex === -1) break
-        nextSlots[openSlotIndex] = item
-      }
-
-      const unchanged = currentSlots.every((slot, i) => {
-        const nextSlot = nextSlots[i]
-        return (
-          slot?.id === nextSlot?.id &&
-          slot?.lineId === nextSlot?.lineId &&
-          slot?.lineQuantity === nextSlot?.lineQuantity &&
-          slot?.image === nextSlot?.image &&
-          slot?.alt === nextSlot?.alt
-        )
-      })
-
-      return unchanged ? currentSlots : nextSlots
-    })
-  }, [cartArtworkItems])
 
   const isOpen = !!product
 
@@ -213,6 +210,67 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
       ) ?? null
     )
   }, [currentGalleryImage, currentIdx, product, selectedFrameKey, selectedSize])
+
+  const selectedDeal = useMemo(
+    () =>
+      selectedVariant
+        ? dealMeta({
+            sizeKey: selectedVariant.sizeKey,
+            sizeLabel: selectedVariant.sizeLabel,
+            frameKey: selectedVariant.frameKey,
+            frameLabel: selectedVariant.frameLabel,
+          })
+        : null,
+    [selectedVariant],
+  )
+  const activeUpsellDealKey =
+    upsellDealKey ??
+    selectedDeal?.key ??
+    cartArtworkItems.find((item) => item.dealKey)?.dealKey ??
+    null
+  const upsellArtworkItems = useMemo(
+    () =>
+      activeUpsellDealKey
+        ? cartArtworkItems.filter((item) => item.dealKey === activeUpsellDealKey)
+        : cartArtworkItems,
+    [activeUpsellDealKey, cartArtworkItems],
+  )
+  const upsellProgressCount = Math.min(upsellArtworkItems.length, UPSELL_SLOT_COUNT)
+
+  useEffect(() => {
+    setUpsellSlots((currentSlots) => {
+      const remainingItems = [...upsellArtworkItems]
+      const nextSlots = currentSlots.map((slot) => {
+        if (!slot) return null
+
+        const nextItemIndex = remainingItems.findIndex((item) => item.id === slot.id)
+        if (nextItemIndex === -1) return null
+
+        const [nextItem] = remainingItems.splice(nextItemIndex, 1)
+        return nextItem
+      })
+
+      for (const item of remainingItems) {
+        const openSlotIndex = nextSlots.findIndex((slot) => slot === null)
+        if (openSlotIndex === -1) break
+        nextSlots[openSlotIndex] = item
+      }
+
+      const unchanged = currentSlots.every((slot, i) => {
+        const nextSlot = nextSlots[i]
+        return (
+          slot?.id === nextSlot?.id &&
+          slot?.lineId === nextSlot?.lineId &&
+          slot?.lineQuantity === nextSlot?.lineQuantity &&
+          slot?.image === nextSlot?.image &&
+          slot?.alt === nextSlot?.alt &&
+          slot?.dealKey === nextSlot?.dealKey
+        )
+      })
+
+      return unchanged ? currentSlots : nextSlots
+    })
+  }, [upsellArtworkItems])
 
   const price = selectedVariant?.price ?? null
   const canAddToCart = cartConfigured && !!selectedVariant && !cartAdding
@@ -257,6 +315,14 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   const handleAddToCart = async () => {
     if (!product || !selectedVariant || cartAdding) return
     const variantToAdd = selectedVariant
+    setUpsellDealKey(
+      dealMeta({
+        sizeKey: variantToAdd.sizeKey,
+        sizeLabel: variantToAdd.sizeLabel,
+        frameKey: variantToAdd.frameKey,
+        frameLabel: variantToAdd.frameLabel,
+      }).key,
+    )
     await addVariant(variantToAdd.shopifyVariantId, 1)
     track("add_to_cart", { label: product.name })
     setAdded(true)
@@ -274,11 +340,13 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     const isSwitch = prevOpenRef.current
     if (!isSwitch) {
       setUpsellOpen(false)
+      setUpsellDealKey(null)
     }
     setAdded(false)
     if (!isOpen) {
       prevOpenRef.current = false
       setUpsellOpen(false)
+      setUpsellDealKey(null)
       galleryActiveRef.current = false
       setGalleryActive(false)
       setGalleryIndicatorVisible(false)
@@ -405,17 +473,19 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
   )
 
   useEffect(() => {
+    if (isMobile) return
     const panel = panelRef.current
     if (!panel) return
     panel.addEventListener("wheel", onWheel, { passive: false })
     return () => panel.removeEventListener("wheel", onWheel)
-  }, [onWheel])
+  }, [isMobile, onWheel])
 
   // ── Drag to navigate (mouse / touch) ──────────────────────────────────────
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!galleryActiveRef.current || expandedActiveRef.current) return
     pointerActiveRef.current = true
     pointerStartXRef.current = e.clientX
+    pointerStartYRef.current = e.clientY
     draggedRef.current = false
   }, [])
 
@@ -431,8 +501,9 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
       if (!pointerActiveRef.current) return
       pointerActiveRef.current = false
       const dx = e.clientX - pointerStartXRef.current
+      const dy = e.clientY - pointerStartYRef.current
       // Swipe left (content moves left) -> next; swipe right -> previous.
-      if (Math.abs(dx) >= 50) navigate(dx < 0 ? 1 : -1)
+      if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy)) navigate(dx < 0 ? 1 : -1)
     },
     [navigate],
   )
@@ -492,16 +563,39 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     }
   }, [isOpen, product?.id])
 
-  // ── Upsell panel slide + close-button lift ────────────────────────────────
-  // The panel rises from the bottom-right and the × lifts from the divider's
-  // mid-point (50vh) up to the corner where the divider meets the panel's top
-  // edge (20vh). Reversed on close.
+  // ── Upsell panel reveal ───────────────────────────────────────────────────
+  // Desktop keeps the overlay slide. Mobile reveals the panel in document flow
+  // and scrolls the focused panel to it.
   useEffect(() => {
     const panel = upsellRef.current
     const close = closeRef.current
     if (!panel) return
-    const liftY = -window.innerHeight * 0.14 // 50vh centre → 36vh panel top
     gsap.killTweensOf(panel)
+
+    if (isMobile) {
+      if (upsellOpen) {
+        gsap.set(panel, { display: "block" })
+        gsap.fromTo(
+          panel,
+          { autoAlpha: 0, y: 18 },
+          { autoAlpha: 1, y: 0, duration: 0.45, ease: "power3.out" },
+        )
+        window.requestAnimationFrame(() => {
+          panel.scrollIntoView({ behavior: "smooth", block: "start" })
+        })
+      } else {
+        gsap.to(panel, {
+          autoAlpha: 0,
+          y: 12,
+          duration: 0.25,
+          ease: "power2.in",
+          onComplete: () => gsap.set(panel, { display: "none", clearProps: "transform" }),
+        })
+      }
+      return
+    }
+
+    const liftY = -window.innerHeight * 0.14 // 50vh centre → 36vh panel top
     if (upsellOpen) {
       gsap.set(panel, { display: "block" })
       gsap.fromTo(panel, { yPercent: 100 }, { yPercent: 0, duration: 0.9, ease: "expo.inOut" })
@@ -515,7 +609,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
       })
       if (close) gsap.to(close, { y: 0, duration: 0.7, ease: "expo.inOut" })
     }
-  }, [upsellOpen])
+  }, [isMobile, upsellOpen])
 
   // ── Close ─────────────────────────────────────────────────────────────────
   const handleClose = () => {
@@ -687,19 +781,37 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     return () => window.removeEventListener("keydown", onKey)
   }, [expanded, closeExpanded])
 
-  // ── Keep the image clear of the bottom strip ──────────────────────────────
-  // The open-morph in the home page sizes the image from an estimated bottom
-  // reserve. Once the panel has rendered its real info/options strip we measure
-  // it and resize the image so there is always a clean gap above the strip -
-  // for any artwork aspect ratio, strip content, or viewport size.
-  const fitImageToStrip = useCallback(() => {
+  // ── Keep the image sized to the active layout ─────────────────────────────
+  // Desktop still reserves room for the pinned bottom strip. Mobile keeps the
+  // frame in document flow and only resizes the artwork box itself.
+  const fitImageFrame = useCallback(() => {
     const frame = document.getElementById("focus-image-frame")
     const strip = stripRef.current
     if (!frame || !strip) return
 
     const aspect = frame.offsetWidth / frame.offsetHeight
     const isMd = window.innerWidth >= 768
-    const titleTop = isMd ? 40 : 32
+    if (!isMd) {
+      const maxW = window.innerWidth * 0.86
+      const maxH = Math.max(window.innerHeight * 0.62, 240)
+      let tw = maxW
+      let th = tw / aspect
+      if (th > maxH) {
+        th = maxH
+        tw = th * aspect
+      }
+      frame.style.top = ""
+      frame.style.bottom = ""
+      gsap.to(frame, {
+        width: tw,
+        height: th,
+        duration: 0.4,
+        ease: "expo.inOut",
+      })
+      return
+    }
+
+    const titleTop = 40
     const titleFont = Math.min(Math.max(window.innerWidth * 0.06, 36), 72)
     const topReserve = titleTop + titleFont + 10
 
@@ -708,7 +820,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     const GAP = 22
     const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
 
-    const maxW = isMd ? Math.min(window.innerWidth * 0.36, 440) : window.innerWidth * 0.86
+    const maxW = Math.min(window.innerWidth * 0.36, 440)
     const panelHeight = panelRef.current?.offsetHeight ?? window.innerHeight
     const maxH = Math.max(panelHeight - topReserve - bottomReserve, 160)
     let tw = maxW
@@ -731,16 +843,121 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     if (!isOpen) return
     // Run after the open-morph has settled the image into the slot, so resizing
     // the frame carries the image with it rather than fighting the morph.
-    const t = window.setTimeout(fitImageToStrip, 1200)
-    window.addEventListener("resize", fitImageToStrip)
+    const t = window.setTimeout(fitImageFrame, 1200)
+    window.addEventListener("resize", fitImageFrame)
     return () => {
       window.clearTimeout(t)
-      window.removeEventListener("resize", fitImageToStrip)
+      window.removeEventListener("resize", fitImageFrame)
     }
-  }, [isOpen, product?.id, fitImageToStrip])
+  }, [isOpen, product?.id, fitImageFrame])
 
   const expandedSrc = galleryImages[currentIdx] ?? product?.image ?? ""
   const expandFrom = expandFromRectRef.current
+  const galleryIndicator = (
+    <div
+      ref={galleryIndicatorRef}
+      className={clsx(
+        "z-[4] flex flex-col items-center gap-2",
+        isMobile ? "relative mt-4" : "absolute top-full left-1/2 mt-4 -translate-x-1/2",
+      )}
+      style={{
+        opacity: galleryActive && galleryIndicatorVisible ? 1 : 0,
+        transition: "opacity 0.4s ease",
+      }}
+    >
+      <div className="flex items-center gap-1.5">
+        {galleryImages.map((_, i) => (
+          <div
+            key={i}
+            className={clsx(
+              "rounded-full bg-dark transition-all duration-700 ease-out",
+              i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
+            )}
+          />
+        ))}
+      </div>
+      {galleryImages.length > 1 && (
+        <p className="text-[11px] tracking-wide text-dark/45">Swipe to select artwork</p>
+      )}
+    </div>
+  )
+  const upsellPanelContent = (
+    <div
+      className={clsx(
+        "flex flex-col items-center justify-center gap-6 px-6 py-6 md:px-9",
+        !isMobile && "h-full",
+      )}
+    >
+      <p className="max-w-[18rem] text-center text-sm leading-6 font-medium text-dark">
+        {upsellProgressCount} of 4 matching artworks. Buy 3, get the 4th free. Same size and
+        framing required.
+      </p>
+
+      <div className="mx-auto w-full max-w-[18rem]">
+        <div className="grid grid-cols-2 gap-3">
+          {EMPTY_UPSELL_SLOT_KEYS.map((slotKey, slotIndex) => {
+            const artwork = upsellSlots[slotIndex]
+
+            return artwork ? (
+              <div key={slotKey} className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}>
+                <img src={artwork.image} alt={artwork.alt} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => void removeLineUnit(artwork.lineId, artwork.lineQuantity)}
+                  disabled={removingLineIds.includes(artwork.lineId)}
+                  aria-label="Remove from cart"
+                  className={clsx(
+                    "group absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-dark/10 bg-canvas/85 text-dark/55 shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-dark/25 hover:bg-dark hover:text-white disabled:pointer-events-none disabled:opacity-40",
+                    removingLineIds.includes(artwork.lineId) && "opacity-40",
+                  )}
+                >
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="h-3 w-3 transition-transform duration-300 group-hover:rotate-90"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M4 4l8 8M12 4l-8 8"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div
+                key={slotKey}
+                className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-dark/20 bg-dark/[0.025]"
+                aria-label="Empty set slot"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-dark/15 text-lg leading-none text-dark/25"
+                >
+                  +
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <a
+        href={checkoutUrl ?? undefined}
+        target={checkoutUrl ? "_blank" : undefined}
+        rel="noopener noreferrer"
+        aria-disabled={!checkoutUrl}
+        className={clsx(
+          "group flex w-full max-w-[18rem] items-center justify-center rounded-lg px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300",
+          checkoutUrl ? "bg-dark hover:opacity-80" : "pointer-events-none bg-dark/25",
+        )}
+      >
+        <HoverLabel>Proceed to checkout</HoverLabel>
+      </a>
+    </div>
+  )
 
   return (
     <div className={clsx("focus-wrapper", isOpen && "active")}>
@@ -748,24 +965,24 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
           morph shows through; opaque only when opening over static page content. */}
       <div
         ref={panelRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
-        onPointerLeave={onPointerEnd}
-        className="absolute inset-y-0 left-0 overflow-hidden"
+        data-focus-panel
+        className={clsx(
+          "absolute inset-y-0 left-0",
+          isMobile ? "overflow-x-hidden overflow-y-auto overscroll-contain" : "overflow-hidden",
+        )}
         style={{
           width: isMobile ? "100vw" : "60vw",
           visibility: isOpen ? "visible" : "hidden",
-          // Capture horizontal finger drags for gallery navigation on mobile
-          // rather than letting the browser treat them as page/back gestures.
-          touchAction: isMobile ? "none" : undefined,
+          touchAction: isMobile ? "pan-y" : undefined,
         }}
       >
         {/* Product name */}
         <h2
           ref={collectionNameRef}
-          className="pointer-events-none relative z-20 mt-8 ml-8 leading-none font-medium text-dark md:mt-10 md:ml-10"
+          className={clsx(
+            "pointer-events-none relative z-20 leading-none font-medium text-dark",
+            isMobile ? "mx-6 pt-8 pr-14" : "mt-8 ml-8 md:mt-10 md:ml-10",
+          )}
           style={{ fontSize: "clamp(2.25rem, 6vw, 4.5rem)", letterSpacing: "-0.04em", opacity: 0 }}
         >
           {product?.name}
@@ -774,11 +991,17 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         {/* Image area */}
         <div
           id="focus-image-frame"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+          onPointerLeave={onPointerEnd}
           className={clsx(
-            "absolute transition-shadow duration-700 ease-out",
+            isMobile ? "relative z-10 mx-auto mt-8" : "absolute",
+            "transition-shadow duration-700 ease-out",
             currentIdx !== 0 && FOCUS_IMAGE_SHADOW,
           )}
-          style={{ inset: 0, margin: "auto" }}
+          style={isMobile ? { touchAction: "pan-y" } : { inset: 0, margin: "auto" }}
         >
           <div id="focus-image-slot" className="pointer-events-none absolute inset-0 z-[1]" />
 
@@ -842,38 +1065,20 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             </button>
           )}
 
-          <div
-            ref={galleryIndicatorRef}
-            className="absolute top-full left-1/2 z-[4] mt-4 flex -translate-x-1/2 flex-col items-center gap-2"
-            style={{
-              opacity: galleryActive && galleryIndicatorVisible ? 1 : 0,
-              transition: "opacity 0.4s ease",
-            }}
-          >
-            <div className="flex items-center gap-1.5">
-              {galleryImages.map((_, i) => (
-                <div
-                  key={i}
-                  className={clsx(
-                    "rounded-full bg-dark transition-all duration-700 ease-out",
-                    i === currentIdx ? "h-1.5 w-5" : "h-1.5 w-1.5 opacity-20",
-                  )}
-                />
-              ))}
-            </div>
-            {galleryImages.length > 1 && (
-              <p className="text-[11px] tracking-wide text-dark/45">
-                {isMobile ? "Drag to select artwork" : "Scroll to select artwork"}
-              </p>
-            )}
-          </div>
+          {!isMobile && galleryIndicator}
         </div>
+        {isMobile && galleryIndicator}
 
-        {/* Bottom strip - details */}
-        <div ref={stripRef} className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
-          {/* Details - description, options, explore collection. Stacks on mobile
-              so the artwork, copy, and purchase controls each get their own row
-              and stay within the screen. */}
+        {/* Details strip */}
+        <div
+          ref={stripRef}
+          className={clsx(
+            "z-20",
+            isMobile ? "relative mx-6 mt-8 pb-12" : "absolute inset-x-6 bottom-8 md:inset-x-10",
+          )}
+        >
+          {/* Details - description, options, explore collection. Mobile stays in
+              document flow so longer copy can scroll naturally. */}
           <div
             ref={detailsInnerRef}
             className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-6"
@@ -882,7 +1087,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             <div className="min-w-0">
               <p
                 ref={descriptionRef}
-                className="line-clamp-2 text-xs leading-relaxed text-dark/55 md:line-clamp-none"
+                className="text-xs leading-relaxed text-dark/55"
                 style={{ maxWidth: "55ch" }}
               >
                 {product?.description}
@@ -975,6 +1180,16 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             </div>
           </div>
         </div>
+
+        {isOpen && isMobile && (
+          <div
+            ref={upsellRef}
+            className="mx-6 mb-12 border-t border-dark/20 bg-canvas"
+            style={{ display: "none" }}
+          >
+            {upsellPanelContent}
+          </div>
+        )}
       </div>
 
       {/* Click the exposed canvas to the right of the panel to close (same as ×).
@@ -1006,97 +1221,14 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         </button>
       )}
 
-      {/* "Complete your set" upsell panel - rises from the bottom-right after a
-          piece is added to cart. No z-index: DOM order keeps it above the
-          close-on-click area yet below the divider/× that follow it. */}
-      {isOpen && (
+      {/* Desktop upsell panel - rises from the bottom-right after add-to-cart. */}
+      {isOpen && !isMobile && (
         <div
           ref={upsellRef}
           className="absolute right-0 border-t border-dark/20 bg-canvas"
-          style={{ left: isMobile ? 0 : "60vw", top: "36vh", bottom: 0, display: "none" }}
+          style={{ left: "60vw", top: "36vh", bottom: 0, display: "none" }}
         >
-          <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-6 md:px-9">
-            {/* Top center: continue shopping - dismisses the panel, cart kept */}
-            <button
-              type="button"
-              onClick={() => setUpsellOpen(false)}
-              aria-label="Continue shopping"
-              className="group flex items-center gap-2 rounded-full border border-dark/20 bg-canvas px-4 py-2 text-[11px] font-medium tracking-wide text-dark transition-colors duration-300 hover:border-dark/40 hover:bg-dark hover:text-white"
-            >
-              <HoverLabel>{upsellPrompt}</HoverLabel>
-            </button>
-
-            <div className="mx-auto w-full max-w-[18rem]">
-              <div className="grid grid-cols-2 gap-3">
-                {EMPTY_UPSELL_SLOT_KEYS.map((slotKey, slotIndex) => {
-                  const artwork = upsellSlots[slotIndex]
-
-                  return artwork ? (
-                    <div
-                      key={slotKey}
-                      className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}
-                    >
-                      <img
-                        src={artwork.image}
-                        alt={artwork.alt}
-                        className="h-full w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void removeLineUnit(artwork.lineId, artwork.lineQuantity)}
-                        disabled={removingLineIds.includes(artwork.lineId)}
-                        aria-label="Remove from cart"
-                        className={clsx(
-                          "group absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-dark/10 bg-canvas/85 text-dark/55 shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-dark/25 hover:bg-dark hover:text-white disabled:pointer-events-none disabled:opacity-40",
-                          removingLineIds.includes(artwork.lineId) && "opacity-40",
-                        )}
-                      >
-                        <svg
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          className="h-3 w-3 transition-transform duration-300 group-hover:rotate-90"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M4 4l8 8M12 4l-8 8"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      key={slotKey}
-                      className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-dark/20 bg-dark/[0.025]"
-                      aria-label="Empty set slot"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-dark/15 text-lg leading-none text-dark/25"
-                      >
-                        +
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <a
-              href={checkoutUrl ?? undefined}
-              target={checkoutUrl ? "_blank" : undefined}
-              rel="noopener noreferrer"
-              aria-disabled={!checkoutUrl}
-              className={clsx(
-                "group flex w-full max-w-[18rem] items-center justify-center rounded-lg px-5 py-3.5 text-sm font-medium text-white transition-opacity duration-300",
-                checkoutUrl ? "bg-dark hover:opacity-80" : "pointer-events-none bg-dark/25",
-              )}
-            >
-              <HoverLabel>Proceed to checkout</HoverLabel>
-            </a>
-          </div>
+          {upsellPanelContent}
         </div>
       )}
 

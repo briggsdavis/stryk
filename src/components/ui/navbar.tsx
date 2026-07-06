@@ -272,9 +272,11 @@ export function Navbar({
                 to={to}
                 onClick={(event) => handleLinkClick(event, to)}
                 aria-current={isActive ? "page" : undefined}
-                className="group flex items-center gap-1.5 rounded-lg bg-dark px-5 py-3 text-sm font-medium whitespace-nowrap text-white"
+                className="group relative flex items-center justify-center rounded-lg bg-dark px-5 py-3 text-center text-sm font-medium whitespace-nowrap text-white"
               >
-                {isActive && <span className="block h-1.5 w-1.5 rounded-full bg-white" />}
+                {isActive && (
+                  <span className="absolute left-3 block h-1.5 w-1.5 rounded-full bg-white" />
+                )}
                 <HoverLabel>{label}</HoverLabel>
               </Link>
             )

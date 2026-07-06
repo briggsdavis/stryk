@@ -357,7 +357,7 @@ export function CollectionPage() {
 
           {/* Panel 2 — full-bleed imagery */}
           <div className="flex h-screen shrink-0 items-stretch">
-            <div className="h-full w-[58vw] shrink-0 overflow-hidden">
+            <div className="mr-44 h-full w-[58vw] shrink-0 overflow-hidden py-8">
               <img
                 ref={bigImgRef}
                 src={bigImage}
