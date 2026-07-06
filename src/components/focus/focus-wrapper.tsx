@@ -889,8 +889,8 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
       )}
     >
       <p className="max-w-[18rem] text-center text-sm leading-6 font-medium text-dark">
-        {upsellProgressCount} of 4 matching artworks. Buy 3, get the 4th free. Same size and
-        framing required.
+        {upsellProgressCount} of 4 matching artworks. Buy 3, get the 4th free. Same size and framing
+        required.
       </p>
 
       <div className="mx-auto w-full max-w-[18rem]">
@@ -899,7 +899,10 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             const artwork = upsellSlots[slotIndex]
 
             return artwork ? (
-              <div key={slotKey} className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}>
+              <div
+                key={slotKey}
+                className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}
+              >
                 <img src={artwork.image} alt={artwork.alt} className="h-full w-full object-cover" />
                 <button
                   type="button"
