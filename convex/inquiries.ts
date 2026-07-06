@@ -28,11 +28,15 @@ export const capturePopupEmail = mutation({
   args: {
     email: v.string(),
     source: v.string(),
+    // The pop-up this email came through, when known — powers per-pop-up
+    // sign-up counts in the analytics dashboard.
+    popupId: v.optional(v.id("popups")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("popupEmailCaptures", {
       email: args.email.trim().toLowerCase(),
       source: args.source,
+      popupId: args.popupId,
     })
   },
 })

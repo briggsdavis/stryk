@@ -1,17 +1,17 @@
 import { clsx } from "clsx"
 import { useId, useState } from "react"
 
-// ── Validated warm palette (see dataviz skill) ───────────────────────────────
-// rust ↔ amber worst adjacent CVD ΔE 20.6; plum added as a passing 3rd slot.
-// Sequential magnitude (bars/funnel) uses the single rust hue; identity charts
-// (line, donut) always ship a legend + direct labels, mitigating amber's sub-3:1
-// contrast on the warm surface.
-export const RUST = "#b5502f"
-export const AMBER = "#d98a3d"
-export const PLUM = "#a83d78"
-const CATEGORICAL = [RUST, AMBER, PLUM, "#6a6f4c", "#7c7f86"]
+// ── Colourful analytics palette ──────────────────────────────────────────────
+// The two-series traffic line is red (page views) ↔ blue (visitors) — the most
+// contrasting pair and the one the dashboard cares about most. Single-series
+// magnitude charts (bars/funnel) use one blue hue; the donut cycles the full
+// categorical set. All hues clear ~4:1 contrast on the warm canvas (#f0ede6).
+export const SERIES_VIEWS = "#c8384b" // red — page views
+export const SERIES_VISITORS = "#2563a8" // blue — visitors
+export const PRIMARY = "#2563a8" // blue — single-series magnitude
+const CATEGORICAL = ["#2563a8", "#c8384b", "#2f9e5f", "#7c4dbd", "#1c8f8f"]
 const MUTED = "#8a8178"
-const GRID = "rgba(56,35,23,0.10)"
+const GRID = "rgba(34,34,34,0.10)"
 
 function niceMax(value: number): number {
   if (value <= 4) return 4
@@ -35,7 +35,7 @@ export function ChartCard({
 }) {
   return (
     <div className={clsx("admin-card", className)}>
-      <h3 className="mb-5 text-xs font-semibold tracking-[0.18em] text-[#b5502f] uppercase">
+      <h3 className="mb-5 text-xs font-semibold tracking-[0.18em] text-dark/55 uppercase">
         {title}
       </h3>
       {children}
@@ -109,12 +109,12 @@ export function LineChart({ data }: { data: TrafficPoint[] }) {
       >
         <defs>
           <linearGradient id={`${gradId}-pv`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={RUST} stopOpacity="0.28" />
-            <stop offset="100%" stopColor={RUST} stopOpacity="0" />
+            <stop offset="0%" stopColor={SERIES_VIEWS} stopOpacity="0.28" />
+            <stop offset="100%" stopColor={SERIES_VIEWS} stopOpacity="0" />
           </linearGradient>
           <linearGradient id={`${gradId}-v`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={AMBER} stopOpacity="0.24" />
-            <stop offset="100%" stopColor={AMBER} stopOpacity="0" />
+            <stop offset="0%" stopColor={SERIES_VISITORS} stopOpacity="0.24" />
+            <stop offset="100%" stopColor={SERIES_VISITORS} stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -136,8 +136,8 @@ export function LineChart({ data }: { data: TrafficPoint[] }) {
 
         <path d={areaPath("pageViews")} fill={`url(#${gradId}-pv)`} />
         <path d={areaPath("visitors")} fill={`url(#${gradId}-v)`} />
-        <path d={linePath("pageViews")} fill="none" stroke={RUST} strokeWidth="2.5" />
-        <path d={linePath("visitors")} fill="none" stroke={AMBER} strokeWidth="2.5" />
+        <path d={linePath("pageViews")} fill="none" stroke={SERIES_VIEWS} strokeWidth="2.5" />
+        <path d={linePath("visitors")} fill="none" stroke={SERIES_VISITORS} strokeWidth="2.5" />
 
         {points.map((p, i) =>
           i % labelEvery === 0 || i === points.length - 1 ? (
@@ -164,8 +164,8 @@ export function LineChart({ data }: { data: TrafficPoint[] }) {
               stroke={MUTED}
               strokeWidth="1"
             />
-            <circle cx={xAt(hover)} cy={yAt(points[hover].pageViews)} r="4" fill={RUST} />
-            <circle cx={xAt(hover)} cy={yAt(points[hover].visitors)} r="4" fill={AMBER} />
+            <circle cx={xAt(hover)} cy={yAt(points[hover].pageViews)} r="4" fill={SERIES_VIEWS} />
+            <circle cx={xAt(hover)} cy={yAt(points[hover].visitors)} r="4" fill={SERIES_VISITORS} />
           </g>
         )}
       </svg>
@@ -177,11 +177,17 @@ export function LineChart({ data }: { data: TrafficPoint[] }) {
         >
           <p className="mb-1 font-medium text-dark">{points[hover].label}</p>
           <p className="flex items-center gap-1.5 text-dark/70">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: RUST }} />
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: SERIES_VIEWS }}
+            />
             {points[hover].pageViews} views
           </p>
           <p className="flex items-center gap-1.5 text-dark/70">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: AMBER }} />
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: SERIES_VISITORS }}
+            />
             {points[hover].visitors} visitors
           </p>
         </div>
@@ -189,11 +195,17 @@ export function LineChart({ data }: { data: TrafficPoint[] }) {
 
       <div className="mt-3 flex items-center justify-center gap-6 text-xs text-dark/60">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: RUST }} />
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full"
+            style={{ background: SERIES_VIEWS }}
+          />
           Page Views
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: AMBER }} />
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full"
+            style={{ background: SERIES_VISITORS }}
+          />
           Visitors
         </span>
       </div>
@@ -224,7 +236,7 @@ export function HBars({
           <div className="relative h-6 flex-1 overflow-hidden rounded bg-dark/5">
             <div
               className="h-full rounded"
-              style={{ width: `${(item.count / max) * 100}%`, background: RUST, minWidth: 4 }}
+              style={{ width: `${(item.count / max) * 100}%`, background: PRIMARY, minWidth: 4 }}
             />
           </div>
           <span className="w-8 shrink-0 text-sm font-medium text-dark tabular-nums">
@@ -259,7 +271,7 @@ export function RankRows({
           <div className="h-1.5 overflow-hidden rounded-full bg-dark/5">
             <div
               className="h-full rounded-full"
-              style={{ width: `${(item.count / max) * 100}%`, background: RUST }}
+              style={{ width: `${(item.count / max) * 100}%`, background: PRIMARY }}
             />
           </div>
         </div>
@@ -358,7 +370,7 @@ export function Funnel({ steps }: { steps: Array<{ label: string; value: number 
                 className="h-full rounded-lg"
                 style={{
                   width: `${(step.value / top) * 100}%`,
-                  background: RUST,
+                  background: PRIMARY,
                   opacity: 1 - i * 0.16,
                   minWidth: step.value > 0 ? 6 : 0,
                 }}

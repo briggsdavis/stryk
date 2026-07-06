@@ -17,6 +17,10 @@ export type AnalyticsEventType =
   | "add_to_cart"
   | "checkout_click"
   | "cta_click"
+  | "popup_view"
+  | "popup_click"
+  | "announcement_view"
+  | "announcement_click"
 
 function randomId(): string {
   try {

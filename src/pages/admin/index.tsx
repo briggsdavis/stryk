@@ -39,6 +39,7 @@ import {
 
 type AuthMode = "signIn" | "signUp"
 type StaticAdminSection =
+  | "dashboard"
   | "analytics"
   | "announcements"
   | "popups"
@@ -68,8 +69,13 @@ const COLLECTION_IMAGE_SLOTS = [
   { label: "Framed image", ratio: "4:5", aspectRatio: "4 / 5" },
 ] as const
 
-// Sidebar layout: Analytics first, then the dropdown groups, then the rest.
+// Dark green highlight for the currently-selected pill (time range, analytics
+// sub-tab, inquiry tab). The active *sidebar* item stays black (see NavButton).
+const ACTIVE_PILL = "border-[#15803d] bg-[#15803d] text-white"
+
+// Sidebar layout: Dashboard, then Analytics, then the dropdown groups, then the rest.
 const NAV: NavEntry[] = [
+  { kind: "item", item: { key: "dashboard", label: "Dashboard" } },
   { kind: "item", item: { key: "analytics", label: "Analytics" } },
   {
     kind: "group",
@@ -224,12 +230,12 @@ export function AdminPage() {
 }
 
 function Dashboard({ onSignOut }: { onSignOut: () => void }) {
-  const [section, setSection] = useState<AdminSection>("analytics")
+  const [section, setSection] = useState<AdminSection>("dashboard")
   // Expanded dropdown groups. Start with the group owning the active section
   // open so its item is visible.
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const initial = new Set<string>()
-    const owner = groupOf("analytics")
+    const owner = groupOf("dashboard")
     if (owner) initial.add(owner)
     return initial
   })
@@ -372,6 +378,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
               error and retries the panel. Without this, a throw in one panel
               (e.g. a failing Convex query) would unmount the whole dashboard. */}
           <ErrorBoundary key={section} fallback={(error) => <PanelError error={error} />}>
+            {section === "dashboard" && <DashboardPanel onNavigate={go} />}
             {section === "analytics" && <AnalyticsPanel />}
             {section === "announcements" && <AnnouncementsPanel />}
             {section === "popups" && <PopupsPanel />}
@@ -746,12 +753,96 @@ function useCatalogSync() {
   return { runSync, isSyncing }
 }
 
+type AnalyticsView = "general" | "marketing" | "products"
+
+const ANALYTICS_VIEWS: Array<{ key: AnalyticsView; label: string }> = [
+  { key: "general", label: "General" },
+  { key: "marketing", label: "Marketing" },
+  { key: "products", label: "Products" },
+]
+
+function formatPct(fraction: number): string {
+  return `${(fraction * 100).toFixed(1)}%`
+}
+
+function formatCurrency(amount: number, currencyCode: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  } catch {
+    return `${Math.round(amount).toLocaleString()} ${currencyCode}`
+  }
+}
+
+// Shown above sampled figures when a window held more events than the scan cap.
+function SampleNote() {
+  return (
+    <p className="rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-700">
+      This range has a very high number of events — figures below are a sample of the most recent
+      activity. Pick a shorter range for exact counts.
+    </p>
+  )
+}
+
 function AnalyticsPanel() {
+  const [view, setView] = useState<AnalyticsView>("general")
   const [range, setRange] = useState<RangeKey>("1w")
   // Re-anchor "now" whenever the range changes so switching tabs refreshes the
   // window (and buckets) to the current moment.
   const now = useMemo(() => Date.now(), [range])
   const built = useMemo(() => buildRange(range, now), [range, now])
+
+  return (
+    <section className="space-y-8">
+      <AdminHeader title="Analytics" eyebrow="Traffic, conversion & paths" />
+
+      {/* General / Marketing / Products */}
+      <div className="inline-flex rounded-full border border-dark/15 p-1">
+        {ANALYTICS_VIEWS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setView(item.key)}
+            className={clsx(
+              "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+              view === item.key ? "bg-[#15803d] text-white" : "text-dark/60 hover:bg-dark/5",
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Time-range selector — shared by all three views */}
+      <div className="flex flex-wrap gap-2">
+        {RANGE_OPTIONS.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setRange(option.key)}
+            className={clsx(
+              "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+              range === option.key
+                ? ACTIVE_PILL
+                : "border-dark/15 text-dark/65 hover:border-dark/35",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {view === "general" && <GeneralAnalytics built={built} />}
+      {view === "marketing" && <MarketingAnalytics since={built.since} until={built.until} />}
+      {view === "products" && <ProductsAnalytics since={built.since} until={built.until} />}
+    </section>
+  )
+}
+
+function GeneralAnalytics({ built }: { built: ReturnType<typeof buildRange> }) {
   const data = useQuery(api.analytics.getOverview, {
     buckets: built.buckets,
     prevStart: built.prevStart,
@@ -776,120 +867,453 @@ function AnalyticsPanel() {
     )
   }
 
+  if (data === undefined) {
+    return <p className="text-sm text-dark/55">Loading analytics...</p>
+  }
+
+  return (
+    <>
+      {data.truncated && <SampleNote />}
+
+      {/* Stat tiles */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard
+          label="Page Views"
+          value={(totals?.pageViews ?? 0).toLocaleString()}
+          sub={priorSub(totals?.pageViews, prior?.pageViews)}
+        />
+        <StatCard
+          label="Visitors"
+          value={(totals?.visitors ?? 0).toLocaleString()}
+          sub={priorSub(totals?.visitors, prior?.visitors)}
+        />
+        <StatCard
+          label="Product Views"
+          value={(totals?.productViews ?? 0).toLocaleString()}
+          sub="— no prior data"
+        />
+        <StatCard
+          label="Add to Cart"
+          value={(totals?.addToCarts ?? 0).toLocaleString()}
+          sub="— no prior data"
+        />
+        <StatCard
+          label="Checkout Clicks"
+          value={(totals?.checkoutClicks ?? 0).toLocaleString()}
+          sub={priorSub(totals?.checkoutClicks, prior?.checkoutClicks)}
+        />
+        <StatCard
+          label="Checkout Rate"
+          value={`${((totals?.conversionRate ?? 0) * 100).toFixed(1)}%`}
+          sub="of visitors"
+        />
+      </div>
+
+      {/* Traffic over time */}
+      <ChartCard title="Traffic Over Time">
+        <LineChart data={data.trafficBuckets} />
+      </ChartCard>
+
+      {/* Top pages + sources */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Top Pages">
+          <HBars items={data.topPages} emptyLabel="No page views yet." />
+        </ChartCard>
+        <ChartCard title="Where Views Come From">
+          <Donut items={data.sources} emptyLabel="No page views yet." />
+        </ChartCard>
+      </div>
+
+      {/* Conversion funnel */}
+      <ChartCard title="Conversion Funnel">
+        <p className="mb-5 text-sm text-dark/55">
+          Order = clicked through to Shopify checkout; completed purchases happen on Shopify and
+          aren&apos;t tracked here.
+        </p>
+        <Funnel
+          steps={[
+            { label: "Visited site", value: data.funnel.visited },
+            { label: "Viewed a product", value: data.funnel.viewedProduct },
+            { label: "Added to cart", value: data.funnel.addedToCart },
+            { label: "Clicked checkout", value: data.funnel.checkout },
+          ]}
+        />
+      </ChartCard>
+
+      {/* Breakdowns */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ChartCard title="Checkout Clicks by Source">
+          <RankRows items={data.checkoutBySource} emptyLabel="No data yet." />
+        </ChartCard>
+        <ChartCard title="Top Added-to-Cart Products">
+          <RankRows items={data.topAddedProducts} emptyLabel="No data yet." />
+        </ChartCard>
+        <ChartCard title="Other CTA Clicks">
+          <RankRows items={data.ctaClicks} emptyLabel="No data yet." />
+        </ChartCard>
+      </div>
+    </>
+  )
+}
+
+// Rows for the Marketing tab's pop-up / announcement performance tables.
+type MarketingRow = { id: string; title: string; views: number; clicks: number; ctr: number }
+
+function MarketingTable({
+  rows,
+  showSignups,
+  emptyLabel,
+}: {
+  rows: Array<MarketingRow & { signups?: number }>
+  showSignups?: boolean
+  emptyLabel: string
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="flex min-h-24 items-center justify-center py-6 text-center text-sm text-dark/40">
+        {emptyLabel}
+      </div>
+    )
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs tracking-[0.12em] text-dark/45 uppercase">
+            <th className="pb-3 font-semibold">Title</th>
+            <th className="pb-3 text-right font-semibold">Views</th>
+            <th className="pb-3 text-right font-semibold">Clicks</th>
+            {showSignups && <th className="pb-3 text-right font-semibold">Sign-ups</th>}
+            <th className="pb-3 text-right font-semibold">CTR</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-dark/10">
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td className="max-w-[18rem] truncate py-3 pr-4 text-dark/80" title={row.title}>
+                {row.title}
+              </td>
+              <td className="py-3 text-right font-medium text-dark tabular-nums">
+                {row.views.toLocaleString()}
+              </td>
+              <td className="py-3 text-right font-medium text-dark tabular-nums">
+                {row.clicks.toLocaleString()}
+              </td>
+              {showSignups && (
+                <td className="py-3 text-right font-medium text-dark tabular-nums">
+                  {(row.signups ?? 0).toLocaleString()}
+                </td>
+              )}
+              <td className="py-3 text-right text-dark/60 tabular-nums">{formatPct(row.ctr)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function MarketingAnalytics({ since, until }: { since: number; until: number }) {
+  const data = useQuery(api.analytics.getMarketingOverview, { since, until })
+  if (data === undefined) {
+    return <p className="text-sm text-dark/55">Loading marketing analytics...</p>
+  }
+  const t = data.totals
+  return (
+    <>
+      {data.truncated && <SampleNote />}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <StatCard label="Pop-up Views" value={t.popupViews.toLocaleString()} />
+        <StatCard label="Pop-up Clicks" value={t.popupClicks.toLocaleString()} />
+        <StatCard label="Email Sign-ups" value={t.signups.toLocaleString()} />
+        <StatCard label="Bar Views" value={t.announcementViews.toLocaleString()} />
+        <StatCard label="Bar Clicks" value={t.announcementClicks.toLocaleString()} />
+      </div>
+
+      <ChartCard title="Pop-up Performance">
+        <MarketingTable
+          rows={data.popups}
+          showSignups
+          emptyLabel="No pop-up activity in this range yet."
+        />
+      </ChartCard>
+
+      <ChartCard title="Announcement Bar Performance">
+        <MarketingTable
+          rows={data.announcements}
+          emptyLabel="No announcement bar activity in this range yet."
+        />
+      </ChartCard>
+
+      <p className="text-xs text-dark/45">
+        Views count each time a pop-up or bar was shown; clicks count its button. Tracking began
+        when this feature shipped, so history before then isn&apos;t included.
+      </p>
+    </>
+  )
+}
+
+function ProductsAnalytics({ since, until }: { since: number; until: number }) {
+  const data = useQuery(api.analytics.getProductsOverview, { since, until })
+  if (data === undefined) {
+    return <p className="text-sm text-dark/55">Loading product analytics...</p>
+  }
+  return (
+    <>
+      {data.truncated && <SampleNote />}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          label="Est. Revenue"
+          value={formatCurrency(data.totalEstRevenue, data.currencyCode)}
+          sub="estimated — not actual sales"
+        />
+        <StatCard label="Products Ranked" value={data.revenue.length.toLocaleString()} />
+        <StatCard label="Collections Viewed" value={data.topCollections.length.toLocaleString()} />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Most Viewed Products">
+          <HBars items={data.topProducts} emptyLabel="No product views in this range yet." />
+        </ChartCard>
+        <ChartCard title="Most Viewed Collections">
+          <HBars items={data.topCollections} emptyLabel="No collection views in this range yet." />
+        </ChartCard>
+      </div>
+
+      <ChartCard title="Estimated Revenue by Product">
+        {data.revenue.length === 0 ? (
+          <div className="flex min-h-24 items-center justify-center py-6 text-center text-sm text-dark/40">
+            No add-to-cart activity in this range yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs tracking-[0.12em] text-dark/45 uppercase">
+                  <th className="pb-3 font-semibold">Product</th>
+                  <th className="pb-3 text-right font-semibold">Add-to-carts</th>
+                  <th className="pb-3 text-right font-semibold">Est. revenue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-dark/10">
+                {data.revenue.map((row) => (
+                  <tr key={row.label}>
+                    <td className="max-w-[18rem] truncate py-3 pr-4 text-dark/80" title={row.label}>
+                      {row.label}
+                    </td>
+                    <td className="py-3 text-right font-medium text-dark tabular-nums">
+                      {row.units.toLocaleString()}
+                    </td>
+                    <td className="py-3 text-right font-medium text-dark tabular-nums">
+                      {row.estRevenue > 0 ? formatCurrency(row.estRevenue, data.currencyCode) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ChartCard>
+
+      <p className="text-xs text-dark/45">
+        Revenue is <strong>estimated</strong> from add-to-cart events × each product&apos;s catalog
+        price. Shopify only shares the catalog with this dashboard (no order data), so these figures
+        are directional, not confirmed sales.
+      </p>
+    </>
+  )
+}
+
+// Landing overview: quick traffic numbers, unhandled inquiries, fresh email
+// captures, and shortcut buttons into the deeper panels.
+function DashboardPanel({ onNavigate }: { onNavigate: (section: AdminSection) => void }) {
+  const now = useMemo(() => Date.now(), [])
+  const built = useMemo(() => buildRange("1w", now), [now])
+  const data = useQuery(api.analytics.getDashboardSummary, {
+    since: built.since,
+    until: built.until,
+  })
+
+  const inquiries = data?.inquiries
+  const captures = data?.emailCaptures
+  const stats = data?.quickStats
+
+  const quickActions: Array<{ label: string; section: AdminSection }> = [
+    { label: "View inquiries", section: "inquiries" },
+    { label: "Manage pop-ups", section: "popups" },
+    { label: "Announcement bar", section: "announcements" },
+    { label: "Full analytics", section: "analytics" },
+  ]
+
   return (
     <section className="space-y-8">
-      <AdminHeader title="Analytics" eyebrow="Traffic, conversion & paths" />
+      <AdminHeader title="Dashboard" eyebrow="Overview · last 7 days" />
 
-      {/* Time-range selector */}
-      <div className="flex flex-wrap gap-2">
-        {RANGE_OPTIONS.map((option) => (
+      {/* Quick stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <StatCard
+          label="Page Views"
+          value={(stats?.pageViews ?? 0).toLocaleString()}
+          sub="last 7 days"
+        />
+        <StatCard
+          label="Visitors"
+          value={(stats?.visitors ?? 0).toLocaleString()}
+          sub="last 7 days"
+        />
+        <StatCard
+          label="Pop-up Views"
+          value={(stats?.popupViews ?? 0).toLocaleString()}
+          sub="last 7 days"
+        />
+        <StatCard
+          label="New Inquiries"
+          value={inquiries ? `${inquiries.newCount}${inquiries.capped ? "+" : ""}` : "—"}
+          sub="awaiting action"
+        />
+        <StatCard
+          label="New Emails"
+          value={(captures?.windowCount ?? 0).toLocaleString()}
+          sub="last 7 days"
+        />
+      </div>
+
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-3">
+        {quickActions.map((action) => (
           <button
-            key={option.key}
+            key={action.section}
             type="button"
-            onClick={() => setRange(option.key)}
-            className={clsx(
-              "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-              range === option.key
-                ? "border-[#b5502f] bg-[#b5502f] text-white"
-                : "border-dark/15 text-dark/65 hover:border-dark/35",
-            )}
+            className="admin-secondary"
+            onClick={() => onNavigate(action.section)}
           >
-            {option.label}
+            {action.label}
           </button>
         ))}
       </div>
 
       {data === undefined ? (
-        <p className="text-sm text-dark/55">Loading analytics...</p>
+        <p className="text-sm text-dark/55">Loading overview...</p>
       ) : (
-        <>
-          {data.truncated && (
-            <p className="rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-700">
-              This range has a very high number of events — figures below are a sample of the most
-              recent activity. Pick a shorter range for exact counts.
-            </p>
-          )}
-
-          {/* Stat tiles */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <StatCard
-              label="Page Views"
-              value={(totals?.pageViews ?? 0).toLocaleString()}
-              sub={priorSub(totals?.pageViews, prior?.pageViews)}
-            />
-            <StatCard
-              label="Visitors"
-              value={(totals?.visitors ?? 0).toLocaleString()}
-              sub={priorSub(totals?.visitors, prior?.visitors)}
-            />
-            <StatCard
-              label="Product Views"
-              value={(totals?.productViews ?? 0).toLocaleString()}
-              sub="— no prior data"
-            />
-            <StatCard
-              label="Add to Cart"
-              value={(totals?.addToCarts ?? 0).toLocaleString()}
-              sub="— no prior data"
-            />
-            <StatCard
-              label="Checkout Clicks"
-              value={(totals?.checkoutClicks ?? 0).toLocaleString()}
-              sub={priorSub(totals?.checkoutClicks, prior?.checkoutClicks)}
-            />
-            <StatCard
-              label="Checkout Rate"
-              value={`${((totals?.conversionRate ?? 0) * 100).toFixed(1)}%`}
-              sub="of visitors"
-            />
-          </div>
-
-          {/* Traffic over time */}
-          <ChartCard title="Traffic Over Time">
-            <LineChart data={data.trafficBuckets} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Unhandled inquiries */}
+          <ChartCard title="Unhandled Inquiries">
+            {inquiries && inquiries.recent.length > 0 ? (
+              <>
+                <div className="space-y-2.5">
+                  {inquiries.recent.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-dark">
+                          {item.name || item.email}
+                        </p>
+                        <p className="truncate text-xs text-dark/50">{item.email}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-dark/5 px-2.5 py-0.5 text-xs text-dark/55 uppercase">
+                        {item.inquiryType}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="admin-secondary mt-4"
+                  onClick={() => onNavigate("inquiries")}
+                >
+                  View all inquiries
+                </button>
+              </>
+            ) : (
+              <div className="flex min-h-24 items-center justify-center py-6 text-center text-sm text-dark/40">
+                No unhandled inquiries. You&apos;re all caught up.
+              </div>
+            )}
           </ChartCard>
 
-          {/* Top pages + sources */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="Top Pages">
-              <HBars items={data.topPages} emptyLabel="No page views yet." />
-            </ChartCard>
-            <ChartCard title="Where Views Come From">
-              <Donut items={data.sources} emptyLabel="No page views yet." />
-            </ChartCard>
-          </div>
-
-          {/* Conversion funnel */}
-          <ChartCard title="Conversion Funnel">
-            <p className="mb-5 text-sm text-dark/55">
-              Order = clicked through to Shopify checkout; completed purchases happen on Shopify and
-              aren&apos;t tracked here.
-            </p>
-            <Funnel
-              steps={[
-                { label: "Visited site", value: data.funnel.visited },
-                { label: "Viewed a product", value: data.funnel.viewedProduct },
-                { label: "Added to cart", value: data.funnel.addedToCart },
-                { label: "Clicked checkout", value: data.funnel.checkout },
-              ]}
-            />
+          {/* Recent email captures */}
+          <ChartCard title="Recent Email Captures">
+            {captures && captures.recent.length > 0 ? (
+              <>
+                <div className="divide-y divide-dark/10">
+                  {captures.recent.map((item, i) => (
+                    <div
+                      key={`${item.email}-${i}`}
+                      className="flex items-center justify-between gap-3 py-3 text-sm"
+                    >
+                      <span className="min-w-0 truncate font-medium text-dark">{item.email}</span>
+                      <span className="flex shrink-0 items-center gap-2 text-dark/45">
+                        <span className="rounded-full bg-dark/5 px-2.5 py-0.5 text-xs">
+                          {item.source}
+                        </span>
+                        {new Date(item.ts).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="admin-secondary mt-4"
+                  onClick={() => onNavigate("inquiries")}
+                >
+                  View all captures
+                </button>
+              </>
+            ) : (
+              <div className="flex min-h-24 items-center justify-center py-6 text-center text-sm text-dark/40">
+                No email captures yet.
+              </div>
+            )}
           </ChartCard>
-
-          {/* Breakdowns */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <ChartCard title="Checkout Clicks by Source">
-              <RankRows items={data.checkoutBySource} emptyLabel="No data yet." />
-            </ChartCard>
-            <ChartCard title="Top Added-to-Cart Products">
-              <RankRows items={data.topAddedProducts} emptyLabel="No data yet." />
-            </ChartCard>
-            <ChartCard title="Other CTA Clicks">
-              <RankRows items={data.ctaClicks} emptyLabel="No data yet." />
-            </ChartCard>
-          </div>
-        </>
+        </div>
       )}
     </section>
+  )
+}
+
+// Per-item analytics modal, opened from a pop-up / announcement row. Shows
+// all-time views, clicks, (pop-up) email sign-ups, and click-through rate.
+function MarketingStatsModal({
+  kind,
+  id,
+  title,
+  onClose,
+}: {
+  kind: "popup" | "announcement"
+  id: string
+  title: string
+  onClose: () => void
+}) {
+  const data = useQuery(api.analytics.getMarketingItemStats, { kind, id })
+  return (
+    <Modal
+      title={title || (kind === "popup" ? "Pop-up" : "Announcement bar")}
+      eyebrow={kind === "popup" ? "Pop-up analytics" : "Announcement analytics"}
+      onClose={onClose}
+    >
+      {data === undefined ? (
+        <p className="text-sm text-dark/55">Loading stats...</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard label="Views" value={data.views.toLocaleString()} />
+            <StatCard label="Clicks" value={data.clicks.toLocaleString()} />
+            {kind === "popup" && (
+              <StatCard label="Email Sign-ups" value={(data.signups ?? 0).toLocaleString()} />
+            )}
+            <StatCard label="Click-through" value={formatPct(data.ctr)} />
+          </div>
+          <p className="mt-5 text-xs text-dark/45">
+            Counted since analytics tracking was added
+            {data.truncated ? " (showing a capped sample)" : ""}.
+          </p>
+        </>
+      )}
+    </Modal>
   )
 }
 
@@ -901,6 +1325,8 @@ function AnnouncementsPanel() {
   const [message, setMessage] = useState<string | null>(null)
   // The announcement currently open in the edit modal.
   const [editing, setEditing] = useState<AnnouncementForm | null>(null)
+  // The announcement whose stats modal is open.
+  const [statsFor, setStatsFor] = useState<{ id: string; title: string } | null>(null)
 
   const persist = async (form: AnnouncementForm) => {
     await saveAnnouncement({
@@ -960,6 +1386,18 @@ function AnnouncementsPanel() {
                 type="button"
                 className="admin-secondary"
                 onClick={() =>
+                  setStatsFor({
+                    id: announcement._id,
+                    title: announcement.title || announcement.text || "Announcement bar",
+                  })
+                }
+              >
+                Stats
+              </button>
+              <button
+                type="button"
+                className="admin-secondary"
+                onClick={() =>
                   setEditing({
                     id: announcement._id,
                     title: announcement.title,
@@ -1005,6 +1443,15 @@ function AnnouncementsPanel() {
             }}
           />
         </Modal>
+      )}
+
+      {statsFor && (
+        <MarketingStatsModal
+          kind="announcement"
+          id={statsFor.id}
+          title={statsFor.title}
+          onClose={() => setStatsFor(null)}
+        />
       )}
     </section>
   )
@@ -1167,6 +1614,8 @@ function PopupsPanel() {
   const deletePopup = useMutation(api.marketing.deletePopup)
   const [message, setMessage] = useState<string | null>(null)
   const [editing, setEditing] = useState<PopupForm | null>(null)
+  // The pop-up whose stats modal is open.
+  const [statsFor, setStatsFor] = useState<{ id: string; title: string } | null>(null)
 
   const persist = async (form: PopupForm) => {
     return await savePopup({
@@ -1259,6 +1708,18 @@ function PopupsPanel() {
               <button
                 type="button"
                 className="admin-secondary"
+                onClick={() =>
+                  setStatsFor({
+                    id: popup._id,
+                    title: popup.title || popup.heading || popup.text || "Pop-up",
+                  })
+                }
+              >
+                Stats
+              </button>
+              <button
+                type="button"
+                className="admin-secondary"
                 onClick={() => setEditing(popupToForm(popup))}
               >
                 Edit
@@ -1293,6 +1754,15 @@ function PopupsPanel() {
             }}
           />
         </Modal>
+      )}
+
+      {statsFor && (
+        <MarketingStatsModal
+          kind="popup"
+          id={statsFor.id}
+          title={statsFor.title}
+          onClose={() => setStatsFor(null)}
+        />
       )}
     </section>
   )
@@ -1647,7 +2117,7 @@ function InquiriesPanel() {
             onClick={() => setTab(item.key)}
             className={clsx(
               "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-              tab === item.key ? "bg-[#b5502f] text-white" : "text-dark/60 hover:bg-dark/5",
+              tab === item.key ? "bg-[#15803d] text-white" : "text-dark/60 hover:bg-dark/5",
             )}
           >
             {item.label}

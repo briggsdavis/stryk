@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation } from "react-router"
 import { api } from "../../../convex/_generated/api"
+import type { Id } from "../../../convex/_generated/dataModel"
 import { track } from "../../lib/analytics"
 import {
   onPopupAction,
@@ -16,6 +17,7 @@ import { HoverLabel } from "../ui/hover-label"
 
 type PublicPopup = {
   _id: string
+  title: string
   heading: string
   text: string
   buttonLabel: string
@@ -45,6 +47,15 @@ export function PublicMarketing() {
   const announcement = useQuery(api.marketing.activeAnnouncement, { route })
   const popups = useQuery(api.marketing.activePopups) as PublicPopup[] | undefined
   const announcementRef = useRef<HTMLDivElement>(null)
+  // Count one impression the first time each announcement bar is shown.
+  const trackedAnnouncementRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!announcement) return
+    if (trackedAnnouncementRef.current === announcement._id) return
+    trackedAnnouncementRef.current = announcement._id
+    track("announcement_view", { path: announcement._id, label: announcement.title })
+  }, [announcement])
 
   // Pop-ups armed by a user action (filter/product/collection click). Stored by
   // id so each fires independently and its card manages its own dismissal.
@@ -113,9 +124,13 @@ export function PublicMarketing() {
           {announcement.buttonLabel && announcement.buttonLink && (
             <Link
               to={announcement.buttonLink}
-              onClick={() =>
+              onClick={() => {
                 track("cta_click", { label: `Announcement · ${announcement.buttonLabel}` })
-              }
+                track("announcement_click", {
+                  path: announcement._id,
+                  label: announcement.buttonLabel,
+                })
+              }}
               className="underline underline-offset-4"
             >
               {announcement.buttonLabel}
@@ -173,6 +188,8 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
   const [entered, setEntered] = useState(false)
   const [email, setEmail] = useState("")
   const [captured, setCaptured] = useState(false)
+  // Count one impression the first time this pop-up actually appears.
+  const trackedViewRef = useRef(false)
 
   const isModal = popup.position === "center"
 
@@ -189,6 +206,10 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
     const delay = immediate ? 0 : popup.delaySeconds * 1000
     const showId = window.setTimeout(() => {
       setVisible(true)
+      if (!trackedViewRef.current) {
+        trackedViewRef.current = true
+        track("popup_view", { path: popup._id, label: popup.heading || popup.title })
+      }
       // Next frame: flip `entered` so the CSS transition animates the slide-in.
       requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)))
     }, delay)
@@ -207,7 +228,11 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
   const submitEmail = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!email.trim()) return
-    await capturePopupEmail({ email, source: "home-popup" })
+    await capturePopupEmail({
+      email,
+      source: popup.title || "Pop-up",
+      popupId: popup._id as Id<"popups">,
+    })
     setCaptured(true)
     setEmail("")
   }
@@ -254,6 +279,7 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
           to={popup.buttonLink}
           onClick={() => {
             track("cta_click", { label: `Pop-up · ${popup.buttonLabel}` })
+            track("popup_click", { path: popup._id, label: popup.buttonLabel })
             dismiss()
           }}
           className="group inline-flex rounded-lg border border-dark/20 px-5 py-3 text-sm font-medium transition-colors hover:bg-dark hover:text-white"

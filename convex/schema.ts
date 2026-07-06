@@ -108,7 +108,14 @@ export default defineSchema({
   popupEmailCaptures: defineTable({
     email: v.string(),
     source: v.string(),
-  }).index("by_email", ["email"]),
+    // The pop-up this email was captured through, when known. Optional so
+    // legacy rows (and the rare capture with no owning pop-up) stay valid.
+    // Used to count sign-ups per pop-up in the analytics dashboard.
+    popupId: v.optional(v.id("popups")),
+  })
+    .index("by_email", ["email"])
+    .index("by_source", ["source"])
+    .index("by_popupId", ["popupId"]),
   // Cookieless behavioural analytics. One row per tracked interaction on the
   // public site. `visitorId` is a random id kept in the browser's localStorage
   // (no PII); `ts` is the server-stamped event time so range queries stay
@@ -121,8 +128,17 @@ export default defineSchema({
       v.literal("add_to_cart"),
       v.literal("checkout_click"),
       v.literal("cta_click"),
+      // Marketing surfaces: a pop-up or announcement bar was shown to a
+      // visitor (…_view) or its action button was clicked (…_click). For these
+      // the `path` field carries the pop-up / announcement document id so the
+      // dashboard can count impressions and clicks per item.
+      v.literal("popup_view"),
+      v.literal("popup_click"),
+      v.literal("announcement_view"),
+      v.literal("announcement_click"),
     ),
-    // Route path for page views; product handle/id context otherwise.
+    // Route path for page views; product handle/id context otherwise; the
+    // pop-up / announcement document id for marketing events.
     path: v.optional(v.string()),
     // Human-readable label: page name, product title, or CTA button text.
     label: v.optional(v.string()),
@@ -132,6 +148,7 @@ export default defineSchema({
     ts: v.number(),
   })
     .index("by_type_and_ts", ["type", "ts"])
+    .index("by_type_and_path", ["type", "path"])
     .index("by_visitorId_and_ts", ["visitorId", "ts"])
     .index("by_ts", ["ts"]),
   catalogProducts: defineTable({
