@@ -5,8 +5,13 @@ import { emitPopupAction } from "../lib/marketing"
 import type { Product } from "../lib/types"
 
 // How far the underlying view (canvas/grid) slides aside so the focus panel can
-// take its place.
-const CANVAS_SHIFT = "60vw"
+// take its place. On mobile the panel is full-screen, so the page slides the whole
+// way off (100vw) - no sliver of the previous view stays visible.
+const MOBILE_QUERY = "(max-width: 767px)"
+function shiftFraction() {
+  if (typeof window === "undefined") return 0.6
+  return window.matchMedia(MOBILE_QUERY).matches ? 1 : 0.6
+}
 
 // Reflect the focused artwork in the URL as a `?artwork=<slug>` query param
 // (and clear it on close) without touching react-router: we keep the current
@@ -80,9 +85,13 @@ export function useProductFocus() {
         const titleTop = isMd ? 96 : 64
         const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
         const topReserve = titleTop + titleFont + 22
-        const bottomReserve = 240
+        // Mobile stacks the info + options below the image, so it needs a taller
+        // bottom reserve than the desktop side-by-side strip.
+        const bottomReserve = isMd ? 240 : 320
 
-        const maxW = Math.min(window.innerWidth * 0.36, 440)
+        // Mobile fills nearly the full width; desktop keeps the artwork within the
+        // left panel.
+        const maxW = isMd ? Math.min(window.innerWidth * 0.36, 440) : window.innerWidth * 0.86
         const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
         let tw = maxW
         let th = tw / aspect
@@ -104,7 +113,11 @@ export function useProductFocus() {
       gsap.set(el, { position: "fixed", margin: 0, zIndex: 900, scale: 1 })
 
       if (shiftElRef.current) {
-        gsap.to(shiftElRef.current, { x: CANVAS_SHIFT, duration: 1.1, ease: "expo.inOut" })
+        gsap.to(shiftElRef.current, {
+          x: `${shiftFraction() * 100}vw`,
+          duration: 1.1,
+          ease: "expo.inOut",
+        })
       }
 
       gsap.fromTo(
@@ -150,7 +163,7 @@ export function useProductFocus() {
     const fromRect = el.getBoundingClientRect()
 
     const shiftEl = shiftElRef.current
-    const shift = shiftEl ? window.innerWidth * 0.6 : 0
+    const shift = shiftEl ? window.innerWidth * shiftFraction() : 0
     const pr = placeholder.getBoundingClientRect()
     const toRect = { left: pr.left - shift, top: pr.top, width: pr.width, height: pr.height }
 

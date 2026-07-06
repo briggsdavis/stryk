@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { Accordion } from "../../components/ui/accordion"
 import { Footer } from "../../components/ui/footer"
 import { Navbar } from "../../components/ui/navbar"
+import { useMediaQuery } from "../../hooks/use-is-mobile"
 import { useLenis } from "../../hooks/use-lenis"
 import { useSplitReveal } from "../../hooks/use-scroll-reveal"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
@@ -72,6 +73,13 @@ const NUM_PANELS = 4
 export function AboutPage() {
   useLenis()
 
+  // Desktop (≥1024px) gets the horizontal scroll-jacked panels. Mobile + tablet
+  // stack the panels vertically so each section has room to breathe.
+  const isDesktop = useMediaQuery("(min-width: 1024px)")
+  // Hover-to-reveal only makes sense with a hover-capable pointer; touch devices
+  // show the value copy by default.
+  const canHover = useMediaQuery("(hover: hover) and (pointer: fine)")
+
   const horizontalRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const h1Ref = useRef<HTMLHeadingElement>(null)
@@ -87,6 +95,24 @@ export function AboutPage() {
     const getTotal = () => (NUM_PANELS - 1) * window.innerWidth
 
     const ctx = gsap.context(() => {
+      if (!isDesktop) {
+        // Vertical layout: reveal each square image with its own upward wipe as it
+        // scrolls into view (no horizontal container animation to hook into).
+        const masks = gsap.utils.toArray<HTMLElement>(".reveal-mask")
+        masks.forEach((mask) => {
+          const wrap = mask.parentElement
+          if (!wrap) return
+          gsap.set(mask, { yPercent: 0 })
+          ScrollTrigger.create({
+            trigger: wrap,
+            start: "top 85%",
+            once: true,
+            onEnter: () => gsap.to(mask, { yPercent: -100, duration: 1.0, ease: "power3.inOut" }),
+          })
+        })
+        return
+      }
+
       const horizontalTween = gsap.to(track, {
         x: () => -getTotal(),
         ease: "none",
@@ -138,7 +164,7 @@ export function AboutPage() {
     }, horizontal)
 
     return () => ctx.revert()
-  }, [])
+  }, [isDesktop])
 
   return (
     <div className="bg-canvas text-dark">
@@ -164,20 +190,24 @@ export function AboutPage() {
         </h1>
       </section>
 
-      {/* ── Horizontal scroll ── */}
-      <div ref={horizontalRef} className="h-screen overflow-hidden">
-        <div ref={trackRef} className="flex h-full" style={{ width: `${NUM_PANELS * 100}vw` }}>
+      {/* ── Horizontal scroll (desktop) / stacked sections (mobile + tablet) ── */}
+      <div ref={horizontalRef} className="lg:h-screen lg:overflow-hidden">
+        <div
+          ref={trackRef}
+          className="flex flex-col lg:h-full lg:flex-row"
+          style={isDesktop ? { width: `${NUM_PANELS * 100}vw` } : undefined}
+        >
           {/* Panel 1 - Philosophy */}
-          <div className="flex h-full w-screen flex-shrink-0 items-center gap-16 px-6 md:px-10">
-            <div className="flex flex-1 flex-col justify-center">
-              <p className="mb-8 text-xs font-medium tracking-widest text-dark/40 uppercase">
+          <div className="flex w-full flex-shrink-0 flex-col items-center gap-10 px-6 py-16 md:px-10 lg:h-full lg:w-screen lg:flex-row lg:gap-16 lg:py-0">
+            <div className="flex w-full flex-1 flex-col justify-center lg:w-auto">
+              <p className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase lg:mb-8">
                 Our Philosophy
               </p>
               <blockquote className="text-64 max-w-xl leading-tight font-light">
                 The matchbox was the first mass-produced canvas. We're still finding the
                 masterpieces.
               </blockquote>
-              <p className="mt-10 max-w-sm text-sm leading-relaxed text-dark/55">
+              <p className="mt-8 max-w-sm text-sm leading-relaxed text-dark/55 lg:mt-10">
                 Stryk sources matchboxes and matchbooks from flea markets, estate sales, and
                 specialist dealers across four continents - and brings the best of them home as art.
               </p>
@@ -185,7 +215,7 @@ export function AboutPage() {
                 Est. 2021 - New York
               </p>
             </div>
-            <div className="flex w-[34%] flex-col gap-4">
+            <div className="grid w-full grid-cols-2 gap-4 lg:flex lg:w-[34%] lg:flex-col">
               <RevealImage
                 src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=900&h=900&fit=crop&q=80"
                 alt="Stryk ceramics"
@@ -200,11 +230,11 @@ export function AboutPage() {
           </div>
 
           {/* Panel 2 - Vision & Mission */}
-          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center gap-6 px-6 md:px-10">
+          <div className="flex w-full flex-shrink-0 flex-col justify-center gap-6 px-6 py-16 md:px-10 lg:h-full lg:w-screen lg:py-0">
             <p className="text-xs font-medium tracking-widest text-dark/40 uppercase">
               What drives us
             </p>
-            <div className="grid grid-cols-2 gap-16 border-t border-dark/10 pt-6">
+            <div className="grid grid-cols-1 gap-10 border-t border-dark/10 pt-6 sm:grid-cols-2 lg:gap-16">
               <div className="flex flex-col">
                 <h3 className="mb-3 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Vision
@@ -215,7 +245,7 @@ export function AboutPage() {
                 <RevealImage
                   src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=1000&h=1000&fit=crop&q=80"
                   alt="Stryk collection"
-                  className="mt-5 aspect-square w-[60%] shrink-0"
+                  className="mt-5 aspect-square w-full max-w-[16rem] shrink-0 lg:w-[60%] lg:max-w-none"
                 />
               </div>
               <div className="flex flex-col">
@@ -228,23 +258,22 @@ export function AboutPage() {
                 <RevealImage
                   src="https://images.unsplash.com/photo-1626897885636-dd68020cc52a?w=1000&h=1000&fit=crop&q=80"
                   alt="Stryk detail"
-                  className="mt-5 aspect-square w-[60%] shrink-0"
+                  className="mt-5 aspect-square w-full max-w-[16rem] shrink-0 lg:w-[60%] lg:max-w-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Panel 3 - Our Story */}
-          <div className="flex h-full w-screen flex-shrink-0">
-            <div className="relative w-[55%] overflow-hidden">
+          <div className="flex w-full flex-shrink-0 flex-col gap-8 px-6 py-16 md:px-10 lg:h-full lg:w-screen lg:flex-row lg:gap-0 lg:p-0">
+            <div className="relative aspect-square w-full overflow-hidden lg:aspect-auto lg:h-full lg:w-[55%]">
               <img
                 src="https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?w=1200&h=1600&fit=crop&q=80"
                 alt="Our story"
-                className="parallax-img absolute inset-0 h-full w-[120%] max-w-none object-cover"
-                style={{ left: "-10%" }}
+                className="parallax-img h-full w-full max-w-none object-cover lg:absolute lg:top-0 lg:left-[-10%] lg:h-full lg:w-[120%]"
               />
             </div>
-            <div className="flex flex-1 flex-col justify-center gap-5 px-12 md:px-16">
+            <div className="flex flex-1 flex-col justify-center gap-8 lg:gap-5 lg:px-12 xl:px-16">
               <div>
                 <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
                   Our Story
@@ -252,7 +281,7 @@ export function AboutPage() {
                 <h2 className="text-48 mb-4 leading-tight font-medium">
                   Found in a Tokyo flea market
                 </h2>
-                <p className="text-sm leading-relaxed text-dark/60">
+                <p className="max-w-prose text-sm leading-relaxed text-dark/60">
                   It began in 2021 with a box of mid-century Japanese matchbooks from a
                   Shimokitazawa market - tiny, perfect labels unlike anything in any gallery. We've
                   been hunting ever since.
@@ -261,49 +290,51 @@ export function AboutPage() {
               <RevealImage
                 src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=1000&h=1000&fit=crop&q=80"
                 alt="Stryk detail"
-                className="aspect-square w-full shrink-0"
+                className="aspect-square w-full max-w-[20rem] shrink-0 lg:max-w-none"
               />
             </div>
           </div>
 
           {/* Panel 4 - Values */}
-          <div className="flex h-full w-screen flex-shrink-0 flex-col justify-center px-6 md:px-10">
-            <p className="mb-14 text-xs font-medium tracking-widest text-dark/40 uppercase">
+          <div className="flex w-full flex-shrink-0 flex-col justify-center px-6 py-16 md:px-10 lg:h-full lg:w-screen lg:py-0">
+            <p className="mb-8 text-xs font-medium tracking-widest text-dark/40 uppercase lg:mb-14">
               What we stand for
             </p>
-            <div className="grid grid-cols-4 items-stretch divide-x divide-dark/10 border-t border-dark/10 pt-12">
-              {VALUES.map((v) => (
-                <div
-                  key={v.label}
-                  onMouseEnter={() => setHoveredValue(v.label)}
-                  onMouseLeave={() => setHoveredValue(null)}
-                  className="flex cursor-default flex-col px-8 py-6"
-                >
-                  <h3
-                    className={clsx(
-                      "text-48 mb-5 font-medium transition-opacity duration-400",
-                      hoveredValue !== null && hoveredValue !== v.label
-                        ? "opacity-30"
-                        : "opacity-100",
-                    )}
+            <div className="grid grid-cols-1 gap-10 border-t border-dark/10 pt-8 sm:grid-cols-2 lg:grid-cols-4 lg:items-stretch lg:gap-0 lg:divide-x lg:divide-dark/10 lg:pt-12">
+              {VALUES.map((v) => {
+                const dimmed = canHover && hoveredValue !== null && hoveredValue !== v.label
+                const bodyVisible = !canHover || hoveredValue === v.label
+                return (
+                  <div
+                    key={v.label}
+                    onMouseEnter={() => setHoveredValue(v.label)}
+                    onMouseLeave={() => setHoveredValue(null)}
+                    className="flex cursor-default flex-col lg:px-8 lg:py-6"
                   >
-                    {v.label}
-                  </h3>
-                  <p
-                    className={clsx(
-                      "mb-8 text-sm leading-relaxed text-dark/55 transition-opacity duration-300",
-                      hoveredValue === v.label ? "opacity-100" : "opacity-0",
-                    )}
-                  >
-                    {v.body}
-                  </p>
-                  <RevealImage
-                    src={v.image}
-                    alt={v.label}
-                    className="mt-auto aspect-square w-full shrink-0"
-                  />
-                </div>
-              ))}
+                    <h3
+                      className={clsx(
+                        "text-48 mb-4 font-medium transition-opacity duration-400 lg:mb-5",
+                        dimmed ? "opacity-30" : "opacity-100",
+                      )}
+                    >
+                      {v.label}
+                    </h3>
+                    <p
+                      className={clsx(
+                        "mb-8 text-sm leading-relaxed text-dark/55 transition-opacity duration-300",
+                        bodyVisible ? "opacity-100" : "opacity-0",
+                      )}
+                    >
+                      {v.body}
+                    </p>
+                    <RevealImage
+                      src={v.image}
+                      alt={v.label}
+                      className="mt-auto aspect-square w-full shrink-0"
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

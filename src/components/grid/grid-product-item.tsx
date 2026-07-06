@@ -1,4 +1,5 @@
 import { useRef } from "react"
+import { useImageTrack } from "../../hooks/use-image-track"
 import type { Product } from "../../lib/types"
 import { HoverLabel } from "../ui/hover-label"
 
@@ -8,53 +9,21 @@ interface GridProductItemProps {
   itemRef?: (el: HTMLElement | null) => void
 }
 
-const DRAG_THRESHOLD = 6
-
 export function GridProductItem({ product, onClick, itemRef }: GridProductItemProps) {
   const cardRef = useRef<HTMLButtonElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-
-  // Pointer-drag to scroll the image track; native scroll-snap settles it.
-  const dragRef = useRef({ active: false, startX: 0, scrollLeft: 0, moved: 0 })
+  const { trackRef, handlers, wasDragged, currentImage } = useImageTrack(cardRef)
 
   const images = product.images && product.images.length > 0 ? product.images : [product.image]
 
   // Morph only the image that's currently in view, not the whole card frame.
   const focus = () => {
-    const track = trackRef.current
-    const slide = track?.children[
-      Math.min(
-        Math.max(Math.round(track.scrollLeft / (track.clientWidth || 1)), 0),
-        track.children.length - 1,
-      )
-    ] as HTMLElement | undefined
-    const img = slide?.querySelector("img") as HTMLElement | null
-    const target = img ?? cardRef.current
+    const target = currentImage() ?? cardRef.current
     if (target) onClick(product, target)
   }
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    const track = trackRef.current
-    if (!track) return
-    dragRef.current = { active: true, startX: e.clientX, scrollLeft: track.scrollLeft, moved: 0 }
-  }
-  const onPointerMove = (e: React.PointerEvent) => {
-    const track = trackRef.current
-    const d = dragRef.current
-    if (!track || !d.active) return
-    const dx = e.clientX - d.startX
-    d.moved = Math.max(d.moved, Math.abs(dx))
-    if (d.moved > DRAG_THRESHOLD) {
-      cardRef.current?.setPointerCapture(e.pointerId)
-      track.scrollLeft = d.scrollLeft - dx
-    }
-  }
-  const onPointerUp = () => {
-    dragRef.current.active = false
-  }
   // Swallow the focus click when the gesture was a drag.
   const onClickCapture = (e: React.MouseEvent) => {
-    if (dragRef.current.moved > DRAG_THRESHOLD) {
+    if (wasDragged()) {
       e.stopPropagation()
       e.preventDefault()
     }
@@ -71,10 +40,7 @@ export function GridProductItem({ product, onClick, itemRef }: GridProductItemPr
         className="grid-card"
         data-product-id={product.id}
         aria-label={`${product.name} - view`}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        {...handlers}
         onClickCapture={onClickCapture}
         onClick={focus}
       >

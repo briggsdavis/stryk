@@ -1,5 +1,6 @@
 import { clsx } from "clsx"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useIsMobile } from "../../hooks/use-is-mobile"
 import { useShopifyCart } from "../../hooks/use-shopify-cart"
 import { track } from "../../lib/analytics"
 import { gsap } from "../../lib/gsap"
@@ -57,6 +58,7 @@ function upsellPromptForCount(count: number) {
 }
 
 export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
+  const isMobile = useIsMobile()
   const transitionNavigate = useTransitionNavigate()
   const {
     cart,
@@ -454,17 +456,22 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         { backgroundColor: "rgba(240,237,230,1)", duration: 1.1, ease: "expo.inOut" },
       )
 
-      gsap.set(dividerContainerRef.current, { x: "-60vw" })
-      gsap.to(dividerContainerRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
+      // The divider + its × only exist on desktop.
+      if (dividerContainerRef.current) {
+        gsap.set(dividerContainerRef.current, { x: "-60vw" })
+        gsap.to(dividerContainerRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
+      }
 
-      gsap.set(closeRef.current, { opacity: 0, scale: 0 })
-      gsap.to(closeRef.current, {
-        opacity: 1,
-        scale: 1,
-        duration: 0.35,
-        delay: 1.05,
-        ease: "back.out(1.7)",
-      })
+      if (closeRef.current) {
+        gsap.set(closeRef.current, { opacity: 0, scale: 0 })
+        gsap.to(closeRef.current, {
+          opacity: 1,
+          scale: 1,
+          duration: 0.35,
+          delay: 1.05,
+          ease: "back.out(1.7)",
+        })
+      }
     } else {
       // The backdrop is already in place on repeated renders.
       gsap.set(panelRef.current, { backgroundColor: "rgba(240,237,230,1)" })
@@ -534,7 +541,9 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         duration: 1.1,
         ease: "expo.inOut",
       })
-      gsap.to(dividerContainerRef.current, { x: "-60vw", duration: 1.0, ease: "expo.inOut" })
+      if (dividerContainerRef.current) {
+        gsap.to(dividerContainerRef.current, { x: "-60vw", duration: 1.0, ease: "expo.inOut" })
+      }
       onClose()
     }
 
@@ -699,7 +708,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
     const GAP = 22
     const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
 
-    const maxW = Math.min(window.innerWidth * 0.36, 440)
+    const maxW = isMd ? Math.min(window.innerWidth * 0.36, 440) : window.innerWidth * 0.86
     const panelHeight = panelRef.current?.offsetHeight ?? window.innerHeight
     const maxH = Math.max(panelHeight - topReserve - bottomReserve, 160)
     let tw = maxW
@@ -745,7 +754,13 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         onPointerCancel={onPointerEnd}
         onPointerLeave={onPointerEnd}
         className="absolute inset-y-0 left-0 overflow-hidden"
-        style={{ width: "60vw", visibility: isOpen ? "visible" : "hidden" }}
+        style={{
+          width: isMobile ? "100vw" : "60vw",
+          visibility: isOpen ? "visible" : "hidden",
+          // Capture horizontal finger drags for gallery navigation on mobile
+          // rather than letting the browser treat them as page/back gestures.
+          touchAction: isMobile ? "none" : undefined,
+        }}
       >
         {/* Product name */}
         <h2
@@ -847,20 +862,27 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
               ))}
             </div>
             {galleryImages.length > 1 && (
-              <p className="text-[11px] tracking-wide text-dark/45">Scroll to select artwork</p>
+              <p className="text-[11px] tracking-wide text-dark/45">
+                {isMobile ? "Drag to select artwork" : "Scroll to select artwork"}
+              </p>
             )}
           </div>
         </div>
 
         {/* Bottom strip - details */}
         <div ref={stripRef} className="absolute inset-x-6 bottom-8 z-20 md:inset-x-10">
-          {/* Details - description, options, explore collection */}
-          <div ref={detailsInnerRef} className="flex items-end justify-between gap-6">
+          {/* Details - description, options, explore collection. Stacks on mobile
+              so the artwork, copy, and purchase controls each get their own row
+              and stay within the screen. */}
+          <div
+            ref={detailsInnerRef}
+            className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-6"
+          >
             {/* Left: description + explore collection */}
             <div className="min-w-0">
               <p
                 ref={descriptionRef}
-                className="text-xs leading-relaxed text-dark/55"
+                className="line-clamp-2 text-xs leading-relaxed text-dark/55 md:line-clamp-none"
                 style={{ maxWidth: "55ch" }}
               >
                 {product?.description}
@@ -882,7 +904,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             </div>
 
             {/* Right: purchase controls */}
-            <div ref={optionsRef} className="grid w-[22rem] flex-shrink-0 gap-1.5">
+            <div ref={optionsRef} className="grid w-full flex-shrink-0 gap-1.5 md:w-[22rem]">
               <div className="grid grid-cols-4 gap-1.5">
                 {SIZE_OPTIONS.map(({ key, label }) => (
                   <button
@@ -955,8 +977,10 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         </div>
       </div>
 
-      {/* Click the exposed canvas to the right of the panel to close (same as ×) */}
-      {isOpen && (
+      {/* Click the exposed canvas to the right of the panel to close (same as ×).
+          Desktop only - on mobile the panel is full-screen, so there's no exposed
+          canvas and the corner × handles closing. */}
+      {isOpen && !isMobile && (
         <button
           type="button"
           onClick={handleClose}
@@ -966,6 +990,22 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         />
       )}
 
+      {/* Mobile close - a corner × since the divider/exposed-canvas close isn't
+          reachable when the panel fills the screen. */}
+      {isOpen && isMobile && (
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Close"
+          className="absolute top-6 right-5 z-30 flex h-10 w-10 items-center justify-center rounded-lg border border-dark/20 bg-[#f0ede6] text-dark transition-colors hover:bg-dark hover:text-white"
+        >
+          <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3">
+            <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" />
+            <line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </button>
+      )}
+
       {/* "Complete your set" upsell panel - rises from the bottom-right after a
           piece is added to cart. No z-index: DOM order keeps it above the
           close-on-click area yet below the divider/× that follow it. */}
@@ -973,7 +1013,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         <div
           ref={upsellRef}
           className="absolute right-0 border-t border-dark/20 bg-canvas"
-          style={{ left: "60vw", top: "36vh", bottom: 0, display: "none" }}
+          style={{ left: isMobile ? 0 : "60vw", top: "36vh", bottom: 0, display: "none" }}
         >
           <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-6 md:px-9">
             {/* Top center: continue shopping - dismisses the panel, cart kept */}
@@ -1060,8 +1100,9 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         </div>
       )}
 
-      {/* Divider line + × button */}
-      {isOpen && (
+      {/* Divider line + × button - desktop only (the divider sits on the panel /
+          canvas seam, which doesn't exist when the panel is full-screen). */}
+      {isOpen && !isMobile && (
         <div
           ref={dividerContainerRef}
           className="absolute inset-y-0"
