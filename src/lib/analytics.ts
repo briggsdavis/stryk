@@ -9,6 +9,8 @@ import { convex } from "./convex-client"
 const VISITOR_KEY = "stryk-visitor-id"
 const SOURCE_KEY = "stryk-analytics-source"
 
+let fallbackVisitorId: string | null = null
+
 export type AnalyticsEventType =
   | "page_view"
   | "product_view"
@@ -34,8 +36,9 @@ function getVisitorId(): string {
     }
     return id
   } catch {
-    // Private mode / storage disabled: fall back to a per-load id.
-    return randomId()
+    // Private mode / storage disabled: fall back to a stable per-load id.
+    fallbackVisitorId ??= randomId()
+    return fallbackVisitorId
   }
 }
 

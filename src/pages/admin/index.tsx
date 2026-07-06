@@ -1,4 +1,9 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react"
+import { ArrowLeft } from "@phosphor-icons/react/ArrowLeft"
+import { ArrowsClockwise } from "@phosphor-icons/react/ArrowsClockwise"
+import { CaretDown } from "@phosphor-icons/react/CaretDown"
+import { SignOut } from "@phosphor-icons/react/SignOut"
+import { Storefront } from "@phosphor-icons/react/Storefront"
 import { clsx } from "clsx"
 import { useAction, useMutation, useQuery } from "convex/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -163,7 +168,7 @@ export function AdminPage() {
             </div>
           </CenteredShell>
         ) : (
-          <Dashboard email={viewer.email} onSignOut={() => void signOut()} />
+          <Dashboard onSignOut={() => void signOut()} />
         )
       ) : (
         <CenteredShell>
@@ -187,7 +192,7 @@ export function AdminPage() {
   )
 }
 
-function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void }) {
+function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const [section, setSection] = useState<AdminSection>("analytics")
   // Expanded dropdown groups. Start with the group owning the active section
   // open so its item is visible.
@@ -233,18 +238,18 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
                 <button
                   type="button"
                   onClick={() => toggleGroup(entry.label)}
-                  className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-xs font-semibold tracking-[0.14em] text-dark/50 uppercase transition-colors hover:bg-dark/5"
+                  className="flex w-full items-center justify-between rounded-lg px-4 py-2.5 text-left text-sm font-medium text-dark/65 transition-colors hover:bg-dark/5"
                 >
                   {entry.label}
-                  <span
+                  <CaretDown
                     aria-hidden="true"
+                    size={14}
+                    weight="bold"
                     className={clsx(
-                      "text-[10px] transition-transform",
+                      "transition-transform",
                       expanded.has(entry.label) && "rotate-180",
                     )}
-                  >
-                    ▼
-                  </span>
+                  />
                 </button>
                 {expanded.has(entry.label) && (
                   <div className="mt-1 mb-1 flex flex-col gap-1 pl-3">
@@ -263,47 +268,46 @@ function Dashboard({ email, onSignOut }: { email: string; onSignOut: () => void 
             ),
           )}
         </nav>
-        <div className="border-t border-dark/10 pt-5">
-          <p className="mb-3 text-xs break-words text-dark/50">{email}</p>
-          <button type="button" onClick={onSignOut} className="admin-secondary w-full">
-            Sign out
-          </button>
+        <div className="mt-6 border-t border-dark/10 pt-5">
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                go("catalog")
+                void catalogSync.runSync()
+              }}
+              disabled={catalogSync.isSyncing}
+              className="admin-primary w-full gap-2"
+            >
+              <ArrowsClockwise
+                aria-hidden="true"
+                size={16}
+                weight="bold"
+                className={clsx(catalogSync.isSyncing && "animate-spin")}
+              />
+              {catalogSync.isSyncing ? "Syncing..." : "Sync catalog"}
+            </button>
+            <a
+              href="https://admin.shopify.com/store/stryk-8562"
+              target="_blank"
+              rel="noreferrer"
+              className="admin-secondary w-full gap-2"
+            >
+              <Storefront aria-hidden="true" size={16} weight="bold" />
+              Shopify store
+            </a>
+            <Link to="/" className="admin-secondary w-full gap-2">
+              <ArrowLeft aria-hidden="true" size={16} weight="bold" />
+              Back to site
+            </Link>
+            <button type="button" onClick={onSignOut} className="admin-secondary w-full gap-2">
+              <SignOut aria-hidden="true" size={16} weight="bold" />
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
       <section className="min-h-screen flex-1 pl-72 md:pl-80">
-        {/* Sticky action bar - stays pinned at the top while panels scroll. */}
-        <div className="sticky top-0 z-30 border-b border-dark/10 bg-canvas/85 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-8 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  go("catalog")
-                  void catalogSync.runSync()
-                }}
-                disabled={catalogSync.isSyncing}
-                className="inline-flex items-center gap-2 rounded-lg bg-dark px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-50"
-              >
-                <span
-                  aria-hidden="true"
-                  className={clsx(
-                    "text-base leading-none",
-                    catalogSync.isSyncing && "animate-spin",
-                  )}
-                >
-                  ⟳
-                </span>
-                {catalogSync.isSyncing ? "Syncing..." : "Sync catalog"}
-              </button>
-              <button type="button" className="admin-secondary">
-                Shopify store
-              </button>
-            </div>
-            <Link to="/" className="admin-secondary gap-1.5">
-              <span aria-hidden="true">←</span> Back to site
-            </Link>
-          </div>
-        </div>
         <div className="mx-auto w-full max-w-6xl px-8 py-10">
           {/* Keyed by section so switching tabs clears a previously caught
               error and retries the panel. Without this, a throw in one panel

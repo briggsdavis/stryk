@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test"
 import { expect, test } from "vitest"
+import { buildRange } from "../src/lib/analytics-ranges"
 import { api } from "./_generated/api"
 import schema from "./schema"
-import { buildRange } from "../src/lib/analytics-ranges"
 
 const modules = import.meta.glob("./**/*.ts")
 
@@ -82,6 +82,29 @@ test("getOverview partitions event types and builds the funnel", async () => {
   expect(result.funnel).toEqual({ visited: 1, viewedProduct: 1, addedToCart: 1, checkout: 1 })
   expect(result.checkoutBySource).toEqual([{ label: "Google", count: 1 }])
   expect(result.ctaClicks).toEqual([{ label: "Pop-up · Sign up", count: 1 }])
+})
+
+test("recordEvent ignores excessive events from one visitor", async () => {
+  const t = convexTest(schema, modules)
+  const asAdmin = await makeAdmin(t)
+
+  for (let i = 0; i < 121; i++) {
+    await t.mutation(api.analytics.recordEvent, {
+      visitorId: "v-rate",
+      type: "page_view",
+      path: "/",
+      label: "Home",
+      source: "Direct",
+    })
+  }
+
+  const r = buildRange("today", Date.now())
+  const result = await asAdmin.query(api.analytics.getOverview, {
+    buckets: r.buckets,
+    prevStart: r.prevStart,
+    prevEnd: r.prevEnd,
+  })
+  expect(result.totals.pageViews).toBe(120)
 })
 
 test("getOverview rejects non-admin", async () => {

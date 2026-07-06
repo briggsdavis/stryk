@@ -132,6 +132,7 @@ export default defineSchema({
     ts: v.number(),
   })
     .index("by_type_and_ts", ["type", "ts"])
+    .index("by_visitorId_and_ts", ["visitorId", "ts"])
     .index("by_ts", ["ts"]),
   catalogProducts: defineTable({
     shopifyProductId: v.string(),

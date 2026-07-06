@@ -1,6 +1,6 @@
 import { v } from "convex/values"
 import type { Doc } from "./_generated/dataModel"
-import type { QueryCtx } from "./_generated/server"
+import type { MutationCtx, QueryCtx } from "./_generated/server"
 import { mutation, query } from "./_generated/server"
 import { requireAdmin } from "./admin"
 
@@ -21,6 +21,20 @@ type EventType = Doc<"analyticsEvents">["type"]
 // `truncated` so the UI can say so, rather than throwing.
 const MAIN_SCAN_CAP = 10000
 const PREV_SCAN_CAP = 3000
+// Best-effort abuse guard. `visitorId` is client-supplied, so this limits noisy
+// clients and accidents; it is not a hard security boundary.
+const VISITOR_RATE_WINDOW_MS = 60_000
+const VISITOR_RATE_CAP = 120
+
+async function isOverVisitorRateLimit(ctx: MutationCtx, visitorId: string, now: number) {
+  const recent = await ctx.db
+    .query("analyticsEvents")
+    .withIndex("by_visitorId_and_ts", (q) =>
+      q.eq("visitorId", visitorId).gte("ts", now - VISITOR_RATE_WINDOW_MS),
+    )
+    .take(VISITOR_RATE_CAP)
+  return recent.length >= VISITOR_RATE_CAP
+}
 
 // Public, unauthenticated: the storefront records its own events. Deliberately
 // tolerant — a bad/oversized field must never break the visitor's page.
@@ -35,26 +49,33 @@ export const recordEvent = mutation({
   handler: async (ctx, args) => {
     const clip = (value: string | undefined, max: number) =>
       value === undefined ? undefined : value.slice(0, max)
+    const visitorId = args.visitorId.trim().slice(0, 64)
+    if (!visitorId) return null
+
+    const now = Date.now()
+    if (await isOverVisitorRateLimit(ctx, visitorId, now)) return null
+
     await ctx.db.insert("analyticsEvents", {
-      visitorId: args.visitorId.slice(0, 64),
+      visitorId,
       type: args.type,
       path: clip(args.path, 256),
       label: clip(args.label, 256),
       source: clip(args.source, 128),
       // Server clock — authoritative, immune to client skew.
-      ts: Date.now(),
+      ts: now,
     })
     return null
   },
 })
 
-// Read every event in [since, until] in a single time-ordered scan, bounded by
-// `cap`. One scan across all types (rather than one per type) keeps total
+// Read every event in [since, until] in one newest-first scan, bounded by `cap`.
+// One scan across all types (rather than one per type) keeps total
 // document reads predictable and well under Convex's per-query limit.
 async function scanWindow(ctx: QueryCtx, since: number, until: number, cap: number) {
   return await ctx.db
     .query("analyticsEvents")
     .withIndex("by_ts", (q) => q.gte("ts", since).lte("ts", until))
+    .order("desc")
     .take(cap)
 }
 
