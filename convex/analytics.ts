@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import type { Doc } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "./_generated/server"
 import { mutation, query } from "./_generated/server"
 import { requireAdmin } from "./admin"
@@ -10,6 +10,10 @@ const eventType = v.union(
   v.literal("add_to_cart"),
   v.literal("checkout_click"),
   v.literal("cta_click"),
+  v.literal("popup_view"),
+  v.literal("popup_click"),
+  v.literal("announcement_view"),
+  v.literal("announcement_click"),
 )
 
 type EventType = Doc<"analyticsEvents">["type"]
@@ -183,6 +187,294 @@ export const getOverview = query({
       checkoutBySource: tally(checkoutClicks, sourceOf),
       topAddedProducts: tally(addToCarts, labelOf).slice(0, 8),
       ctaClicks: tally(ctaClicks, labelOf).slice(0, 8),
+    }
+  },
+})
+
+// ── Marketing & product analytics ────────────────────────────────────────────
+
+// One bounded, newest-first scan of a single event type within [since, until].
+// Using the (type, ts) index keeps reads predictable even when other event
+// types (page views) dominate the table.
+async function scanTypeWindow(
+  ctx: QueryCtx,
+  type: EventType,
+  since: number,
+  until: number,
+  cap: number,
+) {
+  return await ctx.db
+    .query("analyticsEvents")
+    .withIndex("by_type_and_ts", (q) => q.eq("type", type).gte("ts", since).lte("ts", until))
+    .order("desc")
+    .take(cap)
+}
+
+// Count rows of `type` whose `path` equals a specific id, over all time. Bounded
+// by `cap`; the boolean says whether the true count exceeds what we read.
+async function countByPath(ctx: QueryCtx, type: EventType, path: string, cap: number) {
+  const rows = await ctx.db
+    .query("analyticsEvents")
+    .withIndex("by_type_and_path", (q) => q.eq("type", type).eq("path", path))
+    .take(cap)
+  return { count: rows.length, truncated: rows.length >= cap }
+}
+
+// Tally a set of events into a Map keyed by their `path` (the marketing item id).
+function tallyByPath(rows: Doc<"analyticsEvents">[]) {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    if (!row.path) continue
+    counts.set(row.path, (counts.get(row.path) ?? 0) + 1)
+  }
+  return counts
+}
+
+const MARKETING_SCAN_CAP = 5000
+
+// Powers the "Marketing" tab: per-pop-up and per-announcement impressions,
+// clicks, click-through rate, and (for pop-ups) email sign-ups over a window.
+export const getMarketingOverview = query({
+  args: { since: v.number(), until: v.number() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    const { since, until } = args
+
+    const [popupViews, popupClicks, annViews, annClicks, popupList, annList, captures] =
+      await Promise.all([
+        scanTypeWindow(ctx, "popup_view", since, until, MARKETING_SCAN_CAP),
+        scanTypeWindow(ctx, "popup_click", since, until, MARKETING_SCAN_CAP),
+        scanTypeWindow(ctx, "announcement_view", since, until, MARKETING_SCAN_CAP),
+        scanTypeWindow(ctx, "announcement_click", since, until, MARKETING_SCAN_CAP),
+        ctx.db.query("popups").withIndex("by_updatedAt").order("desc").take(50),
+        ctx.db.query("announcementBars").withIndex("by_updatedAt").order("desc").take(50),
+        ctx.db.query("popupEmailCaptures").order("desc").take(2000),
+      ])
+
+    const pv = tallyByPath(popupViews)
+    const pc = tallyByPath(popupClicks)
+    const av = tallyByPath(annViews)
+    const ac = tallyByPath(annClicks)
+
+    // Email sign-ups per pop-up, counted within the window.
+    const signups = new Map<string, number>()
+    for (const capture of captures) {
+      if (!capture.popupId) continue
+      if (capture._creationTime < since || capture._creationTime > until) continue
+      signups.set(capture.popupId, (signups.get(capture.popupId) ?? 0) + 1)
+    }
+
+    const rate = (clicks: number, views: number) => (views > 0 ? clicks / views : 0)
+
+    const popups = popupList
+      .map((popup) => {
+        const views = pv.get(popup._id) ?? 0
+        const clicks = pc.get(popup._id) ?? 0
+        const emailSignups = signups.get(popup._id) ?? 0
+        return {
+          id: popup._id,
+          title: popup.title || popup.heading || "Untitled pop-up",
+          views,
+          clicks,
+          signups: emailSignups,
+          ctr: rate(clicks, views),
+        }
+      })
+      .sort((a, b) => b.views - a.views || b.clicks - a.clicks)
+
+    const announcements = annList
+      .map((announcement) => {
+        const views = av.get(announcement._id) ?? 0
+        const clicks = ac.get(announcement._id) ?? 0
+        return {
+          id: announcement._id,
+          title: announcement.title || announcement.text || "Untitled bar",
+          views,
+          clicks,
+          ctr: rate(clicks, views),
+        }
+      })
+      .sort((a, b) => b.views - a.views || b.clicks - a.clicks)
+
+    const truncated = [popupViews, popupClicks, annViews, annClicks].some(
+      (rows) => rows.length >= MARKETING_SCAN_CAP,
+    )
+
+    return {
+      truncated,
+      totals: {
+        popupViews: popupViews.length,
+        popupClicks: popupClicks.length,
+        announcementViews: annViews.length,
+        announcementClicks: annClicks.length,
+        signups: [...signups.values()].reduce((sum, n) => sum + n, 0),
+      },
+      popups,
+      announcements,
+    }
+  },
+})
+
+// All-time stats for a single pop-up or announcement, for the row-level modal.
+export const getMarketingItemStats = query({
+  args: {
+    kind: v.union(v.literal("popup"), v.literal("announcement")),
+    id: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    const CAP = 10000
+    const viewType: EventType = args.kind === "popup" ? "popup_view" : "announcement_view"
+    const clickType: EventType = args.kind === "popup" ? "popup_click" : "announcement_click"
+
+    const [views, clicks] = await Promise.all([
+      countByPath(ctx, viewType, args.id, CAP),
+      countByPath(ctx, clickType, args.id, CAP),
+    ])
+
+    let signups: number | null = null
+    if (args.kind === "popup") {
+      const captures = await ctx.db
+        .query("popupEmailCaptures")
+        .withIndex("by_popupId", (q) => q.eq("popupId", args.id as Id<"popups">))
+        .take(CAP)
+      signups = captures.length
+    }
+
+    return {
+      views: views.count,
+      clicks: clicks.count,
+      signups,
+      ctr: views.count > 0 ? clicks.count / views.count : 0,
+      truncated: views.truncated || clicks.truncated,
+    }
+  },
+})
+
+const PRODUCT_PV_CAP = 6000
+const PRODUCT_VIEW_CAP = 4000
+const PRODUCT_CART_CAP = 4000
+const COLLECTION_LABEL_PREFIX = "Collection: "
+
+// Powers the "Products" tab: most-viewed products & collections, plus an
+// ESTIMATED revenue ranking. Shopify only exposes the catalog to this app (no
+// order webhook), so revenue is estimated as add-to-cart events × the product's
+// mid catalog price — directional, never actual sales.
+export const getProductsOverview = query({
+  args: { since: v.number(), until: v.number() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    const { since, until } = args
+
+    const [pageViews, productViews, addToCarts, products] = await Promise.all([
+      scanTypeWindow(ctx, "page_view", since, until, PRODUCT_PV_CAP),
+      scanTypeWindow(ctx, "product_view", since, until, PRODUCT_VIEW_CAP),
+      scanTypeWindow(ctx, "add_to_cart", since, until, PRODUCT_CART_CAP),
+      ctx.db
+        .query("catalogProducts")
+        .withIndex("by_isVisible_and_sortRank", (q) => q.eq("isVisible", true))
+        .take(500),
+    ])
+
+    // Product title (lowercased) → mid catalog price, for revenue estimation.
+    const priceByTitle = new Map<string, number>()
+    for (const product of products) {
+      const mid = (product.priceMin + product.priceMax) / 2
+      priceByTitle.set(product.title.trim().toLowerCase(), mid)
+    }
+    const currencyCode = products[0]?.currencyCode ?? "USD"
+
+    const labelOf = (row: Doc<"analyticsEvents">) => row.label || row.path || "Unknown"
+
+    // Most-viewed products.
+    const topProducts = tally(productViews, labelOf).slice(0, 10)
+
+    // Most-viewed collections: page views whose label is "Collection: <name>".
+    const collectionViews = pageViews.filter((row) =>
+      (row.label ?? "").startsWith(COLLECTION_LABEL_PREFIX),
+    )
+    const topCollections = tally(collectionViews, (row) =>
+      (row.label ?? "").slice(COLLECTION_LABEL_PREFIX.length),
+    ).slice(0, 10)
+
+    // Estimated revenue from add-to-cart events × mid price.
+    const cartCounts = tally(addToCarts, labelOf)
+    let totalEstRevenue = 0
+    const revenue = cartCounts
+      .map((item) => {
+        const price = priceByTitle.get(item.label.trim().toLowerCase()) ?? 0
+        const estRevenue = price * item.count
+        totalEstRevenue += estRevenue
+        return { label: item.label, units: item.count, estRevenue }
+      })
+      .sort((a, b) => b.estRevenue - a.estRevenue)
+      .slice(0, 10)
+
+    const truncated =
+      pageViews.length >= PRODUCT_PV_CAP ||
+      productViews.length >= PRODUCT_VIEW_CAP ||
+      addToCarts.length >= PRODUCT_CART_CAP
+
+    return {
+      truncated,
+      currencyCode,
+      topProducts,
+      topCollections,
+      revenue,
+      totalEstRevenue,
+    }
+  },
+})
+
+// Powers the "Dashboard" overview landing: unhandled inquiries, fresh email
+// captures, and a few quick traffic numbers over the caller-supplied window.
+export const getDashboardSummary = query({
+  args: { since: v.number(), until: v.number() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx)
+    const { since, until } = args
+
+    const [newInquiries, captures, pageViews, popupViews] = await Promise.all([
+      ctx.db
+        .query("contactInquiries")
+        .withIndex("by_status", (q) => q.eq("status", "new"))
+        .order("desc")
+        .take(100),
+      ctx.db.query("popupEmailCaptures").order("desc").take(500),
+      scanTypeWindow(ctx, "page_view", since, until, PRODUCT_PV_CAP),
+      scanTypeWindow(ctx, "popup_view", since, until, MARKETING_SCAN_CAP),
+    ])
+
+    const recentCaptures = captures.slice(0, 5).map((capture) => ({
+      email: capture.email,
+      source: capture.source,
+      ts: capture._creationTime,
+    }))
+    const capturesInWindow = captures.filter(
+      (capture) => capture._creationTime >= since && capture._creationTime <= until,
+    ).length
+
+    return {
+      inquiries: {
+        newCount: newInquiries.length,
+        capped: newInquiries.length >= 100,
+        recent: newInquiries.slice(0, 5).map((inquiry) => ({
+          id: inquiry._id,
+          name: `${inquiry.firstName} ${inquiry.lastName}`.trim(),
+          email: inquiry.email,
+          inquiryType: inquiry.inquiryType,
+          ts: inquiry._creationTime,
+        })),
+      },
+      emailCaptures: {
+        windowCount: capturesInWindow,
+        recent: recentCaptures,
+      },
+      quickStats: {
+        pageViews: pageViews.length,
+        visitors: distinctVisitors(pageViews),
+        popupViews: popupViews.length,
+      },
     }
   },
 })
