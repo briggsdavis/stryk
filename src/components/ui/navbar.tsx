@@ -193,7 +193,13 @@ export function Navbar({
           aria-label="Stryk - home"
           className="cursor-pointer opacity-80 transition-opacity hover:opacity-100"
         >
-          <img src="/stryk-logo.png" alt="Stryk" className="h-7 w-auto md:h-8" />
+          <img
+            src="/stryk-logo-128.png"
+            alt="Stryk"
+            width={32}
+            height={32}
+            className="h-7 w-auto md:h-8"
+          />
         </button>
       </div>
 
