@@ -33,7 +33,8 @@ export function useArtworkFocus() {
 // into the same morphing panel. Inert (pointer-events:none) until a product is
 // focused, so it never interferes with the page beneath it.
 export function ArtworkFocusProvider({ children }: { children: ReactNode }) {
-  const { focusedProduct, openProduct, handleClose, isFocusedRef } = useProductFocus()
+  const { focusedProduct, openProduct, handleClose, dismissProduct, isFocusedRef } =
+    useProductFocus()
 
   const openByHandle = useCallback<OpenByHandle>(
     (handle, fromRect, imageSrc) => {
@@ -60,7 +61,12 @@ export function ArtworkFocusProvider({ children }: { children: ReactNode }) {
       value={{ focusedProduct, isFocusedRef, openProduct, openByHandle, close: handleClose }}
     >
       {children}
-      <FocusWrapper product={focusedProduct} onClose={handleClose} onOpenArtwork={openByHandle} />
+      <FocusWrapper
+        product={focusedProduct}
+        onClose={handleClose}
+        onDismiss={dismissProduct}
+        onOpenArtwork={openByHandle}
+      />
     </ArtworkFocusContext.Provider>
   )
 }

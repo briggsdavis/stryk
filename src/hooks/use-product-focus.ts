@@ -17,8 +17,8 @@ function shiftFraction() {
 // Reflect the focused artwork in the URL as a `?artwork=<slug>` query param
 // (and clear it on close) without touching react-router: we keep the current
 // route matched and its history state intact, so nothing re-renders and the
-// open morph is undisturbed. The param is purely cosmetic - a reload still
-// resolves the real path, which simply ignores it.
+// open morph is undisturbed. Pages consume this param on reload by opening from
+// the matching rendered artwork element.
 function setArtworkParam(slug: string | null) {
   if (typeof window === "undefined") return
   const url = new URL(window.location.href)
@@ -283,5 +283,28 @@ export function useProductFocus() {
     )
   }, [])
 
-  return { focusedProduct, beginFocus, openProduct, handleClose, isFocusedRef }
+  const dismissProduct = useCallback((opts?: { restoreOrigin?: boolean }) => {
+    setArtworkParam(null)
+    const el = focusedElRef.current
+    const placeholder = placeholderRef.current
+    const restoreOrigin = opts?.restoreOrigin ?? true
+    if (el) gsap.killTweensOf(el)
+
+    if (restoreOrigin && el && placeholder?.parentElement) {
+      placeholder.parentElement.replaceChild(el, placeholder)
+      gsap.set(el, { clearProps: "all" })
+      el.setAttribute("style", originalStyleRef.current)
+    } else {
+      document.getElementById("focus-image-slot")?.replaceChildren()
+      el?.remove()
+    }
+
+    if (shiftElRef.current) gsap.set(shiftElRef.current, { x: 0 })
+    placeholderRef.current = null
+    focusedElRef.current = null
+    isFocusedRef.current = false
+    setFocusedProduct(null)
+  }, [])
+
+  return { focusedProduct, beginFocus, openProduct, handleClose, dismissProduct, isFocusedRef }
 }

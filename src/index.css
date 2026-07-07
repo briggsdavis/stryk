@@ -83,6 +83,19 @@
   animation: 900ms cubic-bezier(0.16, 1, 0.3, 1) both page-blur-in;
 }
 
+/* White reveal: hide the outgoing page and let the incoming route resolve from
+   white. Used for focus -> collection so no old artwork layer lingers. */
+:root:active-view-transition-type(white)::view-transition {
+  background: #fff;
+}
+:root:active-view-transition-type(white)::view-transition-old(root) {
+  animation: none;
+  opacity: 0;
+}
+:root:active-view-transition-type(white)::view-transition-new(root) {
+  animation: 1000ms cubic-bezier(0.16, 1, 0.3, 1) both page-fade-in;
+}
+
 /* ── Base ── */
 @layer base {
   html,
@@ -160,6 +173,18 @@
 
   .site-top-close {
     top: calc(var(--announcement-bar-height) + 1.5rem);
+  }
+
+  .collection-card-shade {
+    height: 7rem;
+    background: linear-gradient(
+      to top,
+      rgb(0 0 0 / 0.64) 0%,
+      rgb(0 0 0 / 0.46) 34%,
+      rgb(0 0 0 / 0.2) 68%,
+      rgb(0 0 0 / 0.06) 88%,
+      transparent 100%
+    );
   }
 
   @media (min-width: 48rem) {

@@ -12,6 +12,7 @@ import { HoverLabel } from "../ui/hover-label"
 interface FocusWrapperProps {
   product: Product | null
   onClose: () => void
+  onDismiss: (opts?: { restoreOrigin?: boolean }) => void
   // Reopen a different artwork (from the "complete your set" thumbnails) by its
   // Shopify handle, morphing from the clicked thumbnail's box.
   onOpenArtwork?: (handle: string, fromRect: DOMRect, imageSrc?: string) => void
@@ -87,7 +88,7 @@ function dealMeta({
   }
 }
 
-export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperProps) {
+export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: FocusWrapperProps) {
   const isMobile = useIsMobile()
   const transitionNavigate = useTransitionNavigate()
   const {
@@ -691,26 +692,20 @@ export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperPr
     emitPopupAction("collection")
     const target = `/collection/${product.collectionSlug}`
 
-    // Already on this collection: close the normal way so the artwork morphs
-    // back into its grid spot as the panel wipes.
-    if (target === window.location.pathname) {
-      handleClose()
-      return
-    }
-
-    // Different page: let the collection simply blur in over the focused
-    // artwork. The focus panel (with the artwork sitting on top) is captured as
-    // the outgoing page and held beneath while the collection resolves from a
-    // soft blur; `onClose` is folded into the navigation so the panel is torn
-    // down atomically and never lingers over the new page. The artwork's
-    // canvas/grid origin lives on the page we're leaving, so once it unmounts
-    // there's nothing to morph back to - onClose just drops the piece.
     galleryActiveRef.current = false
     animatingRef.current = false
     setGalleryIndicatorVisible(false)
     setUpsellOpen(false)
 
-    transitionNavigate(target, { type: "blur", onNavigate: onClose })
+    if (target === window.location.pathname) {
+      onDismiss()
+    } else {
+      transitionNavigate(target, {
+        type: "white",
+        state: { skipCollectionIntro: true },
+        onNavigate: () => onDismiss({ restoreOrigin: false }),
+      })
+    }
   }
 
   // ── Expanded (lightbox) view ──────────────────────────────────────────────

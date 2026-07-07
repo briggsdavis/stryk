@@ -4,10 +4,13 @@ import { flushSync } from "react-dom"
 import { useNavigate, useLocation } from "react-router"
 
 // A navigation can opt into a named transition `type` (styled via
-// `:active-view-transition-type(...)` in index.css) and pass an `onNavigate`
-// callback that runs inside the same flush as the route change - used to tear
-// down overlays atomically so the new page is captured cleanly.
-type NavigateOptions = { type?: string; onNavigate?: () => void }
+// `:active-view-transition-type(...)` in index.css). `onNavigate` runs in the
+// route-swap flush so overlays can be cleared from the incoming snapshot.
+type NavigateOptions = {
+  type?: string
+  state?: unknown
+  onNavigate?: () => void
+}
 type TransitionApi = {
   navigate: (to: string, options?: NavigateOptions) => void
   back: () => void
@@ -34,10 +37,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
 
       const update = () => {
         flushSync(() => {
-          navigateFn(to)
-          // Runs after the route swap so any overlay teardown (e.g. clearing the
-          // focused artwork) sees the previous page already unmounted and skips
-          // its return-morph, leaving the new page as the sole captured content.
+          navigateFn(to, options?.state === undefined ? undefined : { state: options.state })
           options?.onNavigate?.()
         })
         window.scrollTo(0, 0)

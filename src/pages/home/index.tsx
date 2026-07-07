@@ -54,6 +54,7 @@ export function HomePage() {
 
   const xpItemRefs = useRef<Map<string, HTMLElement>>(new Map())
   const gridItemRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const reopenedArtworkRef = useRef<string | null>(null)
   const viewTransitioningRef = useRef(false)
   const gridWrapperRef = useRef<HTMLDivElement>(null)
 
@@ -205,6 +206,20 @@ export function HomePage() {
     (product: Product, el: HTMLElement) => openProduct(product, el, gridWrapperRef.current),
     [openProduct],
   )
+
+  useEffect(() => {
+    if (typeof window === "undefined" || focusedProduct || !entranceComplete) return
+
+    const slug = new URLSearchParams(window.location.search).get("artwork")
+    if (!slug || reopenedArtworkRef.current === slug) return
+
+    const product = products.find((p) => p.slug === slug)
+    const el = product ? xpItemRefs.current.get(product.id) : null
+    if (!product || !el) return
+
+    reopenedArtworkRef.current = slug
+    openProduct(product, el, wrapperRef.current)
+  }, [entranceComplete, focusedProduct, openProduct, products, wrapperRef])
 
   return (
     <div

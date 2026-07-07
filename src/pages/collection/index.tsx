@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { Link, useLocation, useNavigate, useParams } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { CollectionProductCard } from "../../components/collection/collection-product-card"
 import { Footer } from "../../components/ui/footer"
@@ -25,32 +25,136 @@ function hasFourImages(images: string[]): images is [string, string, string, str
   return images.length === 4 && images.every(Boolean)
 }
 
-// Fixed spots arranging the closing artworks around the centred collection name.
-const SPOTS: {
-  top?: string
-  bottom?: string
-  left?: string
-  right?: string
-  w: string
-  r: number
-}[] = [
-  { top: "3%", left: "4%", w: "13vw", r: -4 },
-  // The two pieces straddling the centre sit a little higher than the rest so
-  // they arc over the collection name + explore button, closing the circle.
-  { top: "-11%", left: "27%", w: "20vw", r: 2 },
-  { top: "-4%", left: "53%", w: "14vw", r: -3 },
-  { top: "2%", right: "4%", w: "13vw", r: 5 },
-  { top: "40%", left: "1%", w: "15vw", r: 3 },
-  { top: "44%", right: "2%", w: "14vw", r: -2 },
-  { bottom: "3%", left: "9%", w: "16vw", r: -5 },
-  { bottom: "-3%", left: "45%", w: "18vw", r: 2 },
-  { bottom: "5%", right: "9%", w: "13vw", r: 4 },
-]
+const CLOSING_ARTWORK_COUNT = 12
+const CLOSING_ARTWORK_SAFE_INSET = 8
+const CLOSING_ARTWORK_GAP = 28
+const CLOSING_ARTWORK_CHORD_FILL = 0.96
 
-// The horizontal "Products from this collection" panel shows a featured slice;
-// the rest surface below via the "View more" grid, capped at nine.
-const FEATURED_COUNT = 8
-const VIEW_MORE_COUNT = 9
+type ClosingArtworkStyle = {
+  left: number
+  top: number
+  width: number
+}
+
+type ClosingImageProduct = {
+  image: string
+  images?: string[]
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function distanceToRectEdge(halfWidth: number, halfHeight: number, angle: number) {
+  const x = Math.abs(Math.cos(angle))
+  const y = Math.abs(Math.sin(angle))
+  return Math.min(
+    x > 0.001 ? halfWidth / x : Number.POSITIVE_INFINITY,
+    y > 0.001 ? halfHeight / y : Number.POSITIVE_INFINITY,
+  )
+}
+
+function computeClosingArtworkStyles(
+  section: HTMLElement,
+  text: HTMLElement,
+  count: number,
+): ClosingArtworkStyle[] {
+  if (count === 0) return []
+
+  const sectionRect = section.getBoundingClientRect()
+  const textRect = text.getBoundingClientRect()
+  const centerX = sectionRect.width / 2
+  const centerY = sectionRect.height / 2
+  const shortestSide = Math.min(sectionRect.width, sectionRect.height)
+  const safeInset = Math.min(CLOSING_ARTWORK_SAFE_INSET, shortestSide * 0.08)
+  const gap = clamp(shortestSide * 0.035, 18, CLOSING_ARTWORK_GAP)
+  const angles = Array.from(
+    { length: count },
+    (_, index) => -Math.PI / 2 + (index / count) * Math.PI * 2,
+  )
+  const boundsHalfWidth = Math.max(centerX - safeInset, 0)
+  const boundsHalfHeight = Math.max(centerY - safeInset, 0)
+  const textHalfWidth = textRect.width / 2
+  const textHalfHeight = textRect.height / 2
+  const minSize = clamp(shortestSide * 0.14, 92, 144)
+  const maxSize = clamp(shortestSide * 0.22, 140, 255)
+
+  let imageSize = minSize
+  let radius = Math.max(shortestSide * 0.3, 0)
+  let foundFit = false
+
+  for (let size = maxSize; size >= minSize; size -= 2) {
+    const requiredRadius =
+      Math.max(...angles.map((angle) => distanceToRectEdge(textHalfWidth, textHalfHeight, angle))) +
+      size / 2 +
+      gap
+    const maxRadius =
+      Math.min(
+        ...angles.map((angle) => distanceToRectEdge(boundsHalfWidth, boundsHalfHeight, angle)),
+      ) -
+      size / 2
+    const nextRadius = maxRadius
+    const chord = count > 1 ? 2 * nextRadius * Math.sin(Math.PI / count) : Number.POSITIVE_INFINITY
+
+    if (requiredRadius <= maxRadius && size <= chord * CLOSING_ARTWORK_CHORD_FILL) {
+      imageSize = size
+      radius = nextRadius
+      foundFit = true
+      break
+    }
+  }
+
+  if (!foundFit) {
+    const maxRadius =
+      Math.min(
+        ...angles.map((angle) => distanceToRectEdge(boundsHalfWidth, boundsHalfHeight, angle)),
+      ) -
+      minSize / 2
+    radius = Math.max(maxRadius, 0)
+  }
+
+  return angles.map((angle) => ({
+    left: centerX + Math.cos(angle) * radius,
+    top: centerY + Math.sin(angle) * radius,
+    width: imageSize,
+  }))
+}
+
+function selectClosingImages(products: ClosingImageProduct[], count: number) {
+  const selected: string[] = []
+  const seen = new Set<string>()
+  const add = (src: string | undefined) => {
+    if (!src || seen.has(src)) return
+    seen.add(src)
+    selected.push(src)
+  }
+
+  for (const imageIndex of [1, 2, 3, 0]) {
+    for (const product of products) {
+      add(product.images?.[imageIndex] ?? (imageIndex === 0 ? product.image : undefined))
+      if (selected.length >= count) return selected
+    }
+  }
+
+  const uniqueImages = products
+    .flatMap((product) => product.images ?? [product.image])
+    .filter((src) => {
+      if (seen.has(src)) return false
+      seen.add(src)
+      return true
+    })
+  const reusableImages = [...selected, ...uniqueImages]
+
+  while (selected.length < count && reusableImages.length > 0) {
+    selected.push(reusableImages[selected.length % reusableImages.length])
+  }
+
+  return selected
+}
+
+// The horizontal panel shows the heading plus seven products; "View more"
+// continues the same collection grid below.
+const FEATURED_COUNT = 7
 
 function announcementBarHeight() {
   return (
@@ -62,6 +166,7 @@ function announcementBarHeight() {
 
 export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
+  const location = useLocation()
   const navigate = useNavigate()
   const transitionNavigate = useTransitionNavigate()
   const collectionResult = useQuery(
@@ -103,16 +208,56 @@ export function CollectionPage() {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef<HTMLElement>(null)
+  const closingTextRef = useRef<HTMLDivElement>(null)
+  const productImageRefs = useRef<Map<string, HTMLImageElement>>(new Map())
+  const reopenedArtworkRef = useRef<string | null>(null)
 
   const products = useMemo(() => collection?.products ?? [], [collection])
   const featuredProducts = useMemo(() => products.slice(0, FEATURED_COUNT), [products])
-  const moreProducts = useMemo(
-    () => products.slice(FEATURED_COUNT, FEATURED_COUNT + VIEW_MORE_COUNT),
-    [products],
-  )
+  const moreProducts = useMemo(() => products.slice(FEATURED_COUNT), [products])
   const [showMore, setShowMore] = useState(false)
   const moreGridRef = useRef<HTMLDivElement>(null)
-  const galleryImages = useMemo(() => products.flatMap((p) => p.images ?? [p.image]), [products])
+  const closingImages = useMemo(
+    () => selectClosingImages(products, CLOSING_ARTWORK_COUNT),
+    [products],
+  )
+  const [closingArtworkStyles, setClosingArtworkStyles] = useState<ClosingArtworkStyle[]>([])
+  const skipIntroAnimation =
+    (location.state as { skipCollectionIntro?: boolean } | null)?.skipCollectionIntro === true
+  const whiteRevealRef = useRef<HTMLDivElement>(null)
+  const [showWhiteReveal, setShowWhiteReveal] = useState(skipIntroAnimation)
+
+  useLayoutEffect(() => {
+    if (!collection?.isConfigured || closingImages.length === 0) {
+      setClosingArtworkStyles([])
+      return
+    }
+
+    const section = closingRef.current
+    const text = closingTextRef.current
+    if (!section || !text) return
+
+    let frame = 0
+    const update = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        setClosingArtworkStyles(computeClosingArtworkStyles(section, text, closingImages.length))
+      })
+    }
+
+    update()
+
+    const observer = new ResizeObserver(update)
+    observer.observe(section)
+    observer.observe(text)
+    window.addEventListener("resize", update)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener("resize", update)
+    }
+  }, [closingImages.length, collection?.isConfigured, collection?.name, collection?.tagline])
 
   // Horizontal scroll: pin the intro section and translate its track sideways
   // as the user scrolls, then release into the static closing screen below.
@@ -141,7 +286,7 @@ export function CollectionPage() {
       })
 
       // 1 ── First panel: the familiar blur-in on entrance.
-      if (panel1Ref.current) {
+      if (panel1Ref.current && !skipIntroAnimation) {
         gsap.from(panel1Ref.current, {
           opacity: 0,
           filter: "blur(14px)",
@@ -265,7 +410,7 @@ export function CollectionPage() {
       window.removeEventListener("load", refresh)
       ctx.revert()
     }
-  }, [collection])
+  }, [closingImages.length, collection, skipIntroAnimation])
 
   // Collapse the "View more" grid when navigating to a different collection.
   useEffect(() => {
@@ -293,8 +438,44 @@ export function CollectionPage() {
     ScrollTrigger.refresh()
   }, [showMore])
 
+  useEffect(() => {
+    if (!showWhiteReveal || !collection?.isConfigured) return
+    const overlay = whiteRevealRef.current
+    if (!overlay) return
+
+    const tween = gsap.to(overlay, {
+      opacity: 0,
+      duration: 1,
+      ease: "power2.out",
+      onComplete: () => setShowWhiteReveal(false),
+    })
+    return () => tween.kill()
+  }, [collection?.isConfigured, showWhiteReveal])
+
+  useEffect(() => {
+    if (typeof window === "undefined" || focusedProduct || !collection) return
+
+    const slug = new URLSearchParams(window.location.search).get("artwork")
+    if (!slug || reopenedArtworkRef.current === slug) return
+
+    const product = products.find((p) => p.slug === slug)
+    if (!product) return
+
+    const isMoreProduct = moreProducts.some((p) => p.id === product.id)
+    if (isMoreProduct && !showMore) {
+      setShowMore(true)
+      return
+    }
+
+    const img = productImageRefs.current.get(product.id)
+    if (!img) return
+
+    reopenedArtworkRef.current = slug
+    openProduct(product, img, isMoreProduct ? undefined : pinRef.current)
+  }, [collection, focusedProduct, moreProducts, openProduct, products, showMore])
+
   if (collection === undefined) {
-    return <div className="h-screen bg-canvas text-dark" />
+    return <div className={`h-screen text-dark ${showWhiteReveal ? "bg-white" : "bg-canvas"}`} />
   }
 
   if (collection === null) {
@@ -323,6 +504,7 @@ export function CollectionPage() {
 
   return (
     <div className="bg-canvas text-dark">
+      {showWhiteReveal && <div ref={whiteRevealRef} className="fixed inset-0 z-[3000] bg-white" />}
       <Navbar />
 
       {/* ── Horizontal intro ───────────────────────────────────────────── */}
@@ -399,6 +581,10 @@ export function CollectionPage() {
                       can be translated directly) as the image morphs in. */}
                   <CollectionProductCard
                     product={product}
+                    itemRef={(img) => {
+                      if (img) productImageRefs.current.set(product.id, img)
+                      else productImageRefs.current.delete(product.id)
+                    }}
                     onOpen={(p, img) => openProduct(p, img, pinRef.current)}
                   />
                 </div>
@@ -408,10 +594,9 @@ export function CollectionPage() {
         </div>
       </section>
 
-      {/* ── View more — the page turns vertical; reveal the rest of the
-          collection in a grid, each piece opening with the same left-hand morph ── */}
+      {/* ── View more — continue the collection grid in normal page flow ── */}
       {moreProducts.length > 0 && (
-        <section className="px-6 pt-[10vh] pb-[4vh] md:px-16">
+        <section className={`px-6 pb-16 md:px-16 ${showMore ? "-mt-24 pt-0" : "-mt-12 pt-16"}`}>
           <div className="mx-auto max-w-6xl">
             {!showMore ? (
               <div className="flex justify-center">
@@ -428,13 +613,20 @@ export function CollectionPage() {
                 </button>
               </div>
             ) : (
-              <div ref={moreGridRef} className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-3">
+              <div
+                ref={moreGridRef}
+                className="grid grid-cols-2 items-start gap-x-6 gap-y-6 md:grid-cols-4"
+              >
                 {moreProducts.map((product) => (
                   <div key={product.id} data-more-card>
                     {/* No background to slide aside here (normal vertical flow) -
                         the focus panel simply morphs in over the left-hand side. */}
                     <CollectionProductCard
                       product={product}
+                      itemRef={(img) => {
+                        if (img) productImageRefs.current.set(product.id, img)
+                        else productImageRefs.current.delete(product.id)
+                      }}
                       onOpen={(p, img) => openProduct(p, img)}
                     />
                   </div>
@@ -448,29 +640,45 @@ export function CollectionPage() {
       {/* Break before the closing screen */}
       <div className="h-[14vh]" />
 
-      {/* ── Closing screen — static, artworks around the collection name ── */}
-      {/* overflow-visible so the two artworks arcing above the name aren't
-          clipped at the section's top edge - they read full-size while still
-          closing the circle around the title. */}
-      <section ref={closingRef} className="relative flex h-screen items-center justify-center px-6">
-        {SPOTS.map((s, i) => (
-          <img
-            key={i}
-            data-closing-img
-            src={galleryImages[i % Math.max(galleryImages.length, 1)]}
-            alt=""
-            loading="lazy"
-            className="absolute aspect-square object-cover"
-            style={{
-              top: s.top,
-              bottom: s.bottom,
-              left: s.left,
-              right: s.right,
-              width: s.w,
-            }}
-          />
-        ))}
-        <div data-closing-text className="relative z-10 max-w-2xl text-center">
+      {/* ── Closing screen — artworks evenly computed around the collection name ── */}
+      <section
+        ref={closingRef}
+        className="relative flex items-center justify-center overflow-hidden"
+        style={{ height: "150vh" }}
+      >
+        {closingImages.map((src, i) => {
+          const style = closingArtworkStyles[i] ?? {
+            left: 0,
+            top: 0,
+            width: 0,
+          }
+
+          return (
+            <div
+              key={`${src}-${i}`}
+              className="absolute aspect-square"
+              style={{
+                left: style.left,
+                top: style.top,
+                width: style.width,
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <img
+                data-closing-img
+                src={src}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover opacity-0"
+              />
+            </div>
+          )
+        })}
+        <div
+          ref={closingTextRef}
+          data-closing-text
+          className="relative z-10 max-w-2xl px-6 text-center"
+        >
           <h2 className="text-128 leading-[0.95] text-dark">{collection.name}</h2>
           <p className="mx-auto mt-5 max-w-md text-base text-dark/60">{collection.tagline}</p>
           <Link

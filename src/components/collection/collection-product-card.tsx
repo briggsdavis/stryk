@@ -20,11 +20,12 @@ interface CollectionProductCardProps {
   product: Product
   // Opens the product into the focus panel, morphing from the in-view image.
   onOpen: (product: Product, img: HTMLImageElement) => void
+  itemRef?: (img: HTMLImageElement | null) => void
 }
 
 // A collection product tile that lets you swipe/drag between the product's images
 // (mobile + desktop) and taps through to the focus morph - mirroring the grid card.
-export function CollectionProductCard({ product, onOpen }: CollectionProductCardProps) {
+export function CollectionProductCard({ product, onOpen, itemRef }: CollectionProductCardProps) {
   const cardRef = useRef<HTMLButtonElement>(null)
   const { trackRef, handlers, wasDragged, currentImage } = useImageTrack(cardRef)
 
@@ -60,6 +61,7 @@ export function CollectionProductCard({ product, onOpen }: CollectionProductCard
           {images.map((src, i) => (
             <div key={i} className="grid-card-slide">
               <img
+                ref={i === 0 ? itemRef : undefined}
                 src={src}
                 alt={`${product.name} ${i + 1}`}
                 draggable={false}

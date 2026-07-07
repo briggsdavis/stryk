@@ -55,7 +55,7 @@ function CollectionCard({
           />
         )}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/80 via-black/45 to-transparent"
+          className="collection-card-shade pointer-events-none absolute inset-x-0 bottom-0"
           aria-hidden="true"
         />
         <h2 className="pointer-events-none absolute inset-x-0 bottom-0 px-5 pb-5 text-center text-3xl leading-tight font-medium text-white md:text-5xl">
