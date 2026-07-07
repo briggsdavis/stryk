@@ -301,7 +301,7 @@ function PopupCard({ popup, immediate = false }: { popup: PublicPopup; immediate
           type="button"
           aria-label="Close pop-up"
           onClick={dismiss}
-          className="fixed inset-0 z-[2090] cursor-default bg-dark/35 backdrop-blur-sm"
+          className="fixed inset-0 z-[2090] bg-dark/35 backdrop-blur-sm"
         />
       )}
       <div

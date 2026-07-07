@@ -83,7 +83,7 @@ export function HomePage() {
     return () => window.clearTimeout(id)
   }, [products.length, runEntrance, collectionRef])
 
-  // ── Proximity zoom + cursor ──────────────────────────────────────────────
+  // ── Proximity zoom ───────────────────────────────────────────────────────
   useEffect(() => {
     if (viewMode !== "xp") return
     const wrapper = wrapperRef.current
@@ -91,9 +91,6 @@ export function HomePage() {
 
     const onMouseMove = (e: MouseEvent) => {
       const items = wrapper.querySelectorAll<HTMLElement>(".xp-item")
-      let closestDist = Infinity
-      let closestName = ""
-      let hoveredName = ""
 
       items.forEach((item) => {
         // Skip pieces filtered out of the current view.
@@ -114,31 +111,12 @@ export function HomePage() {
         const factor = Math.max(0, 1 - dist / PROXIMITY_RADIUS)
         const scale = 1 + factor * 0.15
         gsap.to(item, { scale, duration: 0.35, ease: "power2.out", overwrite: "auto" })
-        if (
-          e.clientX >= rect.left &&
-          e.clientX <= rect.right &&
-          e.clientY >= rect.top &&
-          e.clientY <= rect.bottom
-        ) {
-          hoveredName = item.dataset.cursor ?? ""
-        }
-        if (dist < closestDist) {
-          closestDist = dist
-          closestName = item.dataset.cursor ?? ""
-        }
       })
-
-      window.dispatchEvent(
-        new CustomEvent("canvas-hover", {
-          detail: { name: hoveredName, proximityName: closestName, dist: closestDist },
-        }),
-      )
     }
 
     const onMouseLeave = () => {
       const items = wrapper.querySelectorAll<HTMLElement>(".xp-item")
       items.forEach((item) => gsap.to(item, { scale: 1, duration: 0.5, overwrite: "auto" }))
-      window.dispatchEvent(new CustomEvent("canvas-hover", { detail: { name: "", dist: 9999 } }))
     }
 
     wrapper.addEventListener("mousemove", onMouseMove)

@@ -19,7 +19,7 @@ export function ZoomControls({ level, onZoomIn, onZoomOut }: ZoomControlsProps) 
           className={clsx(
             "flex h-9 w-9 items-center justify-center rounded-lg border text-base font-light transition-all duration-300",
             level <= 0
-              ? "cursor-not-allowed border-dark/10 text-dark/20"
+              ? "border-dark/10 text-dark/20"
               : "border-dark/20 text-dark hover:border-dark hover:bg-dark hover:text-white",
           )}
           aria-label="Zoom out"
@@ -32,7 +32,7 @@ export function ZoomControls({ level, onZoomIn, onZoomOut }: ZoomControlsProps) 
           className={clsx(
             "flex h-9 w-9 items-center justify-center rounded-lg border text-base font-light transition-all duration-300",
             level >= 2
-              ? "cursor-not-allowed border-dark/10 text-dark/20"
+              ? "border-dark/10 text-dark/20"
               : "border-dark/20 text-dark hover:border-dark hover:bg-dark hover:text-white",
           )}
           aria-label="Zoom in"

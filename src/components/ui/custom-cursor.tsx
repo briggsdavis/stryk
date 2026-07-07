@@ -1,88 +1,72 @@
 import { useEffect, useRef, useState } from "react"
-import { gsap } from "../../lib/gsap"
+import { useLocation } from "react-router"
 
-// Elements that read as clickable - hovering any of them hides the native
-// cursor (see index.css) and swells the custom cursor for feedback.
-const INTERACTIVE_SELECTOR = "a, button, [role='button'], label, summary, [data-cursor-interactive]"
+const INTERACTIVE_SELECTOR = "a, button, [role='button']"
+const LABEL_SELECTOR = "[data-cursor-label]"
 
 export function CustomCursor() {
+  const { pathname } = useLocation()
   const cursorRef = useRef<HTMLDivElement>(null)
+  const visibleRef = useRef(false)
+  const [isVisible, setIsVisible] = useState(false)
+  const [isInteractive, setIsInteractive] = useState(false)
   const [label, setLabel] = useState("")
-  const [interactive, setInteractive] = useState(false)
+  const isAdmin = pathname.startsWith("/admin")
 
   useEffect(() => {
-    const cursor = cursorRef.current
-    if (!cursor) return
-
-    const xTo = gsap.quickTo(cursor, "x", { duration: 0.225, ease: "power3.out" })
-    const yTo = gsap.quickTo(cursor, "y", { duration: 0.225, ease: "power3.out" })
-
-    const onMove = (e: MouseEvent) => {
-      xTo(e.clientX)
-      yTo(e.clientY)
+    if (isAdmin || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      document.body.classList.remove("has-custom-cursor")
+      return
     }
 
-    // `mouseover` bubbles and fires on every element change, so recomputing here
-    // covers entering, leaving, and moving between an element's children.
-    const onOver = (e: MouseEvent) => {
-      const target = e.target as Element | null
-      setInteractive(!!target?.closest?.(INTERACTIVE_SELECTOR))
+    const moveCursor = (event: PointerEvent) => {
+      cursorRef.current?.style.setProperty(
+        "transform",
+        `translate(${event.clientX}px, ${event.clientY}px)`,
+      )
+      if (!visibleRef.current) {
+        visibleRef.current = true
+        setIsVisible(true)
+      }
     }
 
-    const onCanvasHover = (e: Event) => {
-      const { name } = (e as CustomEvent<{ name: string }>).detail
-      setLabel(name)
+    const updateState = (target: EventTarget | null) => {
+      const element = target instanceof Element ? target : null
+      setLabel(element?.closest<HTMLElement>(LABEL_SELECTOR)?.dataset.cursorLabel ?? "")
+      setIsInteractive(!!element?.closest?.(INTERACTIVE_SELECTOR))
     }
+    const handlePointerOver = (event: PointerEvent) => updateState(event.target)
+    const handlePointerOut = (event: PointerEvent) => updateState(event.relatedTarget)
 
-    window.addEventListener("mousemove", onMove)
-    window.addEventListener("mouseover", onOver)
-    window.addEventListener("canvas-hover", onCanvasHover)
+    document.body.classList.add("has-custom-cursor")
+    window.addEventListener("pointermove", moveCursor)
+    window.addEventListener("pointerover", handlePointerOver)
+    window.addEventListener("pointerout", handlePointerOut)
+
     return () => {
-      window.removeEventListener("mousemove", onMove)
-      window.removeEventListener("mouseover", onOver)
-      window.removeEventListener("canvas-hover", onCanvasHover)
+      document.body.classList.remove("has-custom-cursor")
+      window.removeEventListener("pointermove", moveCursor)
+      window.removeEventListener("pointerover", handlePointerOver)
+      window.removeEventListener("pointerout", handlePointerOut)
+      visibleRef.current = false
+      setIsVisible(false)
+      setIsInteractive(false)
+      setLabel("")
     }
-  }, [])
+  }, [isAdmin])
 
-  // Swell on interactive hover, but not while a canvas label is showing (that
-  // state already resizes the cursor into a pill).
-  const swelled = interactive && !label
+  if (isAdmin) return null
 
   return (
     <div
       ref={cursorRef}
-      className="pointer-events-none fixed top-0 left-0 z-[99999] hidden md:block"
-      style={{ transform: "translate(-50%, -50%)" }}
+      className="custom-cursor"
+      data-visible={isVisible ? "true" : "false"}
+      data-interactive={isInteractive ? "true" : "false"}
+      data-labeled={label ? "true" : "false"}
+      aria-hidden="true"
     >
-      <div
-        style={{
-          background: "white",
-          border: "1px solid black",
-          padding: label ? "5px 10px" : "4px",
-          minWidth: label ? undefined : "10px",
-          minHeight: label ? undefined : "10px",
-          transform: swelled ? "scale(1.6)" : "scale(1)",
-          transformOrigin: "center",
-          transition: "padding 0.15s ease, min-width 0.15s ease, transform 0.18s ease",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "9px",
-            fontWeight: 500,
-            textTransform: "uppercase",
-            letterSpacing: "0.12em",
-            color: "black",
-            whiteSpace: "nowrap",
-            lineHeight: 1,
-          }}
-        >
-          {label}
-        </span>
-      </div>
+      {label}
     </div>
   )
 }

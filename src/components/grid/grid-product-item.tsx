@@ -39,6 +39,7 @@ export function GridProductItem({ product, onClick, itemRef }: GridProductItemPr
         }}
         className="grid-card"
         data-product-id={product.id}
+        data-cursor-label={product.name}
         aria-label={`${product.name} - view`}
         {...handlers}
         onClickCapture={onClickCapture}

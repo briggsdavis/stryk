@@ -291,7 +291,7 @@ export function ContactPage() {
                 <FieldIcon status={fields.message.status} />
               </div>
 
-              <label className="flex cursor-none items-start gap-3">
+              <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
                   checked={terms}

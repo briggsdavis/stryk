@@ -1108,7 +1108,7 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
               type="button"
               onClick={openExpanded}
               aria-label="Expand image"
-              className="group absolute inset-0 z-[3] flex cursor-none items-center justify-center"
+              className="group absolute inset-0 z-[3] flex items-center justify-center"
             >
               <span className="flex h-14 w-14 scale-90 items-center justify-center rounded-full bg-dark/65 text-light opacity-0 backdrop-blur-sm transition-all duration-300 ease-out group-hover:scale-100 group-hover:opacity-100">
                 <svg
@@ -1225,7 +1225,7 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
                   "group flex min-w-0 items-center justify-center overflow-hidden rounded-lg border px-2 py-2 text-[11px] font-medium tracking-wide whitespace-nowrap transition-colors",
                   canAddToCart
                     ? "border-dark bg-dark text-white hover:opacity-70"
-                    : "cursor-not-allowed border-dark/20 bg-dark/20 text-dark/40",
+                    : "border-dark/20 bg-dark/20 text-dark/40",
                 )}
               >
                 <span ref={cartLabelRef} className="inline-block">
@@ -1258,7 +1258,7 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
           type="button"
           onClick={handleClose}
           aria-label="Back to canvas"
-          className="absolute inset-y-0 right-0 cursor-none"
+          className="absolute inset-y-0 right-0"
           style={{ left: "60vw" }}
         />
       )}
@@ -1331,7 +1331,7 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
             type="button"
             onClick={closeExpanded}
             aria-label="Close expanded image"
-            className="absolute inset-0 z-[1] cursor-none"
+            className="absolute inset-0 z-[1]"
           />
           <button
             ref={closeExpandRef}

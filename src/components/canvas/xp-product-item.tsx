@@ -26,8 +26,8 @@ export function XpProductItem({ product, onClick, itemRef, style }: XpProductIte
         appearance: "none",
         ...style,
       }}
-      data-cursor={product.name}
       data-product-id={product.id}
+      data-cursor-label={product.name}
       data-flip-id={product.id}
       ref={itemRef}
       onClick={(e) => onClick(product, e.currentTarget)}

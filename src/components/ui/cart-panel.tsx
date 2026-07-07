@@ -72,7 +72,7 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
         type="button"
         aria-label="Close cart"
         onClick={onClose}
-        className="fixed inset-0 z-[2090] cursor-default bg-dark/35 backdrop-blur-sm transition-opacity duration-[450ms] [transition-timing-function:var(--ease-ui)]"
+        className="fixed inset-0 z-[2090] bg-dark/35 backdrop-blur-sm transition-opacity duration-[450ms] [transition-timing-function:var(--ease-ui)]"
         style={{ opacity: entered ? 1 : 0 }}
       />
 

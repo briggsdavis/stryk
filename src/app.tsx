@@ -21,8 +21,8 @@ export default function App() {
   return (
     <Router>
       <TransitionProvider>
-        <AnalyticsTracker />
         <CustomCursor />
+        <AnalyticsTracker />
         {/* Marketing is non-critical: never let a failure here blank the site. */}
         <ErrorBoundary>
           <PublicMarketing />

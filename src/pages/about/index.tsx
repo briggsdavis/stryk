@@ -309,7 +309,7 @@ export function AboutPage() {
                     key={v.label}
                     onMouseEnter={() => setHoveredValue(v.label)}
                     onMouseLeave={() => setHoveredValue(null)}
-                    className="flex cursor-default flex-col lg:px-8 lg:py-6"
+                    className="flex flex-col lg:px-8 lg:py-6"
                   >
                     <h3
                       className={clsx(

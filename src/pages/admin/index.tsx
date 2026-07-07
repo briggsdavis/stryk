@@ -2537,7 +2537,7 @@ function ColorInput({
           aria-label={label}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="admin-color-input h-[46px] w-12 flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0"
+          className="admin-color-input h-[46px] w-12 flex-shrink-0 overflow-hidden rounded-lg border-0 bg-transparent p-0"
         />
         <input
           type="text"
@@ -2668,12 +2668,7 @@ function Modal({
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-start justify-center overflow-y-auto bg-dark/40 p-4 backdrop-blur-sm md:p-10">
-      <button
-        type="button"
-        aria-label="Close editor"
-        onClick={onClose}
-        className="fixed inset-0 cursor-default"
-      />
+      <button type="button" aria-label="Close editor" onClick={onClose} className="fixed inset-0" />
       <div className="relative z-10 my-auto w-full max-w-2xl rounded-xl border border-dark/10 bg-canvas p-6 shadow-2xl md:p-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
