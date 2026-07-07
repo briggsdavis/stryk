@@ -449,7 +449,9 @@ export function CollectionPage() {
       ease: "power2.out",
       onComplete: () => setShowWhiteReveal(false),
     })
-    return () => tween.kill()
+    return () => {
+      tween.kill()
+    }
   }, [collection?.isConfigured, showWhiteReveal])
 
   useEffect(() => {
