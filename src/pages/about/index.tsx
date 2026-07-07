@@ -172,6 +172,13 @@ export function AboutPage() {
 
       {/* ── Hero ── */}
       <section className="px-6 pt-28 pb-12 md:px-10 md:pt-32">
+        {/* Our Philosophy - pulled up to sit just beneath the nav logo. */}
+        <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
+          Our Philosophy
+        </p>
+        <blockquote className="text-48 mb-10 max-w-2xl leading-tight font-light">
+          The matchbox was the first mass-produced canvas. We're still finding the masterpieces.
+        </blockquote>
         <div className="group mb-8 overflow-hidden">
           <img
             src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1600&q=80"
@@ -200,14 +207,7 @@ export function AboutPage() {
           {/* Panel 1 - Philosophy */}
           <div className="flex w-full flex-shrink-0 flex-col items-center gap-10 px-6 py-16 md:px-10 lg:h-full lg:w-screen lg:flex-row lg:gap-16 lg:py-0">
             <div className="flex w-full flex-1 flex-col justify-center lg:w-auto">
-              <p className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase lg:mb-8">
-                Our Philosophy
-              </p>
-              <blockquote className="text-64 max-w-xl leading-tight font-light">
-                The matchbox was the first mass-produced canvas. We're still finding the
-                masterpieces.
-              </blockquote>
-              <p className="mt-8 max-w-sm text-sm leading-relaxed text-dark/55 lg:mt-10">
+              <p className="max-w-sm text-sm leading-relaxed text-dark/55">
                 Stryk Studios sources matchboxes and matchbooks from flea markets, estate sales, and
                 specialist dealers across four continents - and brings the best of them home as art.
               </p>

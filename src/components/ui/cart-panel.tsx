@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { useShopifyCart } from "../../hooks/use-shopify-cart"
 import { track } from "../../lib/analytics"
+import { useArtworkFocus } from "../../lib/artwork-focus"
 import { HoverLabel } from "./hover-label"
 
 function formatMoney(amount: string | undefined, currencyCode: string | undefined) {
@@ -20,6 +21,7 @@ function formatMoney(amount: string | undefined, currencyCode: string | undefine
 export function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [visible, setVisible] = useState(false)
   const [entered, setEntered] = useState(false)
+  const { openByHandle } = useArtworkFocus()
   const {
     cart,
     configured,
@@ -143,7 +145,23 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
             <div className="space-y-5">
               {lines.map((line) => (
                 <div key={line.id} className="grid grid-cols-[4.5rem_1fr] gap-4">
-                  <div className="aspect-square overflow-hidden rounded-sm bg-dark/[0.04]">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const handle = line.merchandise.product.handle
+                      if (!handle) return
+                      // Capture the thumbnail's box before the drawer starts to
+                      // close, then morph the artwork open from it.
+                      openByHandle(
+                        handle,
+                        e.currentTarget.getBoundingClientRect(),
+                        line.merchandise.image?.url,
+                      )
+                      onClose()
+                    }}
+                    aria-label={`Open ${line.merchandise.product.title}`}
+                    className="aspect-square overflow-hidden rounded-sm bg-dark/[0.04]"
+                  >
                     {line.merchandise.image && (
                       <img
                         src={line.merchandise.image.url}
@@ -151,7 +169,7 @@ export function CartPanel({ open, onClose }: { open: boolean; onClose: () => voi
                         className="h-full w-full object-cover"
                       />
                     )}
-                  </div>
+                  </button>
                   <div className="min-w-0 pt-0.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

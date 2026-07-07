@@ -12,6 +12,9 @@ import { HoverLabel } from "../ui/hover-label"
 interface FocusWrapperProps {
   product: Product | null
   onClose: () => void
+  // Reopen a different artwork (from the "complete your set" thumbnails) by its
+  // Shopify handle, morphing from the clicked thumbnail's box.
+  onOpenArtwork?: (handle: string, fromRect: DOMRect, imageSrc?: string) => void
 }
 
 // Print size + framing options. Price is a fixed amount per size, plus a flat
@@ -41,6 +44,7 @@ type AddedArtwork = {
   lineQuantity: number
   image: string
   alt: string
+  handle: string
   dealKey: string | null
 }
 
@@ -83,7 +87,7 @@ function dealMeta({
   }
 }
 
-export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
+export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperProps) {
   const isMobile = useIsMobile()
   const transitionNavigate = useTransitionNavigate()
   const {
@@ -168,6 +172,7 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             lineQuantity: line.quantity,
             image: merchandise.image?.url ?? "",
             alt: merchandise.image?.altText ?? merchandise.product.title,
+            handle: merchandise.product.handle,
             dealKey: deal.key,
           }))
         })
@@ -813,14 +818,18 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
 
     const titleTop = 40
     const titleFont = Math.min(Math.max(window.innerWidth * 0.06, 36), 72)
-    const topReserve = titleTop + titleFont + 10
+    // Tighter gap between the title and the artwork (~50% less) so the piece sits
+    // higher and reads larger.
+    const topReserve = titleTop + titleFont + 5
 
     // The strip is anchored at bottom-8 (32px); keep a gap above it.
     const STRIP_OFFSET = 32
     const GAP = 22
     const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
 
-    const maxW = Math.min(window.innerWidth * 0.36, 440)
+    // Artwork size cap, raised ~25% so the piece is a bit larger. Height is still
+    // bounded by maxH below, so it never crowds the title or the options strip.
+    const maxW = Math.min(window.innerWidth * 0.45, 550)
     const panelHeight = panelRef.current?.offsetHeight ?? window.innerHeight
     const maxH = Math.max(panelHeight - topReserve - bottomReserve, 160)
     let tw = maxW
@@ -858,7 +867,8 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
       ref={galleryIndicatorRef}
       className={clsx(
         "z-[4] flex flex-col items-center gap-2",
-        isMobile ? "relative mt-4" : "absolute top-full left-1/2 mt-4 -translate-x-1/2",
+        // ~15% more breathing room between the artwork and the dots/swipe hint.
+        isMobile ? "relative mt-[18px]" : "absolute top-full left-1/2 mt-[18px] -translate-x-1/2",
       )}
       style={{
         opacity: galleryActive && galleryIndicatorVisible ? 1 : 0,
@@ -888,10 +898,13 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
         !isMobile && "h-full",
       )}
     >
-      <p className="max-w-[18rem] text-center text-sm leading-6 font-medium text-dark">
-        {upsellProgressCount} of 4 matching artworks. Buy 3, get the 4th free. Same size and framing
-        required.
-      </p>
+      <div className="flex flex-col items-center gap-1 text-center">
+        <p className="text-xs font-medium tracking-[0.2em] text-dark/45 uppercase">
+          {upsellProgressCount}/{UPSELL_SLOT_COUNT}
+        </p>
+        <p className="text-base font-medium text-dark">Buy 3 get 1 free</p>
+        <p className="text-xs text-dark/50">Framing and size must be the same</p>
+      </div>
 
       <div className="mx-auto w-full max-w-[18rem]">
         <div className="grid grid-cols-2 gap-3">
@@ -899,11 +912,26 @@ export function FocusWrapper({ product, onClose }: FocusWrapperProps) {
             const artwork = upsellSlots[slotIndex]
 
             return artwork ? (
-              <div
-                key={slotKey}
-                className={clsx("relative aspect-square overflow-hidden", IMAGE_SHADOW)}
-              >
-                <img src={artwork.image} alt={artwork.alt} className="h-full w-full object-cover" />
+              <div key={slotKey} className="relative aspect-square">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (!artwork.handle) return
+                    onOpenArtwork?.(
+                      artwork.handle,
+                      e.currentTarget.getBoundingClientRect(),
+                      artwork.image,
+                    )
+                  }}
+                  aria-label={`Open ${artwork.alt}`}
+                  className={clsx("block h-full w-full overflow-hidden", IMAGE_SHADOW)}
+                >
+                  <img
+                    src={artwork.image}
+                    alt={artwork.alt}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
                 <button
                   type="button"
                   onClick={() => void removeLineUnit(artwork.lineId, artwork.lineQuantity)}

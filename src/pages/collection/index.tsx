@@ -3,12 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { api } from "../../../convex/_generated/api"
 import { CollectionProductCard } from "../../components/collection/collection-product-card"
-import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { Footer } from "../../components/ui/footer"
 import { HoverLabel } from "../../components/ui/hover-label"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
-import { useProductFocus } from "../../hooks/use-product-focus"
+import { useArtworkFocus } from "../../lib/artwork-focus"
 import { catalogProductToProduct } from "../../lib/catalog"
 import { gsap, ScrollTrigger } from "../../lib/gsap"
 import { useTransitionNavigate } from "../../lib/transition"
@@ -89,7 +88,7 @@ export function CollectionPage() {
       })),
     }
   }, [collectionResult])
-  const { focusedProduct, beginFocus, handleClose } = useProductFocus()
+  const { focusedProduct, openProduct } = useArtworkFocus()
 
   // Pause smooth-scroll while a product is focused so wheel input drives the
   // focus gallery (advancing between a product's images) instead of the page.
@@ -400,7 +399,7 @@ export function CollectionPage() {
                       can be translated directly) as the image morphs in. */}
                   <CollectionProductCard
                     product={product}
-                    onOpen={(p, img) => beginFocus(p, img, pinRef.current)}
+                    onOpen={(p, img) => openProduct(p, img, pinRef.current)}
                   />
                 </div>
               ))}
@@ -436,7 +435,7 @@ export function CollectionPage() {
                         the focus panel simply morphs in over the left-hand side. */}
                     <CollectionProductCard
                       product={product}
-                      onOpen={(p, img) => beginFocus(p, img)}
+                      onOpen={(p, img) => openProduct(p, img)}
                     />
                   </div>
                 ))}
@@ -450,10 +449,10 @@ export function CollectionPage() {
       <div className="h-[14vh]" />
 
       {/* ── Closing screen — static, artworks around the collection name ── */}
-      <section
-        ref={closingRef}
-        className="relative flex h-screen items-center justify-center overflow-hidden px-6"
-      >
+      {/* overflow-visible so the two artworks arcing above the name aren't
+          clipped at the section's top edge - they read full-size while still
+          closing the circle around the title. */}
+      <section ref={closingRef} className="relative flex h-screen items-center justify-center px-6">
         {SPOTS.map((s, i) => (
           <img
             key={i}
@@ -502,11 +501,6 @@ export function CollectionPage() {
       <div className="h-[16vh]" />
 
       <Footer />
-
-      {/* Featured products open into the focus panel with the same slide + morph
-          as home: the pinned section slides aside, revealing the page background,
-          so the panel stays transparent. */}
-      <FocusWrapper product={focusedProduct} onClose={handleClose} />
     </div>
   )
 }

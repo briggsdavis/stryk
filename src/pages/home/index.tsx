@@ -2,15 +2,14 @@ import { clsx } from "clsx"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { XpWrapper } from "../../components/canvas/xp-wrapper"
-import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { GridCollection } from "../../components/grid/grid-collection"
 import { EmptyFilterState } from "../../components/ui/empty-filter-state"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
 import { useHomeCatalog } from "../../hooks/use-home-catalog"
 import { useIsMobile } from "../../hooks/use-is-mobile"
-import { useProductFocus } from "../../hooks/use-product-focus"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
+import { useArtworkFocus } from "../../lib/artwork-focus"
 import type { ActiveFilters, FilterKey } from "../../lib/filters"
 import { activeFilterCount, EMPTY_FILTERS, productMatches } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
@@ -27,12 +26,7 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("xp")
   const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
   const { products, filterGroups } = useHomeCatalog(filters)
-  const {
-    focusedProduct,
-    beginFocus,
-    handleClose: handleCloseFocus,
-    isFocusedRef,
-  } = useProductFocus()
+  const { focusedProduct, openProduct, close: handleCloseFocus, isFocusedRef } = useArtworkFocus()
 
   const toggleFilter = useCallback((key: FilterKey, value: string) => {
     emitPopupAction("filter")
@@ -202,14 +196,14 @@ export function HomePage() {
       // Ignore clicks until the intro pop-in/zoom sequence has finished, so the
       // focus morph doesn't fire mid-animation with the canvas still in motion.
       if (!entranceComplete) return
-      beginFocus(product, el, wrapperRef.current)
+      openProduct(product, el, wrapperRef.current)
     },
-    [beginFocus, entranceComplete, wrapperRef],
+    [openProduct, entranceComplete, wrapperRef],
   )
 
   const handleGridItemClick = useCallback(
-    (product: Product, el: HTMLElement) => beginFocus(product, el, gridWrapperRef.current),
-    [beginFocus],
+    (product: Product, el: HTMLElement) => openProduct(product, el, gridWrapperRef.current),
+    [openProduct],
   )
 
   return (
@@ -270,9 +264,6 @@ export function HomePage() {
           scrollerRef={gridWrapperRef}
         />
       </div>
-
-      {/* Focus panel */}
-      <FocusWrapper product={focusedProduct} onClose={handleCloseFocus} />
 
       {/* Empty-filter message on the canvas */}
       {viewMode === "xp" && !focusedProduct && noMatches && (
