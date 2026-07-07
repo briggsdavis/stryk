@@ -685,9 +685,7 @@ export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperPr
   }
 
   // ── Explore collection ────────────────────────────────────────────────────
-  // Leave the focus panel for the artwork's collection page. The panel is a
-  // fixed overlay, so simply navigating would leave the artwork sitting on top
-  // of the collection - it has to slide away too.
+  // Leave the focus panel for the artwork's collection page.
   const handleExploreCollection = () => {
     if (!product) return
     emitPopupAction("collection")
@@ -700,38 +698,19 @@ export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperPr
       return
     }
 
-    // Different page: render the collection beneath the panel first, then wipe
-    // the panel away so the artwork slides off and the collection is fully
-    // visible. The artwork's canvas/grid origin lives on the page we're leaving;
-    // once that unmounts there's nothing to morph back to, so onClose - deferred
-    // to the end of the wipe, after navigation has settled - just drops the
-    // piece and clears focus.
+    // Different page: let the collection simply blur in over the focused
+    // artwork. The focus panel (with the artwork sitting on top) is captured as
+    // the outgoing page and held beneath while the collection resolves from a
+    // soft blur; `onClose` is folded into the navigation so the panel is torn
+    // down atomically and never lingers over the new page. The artwork's
+    // canvas/grid origin lives on the page we're leaving, so once it unmounts
+    // there's nothing to morph back to - onClose just drops the piece.
     galleryActiveRef.current = false
     animatingRef.current = false
     setGalleryIndicatorVisible(false)
     setUpsellOpen(false)
 
-    transitionNavigate(target)
-
-    const textEls = [
-      collectionNameRef.current,
-      detailsInnerRef.current,
-      closeRef.current,
-    ].filter(Boolean) as HTMLElement[]
-    gsap.to(textEls, { opacity: 0, y: -6, duration: 0.25, stagger: 0.03, ease: "power2.in" })
-    gsap.to(galleryIndicatorRef.current, { opacity: 0, duration: 0.2, ease: "power2.in" })
-
-    gsap.set(galleryOverlayRef.current, { opacity: 0 })
-    gsap.set(panelRef.current, { clipPath: "inset(0 0% 0 0)" })
-    gsap.to(panelRef.current, {
-      clipPath: "inset(0 100% 0 0)",
-      duration: 1.1,
-      ease: "expo.inOut",
-      onComplete: onClose,
-    })
-    if (dividerContainerRef.current) {
-      gsap.to(dividerContainerRef.current, { x: "-60vw", duration: 1.0, ease: "expo.inOut" })
-    }
+    transitionNavigate(target, { type: "blur", onNavigate: onClose })
   }
 
   // ── Expanded (lightbox) view ──────────────────────────────────────────────

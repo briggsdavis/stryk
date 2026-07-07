@@ -3,12 +3,24 @@ import type { ReactNode } from "react"
 import { flushSync } from "react-dom"
 import { useNavigate, useLocation } from "react-router"
 
-type TransitionApi = { navigate: (to: string) => void; back: () => void }
+// A navigation can opt into a named transition `type` (styled via
+// `:active-view-transition-type(...)` in index.css) and pass an `onNavigate`
+// callback that runs inside the same flush as the route change - used to tear
+// down overlays atomically so the new page is captured cleanly.
+type NavigateOptions = { type?: string; onNavigate?: () => void }
+type TransitionApi = {
+  navigate: (to: string, options?: NavigateOptions) => void
+  back: () => void
+}
 const TransitionCtx = createContext<TransitionApi>({ navigate: () => {}, back: () => {} })
 export const useTransitionNavigate = () => useContext(TransitionCtx).navigate
 export const useTransitionBack = () => useContext(TransitionCtx).back
 
-type WithVTA = Document & { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
+type ViewTransition = { finished: Promise<void> }
+type StartViewTransition = (
+  cbOrOptions: (() => void) | { update: () => void; types?: string[] },
+) => ViewTransition
+type WithVTA = Document & { startViewTransition: StartViewTransition }
 
 export function TransitionProvider({ children }: { children: ReactNode }) {
   const navigateFn = useNavigate()
@@ -16,23 +28,41 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
   const busyRef = useRef(false)
 
   const navigate = useCallback(
-    (to: string) => {
+    (to: string, options?: NavigateOptions) => {
       if (busyRef.current || to === pathname) return
       busyRef.current = true
 
-      if ("startViewTransition" in document) {
-        const vta = (document as WithVTA).startViewTransition(() => {
-          flushSync(() => {
-            navigateFn(to)
-          })
-          window.scrollTo(0, 0)
+      const update = () => {
+        flushSync(() => {
+          navigateFn(to)
+          // Runs after the route swap so any overlay teardown (e.g. clearing the
+          // focused artwork) sees the previous page already unmounted and skips
+          // its return-morph, leaving the new page as the sole captured content.
+          options?.onNavigate?.()
         })
+        window.scrollTo(0, 0)
+      }
+
+      if ("startViewTransition" in document) {
+        const doc = document as WithVTA
+        let vta: ViewTransition
+        if (options?.type) {
+          // The typed (object) form is newer than the plain callback form; where
+          // it isn't supported, fall back to a default cross-fade rather than
+          // failing the navigation.
+          try {
+            vta = doc.startViewTransition({ update, types: [options.type] })
+          } catch {
+            vta = doc.startViewTransition(update)
+          }
+        } else {
+          vta = doc.startViewTransition(update)
+        }
         vta.finished.finally(() => {
           busyRef.current = false
         })
       } else {
-        navigateFn(to)
-        window.scrollTo(0, 0)
+        update()
         busyRef.current = false
       }
     },

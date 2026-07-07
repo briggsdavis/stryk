@@ -57,6 +57,32 @@
   animation: 1000ms cubic-bezier(0.4, 0, 0.2, 1) both page-fade-in;
 }
 
+/* Blur-in: the incoming page resolves from a soft blur on top of the outgoing
+   one, which is held in place beneath it (used when opening a collection from a
+   focused artwork, so the collection simply blurs in over the product). */
+@keyframes page-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(22px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes page-hold {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+:root:active-view-transition-type(blur)::view-transition-old(root) {
+  animation: 900ms cubic-bezier(0.4, 0, 0.2, 1) both page-hold;
+}
+:root:active-view-transition-type(blur)::view-transition-new(root) {
+  animation: 900ms cubic-bezier(0.16, 1, 0.3, 1) both page-blur-in;
+}
+
 /* ── Base ── */
 @layer base {
   html,
