@@ -1,5 +1,5 @@
 import { clsx } from "clsx"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { XpWrapper } from "../../components/canvas/xp-wrapper"
 import { FocusWrapper } from "../../components/focus/focus-wrapper"
@@ -74,12 +74,19 @@ export function HomePage() {
     recenter,
   } = useXpCanvas(viewMode === "xp", isFocusedRef)
 
-  // Run canvas entrance animation on mount
-  useEffect(() => {
-    const id = setTimeout(() => runEntrance(), 100)
-    return () => clearTimeout(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Run the canvas entrance once the artworks have actually loaded (they stream
+  // in async from Convex, so the pieces don't exist on first render). Hide them
+  // before paint so they don't flash before the staggered pop-in, then play it
+  // once layout has settled.
+  const entranceStartedRef = useRef(false)
+  useLayoutEffect(() => {
+    if (entranceStartedRef.current || products.length === 0) return
+    entranceStartedRef.current = true
+    const collection = collectionRef.current
+    if (collection) gsap.set(collection.querySelectorAll(".xp-item"), { opacity: 0 })
+    const id = window.setTimeout(() => runEntrance(), 100)
+    return () => window.clearTimeout(id)
+  }, [products.length, runEntrance, collectionRef])
 
   // ── Proximity zoom + cursor ──────────────────────────────────────────────
   useEffect(() => {
@@ -167,6 +174,27 @@ export function HomePage() {
     }
   }, [isFocusedRef])
 
+  // ── Logo → canvas ─────────────────────────────────────────────────────────
+  // The top-left logo always returns to the canvas: it closes any focused artwork
+  // and switches grid -> canvas (with the same view-transition morph the toggle
+  // uses), even when we're already on the home page.
+  const goToCanvasView = useCallback(() => {
+    if (isFocusedRef.current) handleCloseFocus()
+    if (viewMode === "xp" || viewTransitioningRef.current) return
+    viewTransitioningRef.current = true
+    if ("startViewTransition" in document) {
+      const vt = (document as WithVTA).startViewTransition(() => {
+        flushSync(() => setViewMode("xp"))
+      })
+      vt.finished.finally(() => {
+        viewTransitioningRef.current = false
+      })
+    } else {
+      setViewMode("xp")
+      viewTransitioningRef.current = false
+    }
+  }, [handleCloseFocus, isFocusedRef, viewMode])
+
   // ── Item click ───────────────────────────────────────────────────────────
   // The clicked piece morphs into the focus panel; the canvas/grid slides aside.
   const handleXpItemClick = useCallback(
@@ -192,8 +220,9 @@ export function HomePage() {
       <Navbar
         viewMode={viewMode}
         onToggleView={toggleView}
-        showViewToggle={!focusedProduct}
+        showViewToggle
         showCta={!!focusedProduct}
+        onLogoClick={goToCanvasView}
         showFilter={viewMode === "xp" && !focusedProduct}
         filterGroups={filterGroups}
         activeFilters={filters}

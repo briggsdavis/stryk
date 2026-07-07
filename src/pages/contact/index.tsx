@@ -135,7 +135,7 @@ export function ContactPage() {
               Tell us what you're hunting for
             </h1>
             <div className="space-y-4 text-sm text-dark/60">
-              <p className="font-medium text-dark">Stryk Studio</p>
+              <p className="font-medium text-dark">Stryk Studios</p>
               <p>
                 1234 Maker Street
                 <br />

@@ -288,13 +288,26 @@ export function useXpCanvas(active: boolean, navigationLockedRef?: RefObject<boo
     // Allow items at the edges to be visible during the zoomed-out entrance -
     // the wrapper's layout box matches the route panel, so overflow:hidden would
     // clip them.
-    gsap.set(wrapper, { scale: 0.85, transformOrigin: "center center", overflow: "visible" })
-    gsap.set(items, { opacity: 1, scale: 1, clearProps: "filter" })
+    gsap.set(wrapper, { scale: 0.92, transformOrigin: "center center", overflow: "visible" })
+    // Each artwork pops in individually rather than the whole cluster fading as
+    // one. Items are laid out center-outward (index 0 is the middle), so a plain
+    // index stagger ripples the pop from the center out. `amount` caps the total
+    // spread so large collections don't drag the entrance out.
+    gsap.set(items, {
+      opacity: 0,
+      scale: 0.6,
+      transformOrigin: "center center",
+      clearProps: "filter",
+    })
 
-    gsap.to(wrapper, {
+    gsap.to(wrapper, { scale: 1, duration: 1.6, ease: "expo.inOut" })
+
+    gsap.to(items, {
+      opacity: 1,
       scale: 1,
-      duration: 1.6,
-      ease: "expo.inOut",
+      duration: 0.6,
+      ease: "back.out(1.7)",
+      stagger: { amount: 0.9 },
       onComplete: () => {
         gsap.set(wrapper, { overflow: "hidden" })
         gsap.set(items, { clearProps: "filter,transform,opacity" })

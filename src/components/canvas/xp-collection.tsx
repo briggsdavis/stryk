@@ -95,7 +95,8 @@ function buildCanvasLayout(products: Product[]): {
   if (products.length === 0) return { items: [], width: 100, height: 100 }
 
   const itemWidth = CANVAS_ITEM_WIDTH
-  const cellStep = itemWidth * 1.6
+  // Center-to-center spacing between artworks. 1.6 base, +15% for extra breathing room.
+  const cellStep = itemWidth * 1.84
   const worldPadding = itemWidth
   const coords = buildHexCoords(products.length)
 
@@ -165,11 +166,11 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
   const productsKey = products.map((p) => p.id).join("|")
 
   // ── Filter crossfade ─────────────────────────────────────────────────────────
-  // A filter change is a calm whole-cluster blur crossfade rather than per-piece
-  // motion: blur/fade the current cluster out, swap to the new layout and recentre
-  // *while it's invisible* (so nothing is seen sliding around), then blur/fade the
-  // new cluster in. The canvas entrance owns the very first reveal, so both phases
-  // skip the initial mount.
+  // A filter change blurs the current cluster out, swaps to the new layout and
+  // recentres *while it's invisible* (so nothing is seen sliding around), then
+  // pops the new pieces in one by one (center-outward, matching the canvas
+  // entrance). The canvas entrance owns the very first reveal, so both phases skip
+  // the initial mount.
   const fadeOutFirstRef = useRef(true)
   const pendingFilterSwapRef = useRef(false)
 
@@ -198,8 +199,8 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
     })
   }, [filters, displayedFilters])
 
-  // Phase 2: the swapped layout has committed and is still hidden -> make its
-  // pieces visible, recentre, then blur the whole cluster back in.
+  // Phase 2: the swapped layout has committed and is still hidden -> recentre it
+  // while invisible, then pop each new piece in individually.
   useLayoutEffect(() => {
     if (!pendingFilterSwapRef.current) {
       return
@@ -209,22 +210,27 @@ export const XpCollection = forwardRef<HTMLDivElement, XpCollectionProps>(functi
     if (!collection) return
 
     const items = collection.querySelectorAll<HTMLElement>(".xp-item")
-    gsap.set(items, { clearProps: "filter,transform,opacity" })
 
     onLayoutChange?.()
 
+    // Clear phase 1's blur/fade off the collection, then stagger each piece in
+    // with the same center-outward pop the entrance uses.
     gsap.killTweensOf(collection, "opacity,filter")
-    gsap.fromTo(
-      collection,
-      { opacity: 0, filter: "blur(12px)" },
-      {
-        opacity: 1,
-        filter: "blur(0px)",
-        duration: 0.55,
-        ease: "power2.out",
-        onComplete: () => gsap.set(collection, { clearProps: "filter,opacity" }),
-      },
-    )
+    gsap.set(collection, { opacity: 1, clearProps: "filter" })
+    gsap.set(items, {
+      opacity: 0,
+      scale: 0.6,
+      transformOrigin: "center center",
+      clearProps: "filter",
+    })
+    gsap.to(items, {
+      opacity: 1,
+      scale: 1,
+      duration: 0.55,
+      ease: "back.out(1.7)",
+      stagger: { amount: 0.7 },
+      onComplete: () => gsap.set(items, { clearProps: "transform,opacity,filter" }),
+    })
   }, [displayedFilters, onLayoutChange])
 
   const lastProductsKeyRef = useRef(productsKey)

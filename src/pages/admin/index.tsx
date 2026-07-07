@@ -210,7 +210,9 @@ export function AdminPage() {
       ) : (
         <CenteredShell>
           <div className="mb-10">
-            <p className="mb-3 text-xs tracking-[0.28em] text-dark/55 uppercase">Stryk admin</p>
+            <p className="mb-3 text-xs tracking-[0.28em] text-dark/55 uppercase">
+              Stryk Studios admin
+            </p>
             <h1 className="text-64">Admin access</h1>
           </div>
           <AuthForm
