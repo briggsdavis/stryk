@@ -684,6 +684,56 @@ export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperPr
     })
   }
 
+  // ── Explore collection ────────────────────────────────────────────────────
+  // Leave the focus panel for the artwork's collection page. The panel is a
+  // fixed overlay, so simply navigating would leave the artwork sitting on top
+  // of the collection - it has to slide away too.
+  const handleExploreCollection = () => {
+    if (!product) return
+    emitPopupAction("collection")
+    const target = `/collection/${product.collectionSlug}`
+
+    // Already on this collection: close the normal way so the artwork morphs
+    // back into its grid spot as the panel wipes.
+    if (target === window.location.pathname) {
+      handleClose()
+      return
+    }
+
+    // Different page: render the collection beneath the panel first, then wipe
+    // the panel away so the artwork slides off and the collection is fully
+    // visible. The artwork's canvas/grid origin lives on the page we're leaving;
+    // once that unmounts there's nothing to morph back to, so onClose - deferred
+    // to the end of the wipe, after navigation has settled - just drops the
+    // piece and clears focus.
+    galleryActiveRef.current = false
+    animatingRef.current = false
+    setGalleryIndicatorVisible(false)
+    setUpsellOpen(false)
+
+    transitionNavigate(target)
+
+    const textEls = [
+      collectionNameRef.current,
+      detailsInnerRef.current,
+      closeRef.current,
+    ].filter(Boolean) as HTMLElement[]
+    gsap.to(textEls, { opacity: 0, y: -6, duration: 0.25, stagger: 0.03, ease: "power2.in" })
+    gsap.to(galleryIndicatorRef.current, { opacity: 0, duration: 0.2, ease: "power2.in" })
+
+    gsap.set(galleryOverlayRef.current, { opacity: 0 })
+    gsap.set(panelRef.current, { clipPath: "inset(0 0% 0 0)" })
+    gsap.to(panelRef.current, {
+      clipPath: "inset(0 100% 0 0)",
+      duration: 1.1,
+      ease: "expo.inOut",
+      onComplete: onClose,
+    })
+    if (dividerContainerRef.current) {
+      gsap.to(dividerContainerRef.current, { x: "-60vw", duration: 1.0, ease: "expo.inOut" })
+    }
+  }
+
   // ── Expanded (lightbox) view ──────────────────────────────────────────────
   const openExpanded = () => {
     // A drag that ends on the image shouldn't also open the lightbox.
@@ -825,7 +875,14 @@ export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperPr
     // The strip is anchored at bottom-8 (32px); keep a gap above it.
     const STRIP_OFFSET = 32
     const GAP = 22
-    const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP
+    // The gallery dots + "Swipe to select artwork" hint sit just below the
+    // artwork (top-full, mt-[18px]). Reserve their footprint too so the piece
+    // shifts up and the hint clears the description/options strip beneath it
+    // rather than overlapping it.
+    const indicator = galleryIndicatorRef.current
+    const INDICATOR_GAP = 18
+    const indicatorReserve = indicator ? INDICATOR_GAP + indicator.offsetHeight : 0
+    const bottomReserve = strip.offsetHeight + STRIP_OFFSET + GAP + indicatorReserve
 
     // Artwork size cap, raised ~25% so the piece is a bit larger. Height is still
     // bounded by maxH below, so it never crowds the title or the options strip.
@@ -1125,11 +1182,7 @@ export function FocusWrapper({ product, onClose, onOpenArtwork }: FocusWrapperPr
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  if (!product) return
-                  emitPopupAction("collection")
-                  transitionNavigate(`/collection/${product.collectionSlug}`)
-                }}
+                onClick={handleExploreCollection}
                 className="group mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dark/20 px-3.5 py-2 text-[11px] font-medium text-dark transition-colors hover:border-dark/40"
               >
                 <HoverLabel>Explore collection</HoverLabel>

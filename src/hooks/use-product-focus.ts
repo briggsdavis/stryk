@@ -132,7 +132,10 @@ export function useProductFocus() {
           // Kept in step with <FocusWrapper>'s fitImageFrame: tighter title gap
           // and a larger size cap so the morph target matches the settled size.
           const topReserve = titleTop + titleFont + 11
-          const bottomReserve = 240
+          // Leaves room for the options strip and the gallery dots + swipe hint
+          // that sit just beneath the artwork; <FocusWrapper> re-measures both
+          // and fine-tunes, so this only needs to land the morph close.
+          const bottomReserve = 288
           const maxW = Math.min(window.innerWidth * 0.45, 550)
           const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
           let tw = maxW
