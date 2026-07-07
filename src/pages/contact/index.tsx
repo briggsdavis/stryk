@@ -135,7 +135,18 @@ export function ContactPage() {
               Tell us what you're hunting for
             </h1>
             <div className="space-y-4 text-sm text-dark/60">
-              <p className="font-medium text-dark">Stryk Studios</p>
+              {/* Logo sized to match the wordmark's width: the inline-block box
+                  shrinks to the text (w-0 keeps the image from widening it), and
+                  min-w-full then stretches the image back to that text width. */}
+              <div className="inline-block">
+                <img
+                  src="/stryk-logo-128.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="mb-2 block h-auto w-0 min-w-full"
+                />
+                <p className="font-medium text-dark">Stryk Studios</p>
+              </div>
               <p>
                 1234 Maker Street
                 <br />
@@ -280,7 +291,7 @@ export function ContactPage() {
                 <FieldIcon status={fields.message.status} />
               </div>
 
-              <label className="flex cursor-pointer items-start gap-3">
+              <label className="flex cursor-none items-start gap-3">
                 <input
                   type="checkbox"
                   checked={terms}

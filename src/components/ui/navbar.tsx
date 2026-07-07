@@ -203,7 +203,7 @@ export function Navbar({
             else transitionNavigate("/")
           }}
           aria-label="Stryk Studios - home"
-          className="cursor-pointer opacity-80 transition-opacity hover:opacity-100"
+          className="opacity-80 transition-opacity hover:opacity-100"
         >
           <img
             src="/stryk-logo-128.png"
