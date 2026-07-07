@@ -4,6 +4,7 @@ import { AnalyticsTracker } from "./components/analytics-tracker"
 import { PublicMarketing } from "./components/marketing/public-marketing"
 import { CustomCursor } from "./components/ui/custom-cursor"
 import { ErrorBoundary } from "./components/ui/error-boundary"
+import { ArtworkFocusProvider } from "./lib/artwork-focus"
 import { TransitionProvider } from "./lib/transition"
 import { AboutPage } from "./pages/about/index"
 import { CollectionPage } from "./pages/collection/index"
@@ -26,21 +27,23 @@ export default function App() {
         <ErrorBoundary>
           <PublicMarketing />
         </ErrorBoundary>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route
-            path="/admin"
-            element={
-              <Suspense fallback={null}>
-                <AdminPage />
-              </Suspense>
-            }
-          />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/collections" element={<CollectionsPage />} />
-          <Route path="/collection/:slug" element={<CollectionPage />} />
-        </Routes>
+        <ArtworkFocusProvider>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route
+              path="/admin"
+              element={
+                <Suspense fallback={null}>
+                  <AdminPage />
+                </Suspense>
+              }
+            />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/collections" element={<CollectionsPage />} />
+            <Route path="/collection/:slug" element={<CollectionPage />} />
+          </Routes>
+        </ArtworkFocusProvider>
       </TransitionProvider>
     </Router>
   )

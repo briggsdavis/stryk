@@ -172,15 +172,22 @@ export function AboutPage() {
 
       {/* ── Hero ── */}
       <section className="px-6 pt-28 pb-12 md:px-10 md:pt-32">
+        {/* Our Philosophy - pulled up to sit just beneath the nav logo. */}
+        <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
+          Our Philosophy
+        </p>
+        <blockquote className="text-48 mb-10 max-w-2xl leading-tight font-light">
+          The matchbox was the first mass-produced canvas. We're still finding the masterpieces.
+        </blockquote>
         <div className="group mb-8 overflow-hidden">
           <img
             src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1600&q=80"
-            alt="Stryk studio"
+            alt="Stryk Studios"
             className="h-[38vh] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
           />
         </div>
         <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
-          About Stryk
+          About Stryk Studios
         </p>
         <h1
           ref={h1Ref}
@@ -200,15 +207,8 @@ export function AboutPage() {
           {/* Panel 1 - Philosophy */}
           <div className="flex w-full flex-shrink-0 flex-col items-center gap-10 px-6 py-16 md:px-10 lg:h-full lg:w-screen lg:flex-row lg:gap-16 lg:py-0">
             <div className="flex w-full flex-1 flex-col justify-center lg:w-auto">
-              <p className="mb-6 text-xs font-medium tracking-widest text-dark/40 uppercase lg:mb-8">
-                Our Philosophy
-              </p>
-              <blockquote className="text-64 max-w-xl leading-tight font-light">
-                The matchbox was the first mass-produced canvas. We're still finding the
-                masterpieces.
-              </blockquote>
-              <p className="mt-8 max-w-sm text-sm leading-relaxed text-dark/55 lg:mt-10">
-                Stryk sources matchboxes and matchbooks from flea markets, estate sales, and
+              <p className="max-w-sm text-sm leading-relaxed text-dark/55">
+                Stryk Studios sources matchboxes and matchbooks from flea markets, estate sales, and
                 specialist dealers across four continents - and brings the best of them home as art.
               </p>
               <p className="mt-8 text-xs tracking-widest text-dark/25 uppercase">
@@ -218,12 +218,12 @@ export function AboutPage() {
             <div className="grid w-full grid-cols-2 gap-4 lg:flex lg:w-[34%] lg:flex-col">
               <RevealImage
                 src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=900&h=900&fit=crop&q=80"
-                alt="Stryk ceramics"
+                alt="Stryk Studios ceramics"
                 className="aspect-square w-full"
               />
               <RevealImage
                 src="https://images.unsplash.com/photo-1597696929736-6d13bed8e6a8?w=900&h=900&fit=crop&q=80"
-                alt="Stryk craft"
+                alt="Stryk Studios craft"
                 className="aspect-square w-full"
               />
             </div>
@@ -244,7 +244,7 @@ export function AboutPage() {
                 </p>
                 <RevealImage
                   src="https://images.unsplash.com/photo-1610219171189-286769cc9b20?w=1000&h=1000&fit=crop&q=80"
-                  alt="Stryk collection"
+                  alt="Stryk Studios collection"
                   className="mt-5 aspect-square w-full max-w-[16rem] shrink-0 lg:w-[60%] lg:max-w-none"
                 />
               </div>
@@ -257,7 +257,7 @@ export function AboutPage() {
                 </p>
                 <RevealImage
                   src="https://images.unsplash.com/photo-1626897885636-dd68020cc52a?w=1000&h=1000&fit=crop&q=80"
-                  alt="Stryk detail"
+                  alt="Stryk Studios detail"
                   className="mt-5 aspect-square w-full max-w-[16rem] shrink-0 lg:w-[60%] lg:max-w-none"
                 />
               </div>
@@ -289,7 +289,7 @@ export function AboutPage() {
               </div>
               <RevealImage
                 src="https://images.unsplash.com/photo-1598048851887-0263d4f43e73?w=1000&h=1000&fit=crop&q=80"
-                alt="Stryk detail"
+                alt="Stryk Studios detail"
                 className="aspect-square w-full max-w-[20rem] shrink-0 lg:max-w-none"
               />
             </div>

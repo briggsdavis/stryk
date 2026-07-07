@@ -15,7 +15,19 @@ export function Footer() {
       <div className="flex flex-col gap-10 md:flex-row md:items-end md:justify-between">
         {/* Brand + nav */}
         <div className="flex flex-col gap-6">
-          <span className="text-xs font-medium tracking-[0.2em] text-dark/50 uppercase">Stryk</span>
+          <div className="flex items-center gap-3">
+            <img
+              src="/stryk-logo-128.png"
+              alt=""
+              aria-hidden="true"
+              width={32}
+              height={32}
+              className="h-8 w-auto opacity-80"
+            />
+            <span className="text-xs font-medium tracking-[0.2em] text-dark/50 uppercase">
+              Stryk Studios
+            </span>
+          </div>
           <nav className="flex gap-6">
             {NAV_LINKS.map(({ label, to }) => (
               <button
@@ -31,7 +43,7 @@ export function Footer() {
 
         {/* Right - copyright + credit */}
         <div className="flex flex-col items-start gap-1.5 md:items-end">
-          <span className="text-xs text-dark/30">© {new Date().getFullYear()} Stryk</span>
+          <span className="text-xs text-dark/30">© {new Date().getFullYear()} Stryk Studios</span>
           <a
             href="https://socialsatisfaction.com"
             target="_blank"

@@ -97,12 +97,20 @@
     font-variation-settings: "wght" 800;
   }
 
-  /* All button text uses Sweet Sans Pro. */
+  /* All button text uses Sweet Sans Pro. Buttons inherit the body's hidden
+     cursor on fine pointers (so the custom cursor is the only one) and fall back
+     to a pointer on touch/coarse devices, which have no custom cursor. */
   button,
   .btn-outline,
   .btn-filled {
-    @apply cursor-pointer;
     font-family: var(--font-button);
+  }
+  @media (pointer: coarse) {
+    button,
+    .btn-outline,
+    .btn-filled {
+      @apply cursor-pointer;
+    }
   }
 }
 
@@ -346,7 +354,7 @@
   }
   /* Horizontal, snap-scrolling image track - drag or swipe to the next image. */
   .grid-card-track {
-    @apply absolute inset-0 flex cursor-pointer;
+    @apply absolute inset-0 flex;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;

@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react"
 import { gsap } from "../../lib/gsap"
 
+// Elements that read as clickable - hovering any of them hides the native
+// cursor (see index.css) and swells the custom cursor for feedback.
+const INTERACTIVE_SELECTOR = "a, button, [role='button'], label, summary, [data-cursor-interactive]"
+
 export function CustomCursor() {
   const cursorRef = useRef<HTMLDivElement>(null)
   const [label, setLabel] = useState("")
+  const [interactive, setInteractive] = useState(false)
 
   useEffect(() => {
     const cursor = cursorRef.current
@@ -17,18 +22,31 @@ export function CustomCursor() {
       yTo(e.clientY)
     }
 
+    // `mouseover` bubbles and fires on every element change, so recomputing here
+    // covers entering, leaving, and moving between an element's children.
+    const onOver = (e: MouseEvent) => {
+      const target = e.target as Element | null
+      setInteractive(!!target?.closest?.(INTERACTIVE_SELECTOR))
+    }
+
     const onCanvasHover = (e: Event) => {
       const { name } = (e as CustomEvent<{ name: string }>).detail
       setLabel(name)
     }
 
     window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseover", onOver)
     window.addEventListener("canvas-hover", onCanvasHover)
     return () => {
       window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseover", onOver)
       window.removeEventListener("canvas-hover", onCanvasHover)
     }
   }, [])
+
+  // Swell on interactive hover, but not while a canvas label is showing (that
+  // state already resizes the cursor into a pill).
+  const swelled = interactive && !label
 
   return (
     <div
@@ -43,7 +61,9 @@ export function CustomCursor() {
           padding: label ? "5px 10px" : "4px",
           minWidth: label ? undefined : "10px",
           minHeight: label ? undefined : "10px",
-          transition: "padding 0.15s ease, min-width 0.15s ease",
+          transform: swelled ? "scale(1.6)" : "scale(1)",
+          transformOrigin: "center",
+          transition: "padding 0.15s ease, min-width 0.15s ease, transform 0.18s ease",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

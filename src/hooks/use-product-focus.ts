@@ -49,7 +49,16 @@ export function useProductFocus() {
   const shiftElRef = useRef<HTMLElement | null>(null)
 
   const beginFocus = useCallback(
-    (product: Product, el: HTMLElement, shiftEl?: HTMLElement | null) => {
+    (
+      product: Product,
+      el: HTMLElement | null,
+      shiftEl?: HTMLElement | null,
+      // Thumbnail opens (cart / upsell) fly a lightweight clone instead of the
+      // real element: `cloneSrc` is the image to fly, `fromRect` its start box.
+      // The source thumbnail - which React still owns - is never detached, and
+      // there's no placeholder to restore, so closing just drops the clone.
+      opts?: { cloneSrc?: string; fromRect?: DOMRect },
+    ) => {
       if (isFocusedRef.current) return
       emitPopupAction("product")
       track("product_view", { label: product.name })
@@ -65,17 +74,36 @@ export function useProductFocus() {
       const panel = slot.closest("[data-focus-panel]") as HTMLElement | null
       if (panel) panel.scrollTop = 0
 
-      focusedElRef.current = el
-      originalStyleRef.current = getReturnStyle(el)
+      const fromRect = opts?.fromRect ?? el?.getBoundingClientRect()
+      if (!fromRect) {
+        isFocusedRef.current = false
+        return
+      }
 
-      const fromRect = el.getBoundingClientRect()
-
-      const placeholder = document.createElement("div")
-      placeholder.setAttribute("style", originalStyleRef.current)
-      placeholder.style.width = `${el.offsetWidth}px`
-      placeholder.style.height = `${el.offsetHeight}px`
-      placeholderRef.current = placeholder
-      el.parentElement?.replaceChild(placeholder, el)
+      // The element that actually flies into the slot.
+      let moving: HTMLElement
+      if (opts?.cloneSrc) {
+        const clone = document.createElement("img")
+        clone.src = opts.cloneSrc
+        clone.draggable = false
+        clone.className = "pointer-events-none h-full w-full object-cover"
+        moving = clone
+        placeholderRef.current = null
+        originalStyleRef.current = ""
+      } else if (el) {
+        originalStyleRef.current = getReturnStyle(el)
+        const placeholder = document.createElement("div")
+        placeholder.setAttribute("style", originalStyleRef.current)
+        placeholder.style.width = `${el.offsetWidth}px`
+        placeholder.style.height = `${el.offsetHeight}px`
+        placeholderRef.current = placeholder
+        el.parentElement?.replaceChild(placeholder, el)
+        moving = el
+      } else {
+        isFocusedRef.current = false
+        return
+      }
+      focusedElRef.current = moving
 
       const aspect = fromRect.width / fromRect.height
       const frame = document.getElementById("focus-image-frame")
@@ -101,9 +129,11 @@ export function useProductFocus() {
           // renders and fine-tunes from this estimate.
           const titleTop = 96
           const titleFont = Math.min(Math.max(window.innerWidth * 0.07, 48), 96)
-          const topReserve = titleTop + titleFont + 22
+          // Kept in step with <FocusWrapper>'s fitImageFrame: tighter title gap
+          // and a larger size cap so the morph target matches the settled size.
+          const topReserve = titleTop + titleFont + 11
           const bottomReserve = 240
-          const maxW = Math.min(window.innerWidth * 0.36, 440)
+          const maxW = Math.min(window.innerWidth * 0.45, 550)
           const maxH = Math.max(window.innerHeight - topReserve - bottomReserve, 200)
           let tw = maxW
           let th = tw / aspect
@@ -121,9 +151,9 @@ export function useProductFocus() {
       flushSync(() => setFocusedProduct(product))
       const toRect = slot.getBoundingClientRect()
 
-      document.body.appendChild(el)
-      gsap.killTweensOf(el)
-      gsap.set(el, { position: "fixed", margin: 0, zIndex: 900, scale: 1 })
+      document.body.appendChild(moving)
+      gsap.killTweensOf(moving)
+      gsap.set(moving, { position: "fixed", margin: 0, zIndex: 900, scale: 1 })
 
       if (shiftElRef.current) {
         gsap.to(shiftElRef.current, {
@@ -134,7 +164,7 @@ export function useProductFocus() {
       }
 
       gsap.fromTo(
-        el,
+        moving,
         { left: fromRect.left, top: fromRect.top, width: fromRect.width, height: fromRect.height },
         {
           left: toRect.left,
@@ -144,10 +174,10 @@ export function useProductFocus() {
           duration: 1.1,
           ease: "expo.inOut",
           onComplete: () => {
-            slot.appendChild(el)
-            gsap.set(el, { clearProps: "position,top,left,zIndex,margin" })
-            el.style.width = ""
-            el.style.height = ""
+            slot.appendChild(moving)
+            gsap.set(moving, { clearProps: "position,top,left,zIndex,margin" })
+            moving.style.width = ""
+            moving.style.height = ""
           },
         },
       )
@@ -155,15 +185,57 @@ export function useProductFocus() {
     [],
   )
 
+  // Open a product, switching cleanly if one is already focused. Canvas/grid
+  // pieces pass their real element; cart/upsell thumbnails pass a null element
+  // plus `opts` (cloneSrc + fromRect) so a clone flies in without detaching the
+  // React-owned thumbnail.
+  const openProduct = useCallback(
+    (
+      product: Product,
+      el: HTMLElement | null,
+      shiftEl?: HTMLElement | null,
+      opts?: { cloneSrc?: string; fromRect?: DOMRect },
+    ) => {
+      if (!isFocusedRef.current) {
+        beginFocus(product, el, shiftEl, opts)
+        return
+      }
+
+      // Already focused: tidy the current piece back to its origin (instantly),
+      // then morph the new one in. Keep the existing background shift so the
+      // slid-aside canvas/page isn't left stranded.
+      const keepShift = shiftElRef.current
+      const cur = focusedElRef.current
+      const placeholder = placeholderRef.current
+      if (cur) {
+        gsap.killTweensOf(cur)
+        if (placeholder?.parentElement) {
+          placeholder.parentElement.replaceChild(cur, placeholder)
+          gsap.set(cur, { clearProps: "all" })
+          cur.setAttribute("style", originalStyleRef.current)
+        } else {
+          cur.remove()
+        }
+      }
+      placeholderRef.current = null
+      focusedElRef.current = null
+      isFocusedRef.current = false
+      beginFocus(product, el, keepShift, opts)
+    },
+    [beginFocus],
+  )
+
   const handleClose = useCallback(() => {
     setArtworkParam(null)
     const el = focusedElRef.current
     const placeholder = placeholderRef.current
     if (!el || !placeholder?.parentElement) {
-      // No canvas/page origin to return to. Drop any orphaned morph node, glide
-      // the slid-aside background back, and let <FocusWrapper /> wipe the panel away.
+      // No canvas/page origin to return to (e.g. a cart/upsell clone). Drop any
+      // orphaned morph node, glide the slid-aside background back, and let
+      // <FocusWrapper /> wipe the panel away.
       const slot = document.getElementById("focus-image-slot")
       if (slot) slot.replaceChildren()
+      el?.remove()
       if (shiftElRef.current) {
         gsap.to(shiftElRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
       }
@@ -208,5 +280,5 @@ export function useProductFocus() {
     )
   }, [])
 
-  return { focusedProduct, beginFocus, handleClose, isFocusedRef }
+  return { focusedProduct, beginFocus, openProduct, handleClose, isFocusedRef }
 }

@@ -15,6 +15,9 @@ interface NavbarProps {
   onToggleView?: () => void
   showViewToggle?: boolean
   showCta?: boolean
+  // Overrides the top-left logo click. Home supplies this to force the canvas
+  // view (close any focused artwork, switch grid -> canvas) rather than navigate.
+  onLogoClick?: () => void
   // Canvas filter - only supplied on the home/canvas view.
   showFilter?: boolean
   filterGroups?: FilterGroup[]
@@ -138,6 +141,7 @@ export function Navbar({
   onToggleView,
   showViewToggle,
   showCta,
+  onLogoClick,
   showFilter,
   filterGroups,
   activeFilters,
@@ -178,7 +182,11 @@ export function Navbar({
       return
     }
     event.preventDefault()
-    transitionNavigate(to)
+    // Let the menu's buttons morph away first. The page cross-fade snapshots the
+    // navbar the instant navigation starts, so firing it immediately would freeze
+    // the menu mid-open and clip the buttons. A short beat lets the collapse play,
+    // then the transition captures the tidy, closed bar.
+    window.setTimeout(() => transitionNavigate(to), 260)
   }
 
   const hideForFocus = showCta
@@ -189,13 +197,17 @@ export function Navbar({
       {/* Top-left: logo */}
       <div className="site-top-6 fixed left-6 z-[500] flex items-center gap-3 transition-[top] duration-300 md:left-10">
         <button
-          onClick={() => transitionNavigate("/")}
-          aria-label="Stryk - home"
-          className="cursor-pointer opacity-80 transition-opacity hover:opacity-100"
+          onClick={() => {
+            setPanel("none")
+            if (onLogoClick) onLogoClick()
+            else transitionNavigate("/")
+          }}
+          aria-label="Stryk Studios - home"
+          className="opacity-80 transition-opacity hover:opacity-100"
         >
           <img
             src="/stryk-logo-128.png"
-            alt="Stryk"
+            alt="Stryk Studios"
             width={32}
             height={32}
             className="h-7 w-auto md:h-8"
@@ -203,9 +215,16 @@ export function Navbar({
         </button>
       </div>
 
-      {/* Top-center: view toggle - single capsule, dots left of label */}
+      {/* Top-center: view toggle - single capsule, dots left of label. Stays
+          mounted while an artwork is focused and fades out (rather than vanishing)
+          so it morphs away in step with the bottom controls. */}
       {showViewToggle && viewMode && onToggleView && (
-        <div className="site-top-5 fixed left-1/2 z-[500] -translate-x-1/2 transition-[top] duration-300">
+        <div
+          className={clsx(
+            "site-top-5 fixed left-1/2 z-[500] -translate-x-1/2 transition-[top,opacity] duration-300",
+            hideForFocus && "pointer-events-none opacity-0",
+          )}
+        >
           <button
             onClick={onToggleView}
             aria-label={viewMode === "xp" ? "Switch to grid view" : "Switch to experience view"}

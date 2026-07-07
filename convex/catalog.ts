@@ -490,6 +490,27 @@ export const getCollection = query({
   },
 })
 
+// Resolve a single visible product (with its variants) by Shopify handle. Used
+// to reopen an artwork straight from a cart line or the "complete your set"
+// upsell, where only the handle + image are on hand.
+export const getProductByHandle = query({
+  args: { handle: v.string() },
+  handler: async (ctx, args) => {
+    const product = await ctx.db
+      .query("catalogProducts")
+      .withIndex("by_shopifyHandle", (q) => q.eq("shopifyHandle", args.handle))
+      .unique()
+    if (!product || !product.isVisible) return null
+
+    const variants = await ctx.db
+      .query("catalogProductVariants")
+      .withIndex("by_productId_and_sortRank", (q) => q.eq("productId", product._id))
+      .take(250)
+
+    return { product, variants }
+  },
+})
+
 export const upsertSyncedProducts = internalMutation({
   args: { products: v.array(syncedProductValidator), syncedAt: v.number() },
   handler: async (ctx, args) => {

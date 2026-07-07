@@ -1,16 +1,15 @@
 import { clsx } from "clsx"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { XpWrapper } from "../../components/canvas/xp-wrapper"
-import { FocusWrapper } from "../../components/focus/focus-wrapper"
 import { GridCollection } from "../../components/grid/grid-collection"
 import { EmptyFilterState } from "../../components/ui/empty-filter-state"
 import { Navbar } from "../../components/ui/navbar"
 import { ZoomControls } from "../../components/ui/zoom-controls"
 import { useHomeCatalog } from "../../hooks/use-home-catalog"
 import { useIsMobile } from "../../hooks/use-is-mobile"
-import { useProductFocus } from "../../hooks/use-product-focus"
 import { useXpCanvas } from "../../hooks/use-xp-canvas"
+import { useArtworkFocus } from "../../lib/artwork-focus"
 import type { ActiveFilters, FilterKey } from "../../lib/filters"
 import { activeFilterCount, EMPTY_FILTERS, productMatches } from "../../lib/filters"
 import { gsap } from "../../lib/gsap"
@@ -27,12 +26,7 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("xp")
   const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
   const { products, filterGroups } = useHomeCatalog(filters)
-  const {
-    focusedProduct,
-    beginFocus,
-    handleClose: handleCloseFocus,
-    isFocusedRef,
-  } = useProductFocus()
+  const { focusedProduct, openProduct, close: handleCloseFocus, isFocusedRef } = useArtworkFocus()
 
   const toggleFilter = useCallback((key: FilterKey, value: string) => {
     emitPopupAction("filter")
@@ -74,12 +68,19 @@ export function HomePage() {
     recenter,
   } = useXpCanvas(viewMode === "xp", isFocusedRef)
 
-  // Run canvas entrance animation on mount
-  useEffect(() => {
-    const id = setTimeout(() => runEntrance(), 100)
-    return () => clearTimeout(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Run the canvas entrance once the artworks have actually loaded (they stream
+  // in async from Convex, so the pieces don't exist on first render). Hide them
+  // before paint so they don't flash before the staggered pop-in, then play it
+  // once layout has settled.
+  const entranceStartedRef = useRef(false)
+  useLayoutEffect(() => {
+    if (entranceStartedRef.current || products.length === 0) return
+    entranceStartedRef.current = true
+    const collection = collectionRef.current
+    if (collection) gsap.set(collection.querySelectorAll(".xp-item"), { opacity: 0 })
+    const id = window.setTimeout(() => runEntrance(), 100)
+    return () => window.clearTimeout(id)
+  }, [products.length, runEntrance, collectionRef])
 
   // ── Proximity zoom + cursor ──────────────────────────────────────────────
   useEffect(() => {
@@ -167,6 +168,27 @@ export function HomePage() {
     }
   }, [isFocusedRef])
 
+  // ── Logo → canvas ─────────────────────────────────────────────────────────
+  // The top-left logo always returns to the canvas: it closes any focused artwork
+  // and switches grid -> canvas (with the same view-transition morph the toggle
+  // uses), even when we're already on the home page.
+  const goToCanvasView = useCallback(() => {
+    if (isFocusedRef.current) handleCloseFocus()
+    if (viewMode === "xp" || viewTransitioningRef.current) return
+    viewTransitioningRef.current = true
+    if ("startViewTransition" in document) {
+      const vt = (document as WithVTA).startViewTransition(() => {
+        flushSync(() => setViewMode("xp"))
+      })
+      vt.finished.finally(() => {
+        viewTransitioningRef.current = false
+      })
+    } else {
+      setViewMode("xp")
+      viewTransitioningRef.current = false
+    }
+  }, [handleCloseFocus, isFocusedRef, viewMode])
+
   // ── Item click ───────────────────────────────────────────────────────────
   // The clicked piece morphs into the focus panel; the canvas/grid slides aside.
   const handleXpItemClick = useCallback(
@@ -174,14 +196,14 @@ export function HomePage() {
       // Ignore clicks until the intro pop-in/zoom sequence has finished, so the
       // focus morph doesn't fire mid-animation with the canvas still in motion.
       if (!entranceComplete) return
-      beginFocus(product, el, wrapperRef.current)
+      openProduct(product, el, wrapperRef.current)
     },
-    [beginFocus, entranceComplete, wrapperRef],
+    [openProduct, entranceComplete, wrapperRef],
   )
 
   const handleGridItemClick = useCallback(
-    (product: Product, el: HTMLElement) => beginFocus(product, el, gridWrapperRef.current),
-    [beginFocus],
+    (product: Product, el: HTMLElement) => openProduct(product, el, gridWrapperRef.current),
+    [openProduct],
   )
 
   return (
@@ -192,8 +214,9 @@ export function HomePage() {
       <Navbar
         viewMode={viewMode}
         onToggleView={toggleView}
-        showViewToggle={!focusedProduct}
+        showViewToggle
         showCta={!!focusedProduct}
+        onLogoClick={goToCanvasView}
         showFilter={viewMode === "xp" && !focusedProduct}
         filterGroups={filterGroups}
         activeFilters={filters}
@@ -241,9 +264,6 @@ export function HomePage() {
           scrollerRef={gridWrapperRef}
         />
       </div>
-
-      {/* Focus panel */}
-      <FocusWrapper product={focusedProduct} onClose={handleCloseFocus} />
 
       {/* Empty-filter message on the canvas */}
       {viewMode === "xp" && !focusedProduct && noMatches && (
