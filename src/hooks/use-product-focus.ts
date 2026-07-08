@@ -42,6 +42,10 @@ function getReturnStyle(el: HTMLElement) {
 // reverses it. Optionally slides a background element aside during the morph.
 export function useProductFocus() {
   const [focusedProduct, setFocusedProduct] = useState<Product | null>(null)
+  // The image a thumbnail (cart / upsell) open flew in with, so the focus panel
+  // can land its gallery on that exact artwork instead of the index-0 cover.
+  // Null for canvas/grid opens, which start on the cover as before.
+  const [initialImage, setInitialImage] = useState<string | null>(null)
   const focusedElRef = useRef<HTMLElement | null>(null)
   const placeholderRef = useRef<HTMLElement | null>(null)
   const originalStyleRef = useRef("")
@@ -151,7 +155,10 @@ export function useProductFocus() {
         }
       }
 
-      flushSync(() => setFocusedProduct(product))
+      flushSync(() => {
+        setFocusedProduct(product)
+        setInitialImage(opts?.cloneSrc ?? null)
+      })
       const toRect = slot.getBoundingClientRect()
 
       document.body.appendChild(moving)
@@ -306,5 +313,13 @@ export function useProductFocus() {
     setFocusedProduct(null)
   }, [])
 
-  return { focusedProduct, beginFocus, openProduct, handleClose, dismissProduct, isFocusedRef }
+  return {
+    focusedProduct,
+    initialImage,
+    beginFocus,
+    openProduct,
+    handleClose,
+    dismissProduct,
+    isFocusedRef,
+  }
 }
