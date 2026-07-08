@@ -165,6 +165,19 @@ export function FocusWrapper({
   // True after the focus panel has opened, so repeated renders don't replay the
   // divider/close-button entrance.
   const prevOpenRef = useRef(false)
+  // The outgoing artwork's title/description, painted as a fixed-position "ghost"
+  // that dissolves out while the incoming text fades in beneath it. This is the
+  // switch crossfade - so the text never blanks between pieces the way an
+  // instant swap + re-entrance would.
+  const prevTextRef = useRef<{ name: string; description: string } | null>(null)
+  const ghostTitleRef = useRef<HTMLHeadingElement>(null)
+  const ghostDescRef = useRef<HTMLParagraphElement>(null)
+  const [ghostText, setGhostText] = useState<{
+    name: string
+    description: string
+    title: { left: number; top: number; width: number } | null
+    desc: { left: number; top: number; width: number } | null
+  } | null>(null)
   const cartArtworkItems = useMemo<AddedArtwork[]>(
     () =>
       (cart?.lines.nodes ?? [])
@@ -253,7 +266,9 @@ export function FocusWrapper({
         : cartArtworkItems,
     [activeUpsellDealKey, cartArtworkItems],
   )
-  const upsellProgressCount = Math.min(upsellArtworkItems.length, UPSELL_SLOT_COUNT)
+  // Show the true number added (e.g. 5/4) so an over-full set reads clearly,
+  // rather than silently capping the numerator at the slot count.
+  const upsellProgressCount = upsellArtworkItems.length
 
   useEffect(() => {
     setUpsellSlots((currentSlots) => {
@@ -577,6 +592,10 @@ export function FocusWrapper({
       gsap.set(panelRef.current, { backgroundColor: "rgba(240,237,230,1)" })
     }
 
+    // On a switch the crossfade effect below dissolves the text across; only a
+    // fresh open plays the staggered entrance wipe.
+    if (isSwitch) return
+
     const textEls = [collectionNameRef.current, detailsInnerRef.current].filter(
       Boolean,
     ) as HTMLElement[]
@@ -591,6 +610,69 @@ export function FocusWrapper({
       tl.kill()
     }
   }, [isOpen, product?.id])
+
+  // ── Text crossfade on switch ──────────────────────────────────────────────
+  // When switching pieces (e.g. from the upsell) the panel re-renders with the
+  // new product's text immediately. Snapshot the outgoing title/description as a
+  // fixed-position ghost over where the incoming copy now sits, then dissolve the
+  // ghost out while the new copy fades in - a crossfade that tracks the image
+  // morph, so the text never blanks between artworks. A layout effect so the
+  // ghost is painted (and the incoming copy hidden) before the first frame.
+  useLayoutEffect(() => {
+    const prev = prevTextRef.current
+    prevTextRef.current = product
+      ? { name: product.name, description: product.description ?? "" }
+      : null
+
+    // Fresh open / close play the entrance wipe (or nothing); only a switch -
+    // panel already open with a prior piece - crossfades.
+    if (!isOpen || !prevOpenRef.current || !prev) {
+      setGhostText(null)
+      return
+    }
+
+    const titleEl = collectionNameRef.current
+    const descEl = descriptionRef.current
+    const titleRect = titleEl?.getBoundingClientRect() ?? null
+    const descRect = descEl?.getBoundingClientRect() ?? null
+
+    // Hide the incoming copy up front so the ghost is all that shows on frame one,
+    // then fade it up in step with the ghost's dissolve.
+    const incoming = [titleEl, descEl].filter(Boolean) as HTMLElement[]
+    gsap.set(incoming, { opacity: 0 })
+    gsap.to(incoming, { opacity: 1, duration: 0.9, delay: 0.1, ease: "power2.out" })
+
+    setGhostText({
+      name: prev.name,
+      description: prev.description,
+      title: titleRect
+        ? { left: titleRect.left, top: titleRect.top, width: titleRect.width }
+        : null,
+      desc: descRect ? { left: descRect.left, top: descRect.top, width: descRect.width } : null,
+    })
+  }, [isOpen, product])
+
+  // Dissolve the ghost out once it's rendered, concurrently with the incoming
+  // copy's fade-in above, then drop it.
+  useLayoutEffect(() => {
+    if (!ghostText) return
+    const els = [ghostTitleRef.current, ghostDescRef.current].filter(Boolean) as HTMLElement[]
+    if (!els.length) {
+      setGhostText(null)
+      return
+    }
+    gsap.set(els, { opacity: 1 })
+    const tween = gsap.to(els, {
+      opacity: 0,
+      duration: 0.9,
+      delay: 0.1,
+      ease: "power2.out",
+      onComplete: () => setGhostText(null),
+    })
+    return () => {
+      tween.kill()
+    }
+  }, [ghostText])
 
   // ── Upsell panel reveal ───────────────────────────────────────────────────
   // Desktop keeps the overlay slide. Mobile reveals the panel in document flow
@@ -1105,7 +1187,11 @@ export function FocusWrapper({
               style={{
                 backgroundColor: "#f0ede6",
                 opacity: galleryActive ? 1 : 0,
-                transition: "opacity 0.35s ease",
+                // Only ease the fade-in. When blanking on a product switch the
+                // overlay must vanish in the same frame the new image renders,
+                // otherwise the incoming artwork lingers in its final spot for a
+                // beat before the morph flies it in.
+                transition: galleryActive ? "opacity 0.35s ease" : "none",
                 pointerEvents: "none",
                 // Clip the sliding images to the frame so a swipe stays within the
                 // image rectangle - no image spills over the panel background.
@@ -1346,6 +1432,41 @@ export function FocusWrapper({
               </svg>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Outgoing artwork's title/description, dissolving out over the incoming
+          copy during a switch (see the crossfade effect above). */}
+      {ghostText && (
+        <div aria-hidden="true" className="pointer-events-none">
+          {ghostText.title && (
+            <h2
+              ref={ghostTitleRef}
+              className="fixed z-20 leading-none font-medium text-dark"
+              style={{
+                left: ghostText.title.left,
+                top: ghostText.title.top,
+                width: ghostText.title.width,
+                fontSize: "clamp(2.25rem, 6vw, 4.5rem)",
+                letterSpacing: "-0.04em",
+              }}
+            >
+              {ghostText.name}
+            </h2>
+          )}
+          {ghostText.desc && (
+            <p
+              ref={ghostDescRef}
+              className="fixed z-20 text-xs leading-relaxed text-dark/55"
+              style={{
+                left: ghostText.desc.left,
+                top: ghostText.desc.top,
+                width: ghostText.desc.width,
+              }}
+            >
+              {ghostText.description}
+            </p>
+          )}
         </div>
       )}
 
