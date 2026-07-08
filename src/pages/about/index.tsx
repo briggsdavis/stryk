@@ -271,15 +271,13 @@ export function AboutPage() {
                 alt="Our story"
                 className="parallax-img h-full w-full max-w-none object-cover lg:absolute lg:top-0 lg:left-[-10%] lg:h-full lg:w-[120%]"
               />
-              {/* Stryk Studios emblem, stamped into the bottom-right corner with
+              {/* Stryk Studios logo, as an emblem in the bottom-right corner with
                   padding from the edges. */}
-              <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-canvas/85 shadow-[0_8px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm md:right-8 md:bottom-8 md:h-14 md:w-14">
-                <img
-                  src="/stryk-logo-128.png"
-                  alt="Stryk Studios"
-                  className="h-6 w-6 md:h-7 md:w-7"
-                />
-              </div>
+              <img
+                src="/stryk-logo-128.png"
+                alt="Stryk Studios"
+                className="pointer-events-none absolute right-5 bottom-5 z-10 h-8 w-8 md:right-8 md:bottom-8 md:h-10 md:w-10"
+              />
             </div>
             <div className="flex flex-1 flex-col justify-center gap-8 lg:gap-5 lg:px-12 xl:px-16">
               <div>
