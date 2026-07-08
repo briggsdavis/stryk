@@ -172,13 +172,6 @@ export function AboutPage() {
 
       {/* ── Hero ── */}
       <section className="px-6 pt-28 pb-12 md:px-10 md:pt-32">
-        {/* Our Philosophy - pulled up to sit just beneath the nav logo. */}
-        <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
-          Our Philosophy
-        </p>
-        <blockquote className="text-48 mb-10 max-w-2xl leading-tight font-light">
-          The matchbox was the first mass-produced canvas. We're still finding the masterpieces.
-        </blockquote>
         <div className="group mb-8 overflow-hidden">
           <img
             src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1600&q=80"

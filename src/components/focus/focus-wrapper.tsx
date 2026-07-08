@@ -724,7 +724,7 @@ export function FocusWrapper({
       onDismiss()
     } else {
       transitionNavigate(target, {
-        type: "white",
+        type: "blur",
         state: { skipCollectionIntro: true },
         onNavigate: () => onDismiss({ restoreOrigin: false }),
       })
@@ -971,6 +971,9 @@ export function FocusWrapper({
                   type="button"
                   onClick={(e) => {
                     if (!artwork.handle) return
+                    // Already viewing this artwork - clicking its own upsell
+                    // thumbnail should do nothing rather than re-morph in place.
+                    if (artwork.handle === product?.slug) return
                     onOpenArtwork?.(
                       artwork.handle,
                       e.currentTarget.getBoundingClientRect(),
@@ -1084,7 +1087,11 @@ export function FocusWrapper({
           className={clsx(
             isMobile ? "relative z-10 mx-auto mt-8" : "absolute",
             "transition-shadow duration-700 ease-out",
-            currentIdx !== 0 && FOCUS_IMAGE_SHADOW,
+            // Hold the shadow until the incoming artwork has finished morphing into
+            // the slot (galleryActive flips true once it lands). Otherwise an upsell
+            // open - which lands on a non-zero gallery index - would paint the
+            // shadowed empty box at the destination for the whole flight.
+            galleryActive && currentIdx !== 0 && FOCUS_IMAGE_SHADOW,
           )}
           style={isMobile ? { touchAction: "pan-y" } : { inset: 0, margin: "auto" }}
         >

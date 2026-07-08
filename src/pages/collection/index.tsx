@@ -224,8 +224,12 @@ export function CollectionPage() {
   const [closingArtworkStyles, setClosingArtworkStyles] = useState<ClosingArtworkStyle[]>([])
   const skipIntroAnimation =
     (location.state as { skipCollectionIntro?: boolean } | null)?.skipCollectionIntro === true
-  const whiteRevealRef = useRef<HTMLDivElement>(null)
-  const [showWhiteReveal, setShowWhiteReveal] = useState(skipIntroAnimation)
+  // Arriving from a focused artwork's "Explore collection": the page resolves
+  // from a soft blur once its data is ready, rather than the horizontal intro.
+  // A backdrop-filter overlay blurs the whole page (navbar included) without
+  // turning the container into a containing block for its fixed children.
+  const blurOverlayRef = useRef<HTMLDivElement>(null)
+  const [blurReveal, setBlurReveal] = useState(skipIntroAnimation)
 
   useLayoutEffect(() => {
     if (!collection?.isConfigured || closingImages.length === 0) {
@@ -439,22 +443,6 @@ export function CollectionPage() {
   }, [showMore])
 
   useEffect(() => {
-    if (!showWhiteReveal || !collection?.isConfigured) return
-    const overlay = whiteRevealRef.current
-    if (!overlay) return
-
-    const tween = gsap.to(overlay, {
-      opacity: 0,
-      duration: 1,
-      ease: "power2.out",
-      onComplete: () => setShowWhiteReveal(false),
-    })
-    return () => {
-      tween.kill()
-    }
-  }, [collection?.isConfigured, showWhiteReveal])
-
-  useEffect(() => {
     if (typeof window === "undefined" || focusedProduct || !collection) return
 
     const slug = new URLSearchParams(window.location.search).get("artwork")
@@ -476,8 +464,29 @@ export function CollectionPage() {
     openProduct(product, img, isMoreProduct ? undefined : pinRef.current)
   }, [collection, focusedProduct, moreProducts, openProduct, products, showMore])
 
+  // Once the collection data is ready, release the overlay's backdrop blur so
+  // the page resolves from soft to sharp. The overlay renders already-blurred in
+  // the same commit as the content, so there's never a flash of the sharp page.
+  useLayoutEffect(() => {
+    if (!blurReveal || !collection?.isConfigured) return
+    const overlay = blurOverlayRef.current
+    if (!overlay) return
+    // Release on the next frame so the initial blur paints first and the CSS
+    // transition has a value to animate from.
+    const raf = window.requestAnimationFrame(() => {
+      overlay.style.backdropFilter = "blur(0px)"
+      overlay.style.setProperty("-webkit-backdrop-filter", "blur(0px)")
+      overlay.style.opacity = "0"
+    })
+    const timer = window.setTimeout(() => setBlurReveal(false), 900)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
+    }
+  }, [blurReveal, collection?.isConfigured])
+
   if (collection === undefined) {
-    return <div className={`h-screen text-dark ${showWhiteReveal ? "bg-white" : "bg-canvas"}`} />
+    return <div className="h-screen bg-canvas text-dark" />
   }
 
   if (collection === null) {
@@ -506,7 +515,19 @@ export function CollectionPage() {
 
   return (
     <div className="bg-canvas text-dark">
-      {showWhiteReveal && <div ref={whiteRevealRef} className="fixed inset-0 z-[3000] bg-white" />}
+      {blurReveal && (
+        <div
+          ref={blurOverlayRef}
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-[3000]"
+          style={{
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            transition:
+              "backdrop-filter 900ms cubic-bezier(0.16, 1, 0.3, 1), -webkit-backdrop-filter 900ms cubic-bezier(0.16, 1, 0.3, 1), opacity 900ms ease",
+          }}
+        />
+      )}
       <Navbar />
 
       {/* ── Horizontal intro ───────────────────────────────────────────── */}
