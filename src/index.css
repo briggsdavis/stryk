@@ -77,10 +77,10 @@
   }
 }
 :root:active-view-transition-type(blur)::view-transition-old(root) {
-  animation: 900ms cubic-bezier(0.4, 0, 0.2, 1) both page-hold;
+  animation: 1250ms cubic-bezier(0.4, 0, 0.2, 1) both page-hold;
 }
 :root:active-view-transition-type(blur)::view-transition-new(root) {
-  animation: 900ms cubic-bezier(0.16, 1, 0.3, 1) both page-blur-in;
+  animation: 1250ms cubic-bezier(0.16, 1, 0.3, 1) both page-blur-in;
 }
 
 /* White reveal: hide the outgoing page and let the incoming route resolve from

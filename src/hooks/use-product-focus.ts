@@ -240,12 +240,32 @@ export function useProductFocus() {
     const el = focusedElRef.current
     const placeholder = placeholderRef.current
     if (!el || !placeholder?.parentElement) {
-      // No canvas/page origin to return to (e.g. a cart/upsell clone). Drop any
-      // orphaned morph node, glide the slid-aside background back, and let
-      // <FocusWrapper /> wipe the panel away.
+      // No canvas/page origin to morph back to (e.g. a cart/upsell clone opened
+      // while another piece was focused). It never flew in from an on-screen
+      // element, so it can't fly back - lift it out of the panel and dissolve it
+      // in place instead of letting it blink out when the panel wipes away.
       const slot = document.getElementById("focus-image-slot")
+      if (el) {
+        const rect = el.getBoundingClientRect()
+        gsap.killTweensOf(el)
+        document.body.appendChild(el)
+        gsap.set(el, {
+          position: "fixed",
+          margin: 0,
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+          zIndex: 900,
+        })
+        gsap.to(el, {
+          opacity: 0,
+          duration: 0.7,
+          ease: "power2.out",
+          onComplete: () => el.remove(),
+        })
+      }
       if (slot) slot.replaceChildren()
-      el?.remove()
       if (shiftElRef.current) {
         gsap.to(shiftElRef.current, { x: 0, duration: 1.1, ease: "expo.inOut" })
       }
