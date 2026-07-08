@@ -4,6 +4,7 @@ import { useIsMobile } from "../../hooks/use-is-mobile"
 import { useShopifyCart } from "../../hooks/use-shopify-cart"
 import { track } from "../../lib/analytics"
 import { gsap } from "../../lib/gsap"
+import { galleryIndexForImage, mediaKey } from "../../lib/gallery"
 import { emitPopupAction } from "../../lib/marketing"
 import { useTransitionNavigate } from "../../lib/transition"
 import type { Product } from "../../lib/types"
@@ -11,6 +12,10 @@ import { HoverLabel } from "../ui/hover-label"
 
 interface FocusWrapperProps {
   product: Product | null
+  // The image a cart/upsell thumbnail flew in with. When set, the gallery opens
+  // on that exact artwork instead of the index-0 cover, so the morphed image is
+  // the one that stays put - no flash of image 1.
+  initialImageSrc?: string | null
   onClose: () => void
   onDismiss: (opts?: { restoreOrigin?: boolean }) => void
   // Reopen a different artwork (from the "complete your set" thumbnails) by its
@@ -52,10 +57,6 @@ type AddedArtwork = {
 type UpsellSlot = AddedArtwork | null
 type SelectedOption = { name: string; value: string }
 
-function mediaKey(src: string | undefined) {
-  return src?.split("?")[0] ?? ""
-}
-
 function optionValue(options: SelectedOption[], name: string) {
   return options.find((option) => option.name.toLowerCase() === name)?.value
 }
@@ -88,7 +89,13 @@ function dealMeta({
   }
 }
 
-export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: FocusWrapperProps) {
+export function FocusWrapper({
+  product,
+  initialImageSrc,
+  onClose,
+  onDismiss,
+  onOpenArtwork,
+}: FocusWrapperProps) {
   const isMobile = useIsMobile()
   const transitionNavigate = useTransitionNavigate()
   const {
@@ -192,6 +199,11 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
       : product
         ? Array.from({ length: 5 }, () => product.image)
         : []
+
+  // Which gallery image the panel should open on. A cart/upsell thumbnail passes
+  // the clicked artwork's image; match it so the gallery rests on that piece.
+  // Falls back to the cover (0) for canvas/grid opens.
+  const initialIdx = galleryIndexForImage(galleryImages, initialImageSrc)
 
   const selectedFrameKey = withFrame === null ? null : withFrame ? "framed" : "unframed"
   const currentGalleryImage = galleryImages[currentIdx]
@@ -340,7 +352,11 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
   }, [selectedVariant?.shopifyVariantId])
 
   // ── Reset + activate gallery on product open/close ────────────────────────
-  useEffect(() => {
+  // Layout effect (not passive) so the gallery is blanked and re-pointed before
+  // the browser paints: a thumbnail open flushSync-renders the new product with
+  // the old gallery still visible, and this runs in the same commit to hide it,
+  // so image 1 never flashes before the clicked image morphs in.
+  useLayoutEffect(() => {
     // Keep the upsell panel closed on a fresh product open; cart contents come
     // from Shopify and are not reset here.
     const isSwitch = prevOpenRef.current
@@ -369,9 +385,16 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
       return
     }
 
-    currentIdxRef.current = 0
+    // Blank the gallery overlay while the clicked image morphs in (the timer below
+    // fades it back once the piece has landed). On a switch it would otherwise stay
+    // lit on the previous artwork's image.
+    galleryActiveRef.current = false
+    setGalleryActive(false)
+    // Open on the image the thumbnail flew in with (its gallery index), so the
+    // morphed piece is the one that stays put. Canvas/grid opens use the cover (0).
+    currentIdxRef.current = initialIdx
     setGalleryIndicatorVisible(false)
-    setCurrentIdx(0)
+    setCurrentIdx(initialIdx)
     animatingRef.current = false
     accDeltaRef.current = 0
     lockedRef.current = false
@@ -380,7 +403,7 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
     setWithFrame(null)
 
     imgRefs.current.forEach((el, i) => {
-      if (el) gsap.set(el, { x: 0, display: i === 0 ? "block" : "none" })
+      if (el) gsap.set(el, { x: 0, display: i === initialIdx ? "block" : "none" })
     })
 
     const timer = setTimeout(() => {
@@ -389,7 +412,7 @@ export function FocusWrapper({ product, onClose, onDismiss, onOpenArtwork }: Foc
       setGalleryIndicatorVisible(true)
     }, 1250)
     return () => clearTimeout(timer)
-  }, [isOpen, product?.id])
+  }, [isOpen, product?.id, initialIdx])
 
   // ── Slide to next / previous image from the section divider ─────────────
   const navigate = useCallback((dir: 1 | -1) => {
