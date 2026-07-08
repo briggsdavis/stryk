@@ -206,7 +206,13 @@ export function AboutPage() {
         >
           {/* Panel 1 - Philosophy */}
           <div className="flex w-full flex-shrink-0 flex-col items-center gap-10 px-6 py-16 md:px-10 lg:h-full lg:w-screen lg:flex-row lg:gap-16 lg:py-0">
-            <div className="flex w-full flex-1 flex-col justify-center lg:w-auto">
+            {/* On desktop the panel is pinned to the top of the viewport, so the copy
+                is top-aligned and padded down just past the fixed nav logo (its base
+                sits ~3.5rem from the top) rather than vertically centered. */}
+            <div className="flex w-full flex-1 flex-col justify-center lg:w-auto lg:self-start lg:justify-start lg:pt-[4.5rem]">
+              <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
+                Our Philosophy
+              </p>
               <p className="max-w-sm text-sm leading-relaxed text-dark/55">
                 Stryk Studios sources matchboxes and matchbooks from flea markets, estate sales, and
                 specialist dealers across four continents - and brings the best of them home as art.
