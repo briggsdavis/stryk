@@ -202,7 +202,7 @@ export function AboutPage() {
             {/* On desktop the panel is pinned to the top of the viewport, so the copy
                 is top-aligned and padded down just past the fixed nav logo (its base
                 sits ~3.5rem from the top) rather than vertically centered. */}
-            <div className="flex w-full flex-1 flex-col justify-center lg:w-auto lg:self-start lg:justify-start lg:pt-[4.5rem]">
+            <div className="flex w-full flex-1 flex-col justify-center lg:w-auto lg:justify-start lg:self-start lg:pt-[4.5rem]">
               <p className="mb-4 text-xs font-medium tracking-widest text-dark/40 uppercase">
                 Our Philosophy
               </p>
