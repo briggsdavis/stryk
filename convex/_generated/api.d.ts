@@ -15,6 +15,7 @@ import type * as catalog from "../catalog.js";
 import type * as http from "../http.js";
 import type * as inquiries from "../inquiries.js";
 import type * as marketing from "../marketing.js";
+import type * as pages from "../pages.js";
 import type * as shopify from "../shopify.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   inquiries: typeof inquiries;
   marketing: typeof marketing;
+  pages: typeof pages;
   shopify: typeof shopify;
 }>;
 

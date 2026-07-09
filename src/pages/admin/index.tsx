@@ -19,6 +19,12 @@ import {
   RankRows,
   StatCard,
 } from "../../components/admin/charts"
+import {
+  AboutPageEditor,
+  ContactPageEditor,
+  GlobalPageEditor,
+  type PageEditorSaveRef,
+} from "../../components/admin/page-editors"
 import { ErrorBoundary } from "../../components/ui/error-boundary"
 import { Navbar } from "../../components/ui/navbar"
 import { buildRange, RANGE_OPTIONS, type RangeKey } from "../../lib/analytics-ranges"
@@ -44,6 +50,7 @@ type StaticAdminSection =
   | "announcements"
   | "popups"
   | "pageAbout"
+  | "pageContact"
   | "pageGlobal"
   | "inquiries"
 type CollectionSection = `collection:${string}`
@@ -95,6 +102,7 @@ const NAV: NavEntry[] = [
     label: "Page Editor",
     items: [
       { key: "pageAbout", label: "About" },
+      { key: "pageContact", label: "Contact" },
       { key: "pageGlobal", label: "Global / Footer" },
     ],
   },
@@ -233,6 +241,10 @@ export function AdminPage() {
 
 function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const [section, setSection] = useState<AdminSection>("dashboard")
+  const [pageDirty, setPageDirty] = useState(false)
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+  const pageSaveRef = useRef<(() => Promise<boolean>) | null>(null)
+  const pendingNavigationRef = useRef<(() => void) | null>(null)
   // Expanded dropdown groups. Start with the group owning the active section
   // open so its item is visible.
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -267,10 +279,24 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
         )
       : null
 
+  const requestNavigation = (action: () => void) => {
+    if (!pageDirty) {
+      action()
+      return
+    }
+    pendingNavigationRef.current = action
+    setShowLeaveDialog(true)
+  }
+
   const go = (next: AdminSection) => {
-    setSection(next)
-    const owner = groupOf(next, navEntries)
-    if (owner) setExpanded((prev) => new Set(prev).add(owner))
+    if (next === section) return
+    requestNavigation(() => {
+      pageSaveRef.current = null
+      setPageDirty(false)
+      setSection(next)
+      const owner = groupOf(next, navEntries)
+      if (owner) setExpanded((prev) => new Set(prev).add(owner))
+    })
   }
 
   const toggleGroup = (label: string) =>
@@ -280,6 +306,30 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
       else next.add(label)
       return next
     })
+
+  useEffect(() => {
+    if (!pageDirty) return
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [pageDirty])
+
+  const signOut = () => {
+    requestNavigation(onSignOut)
+  }
+
+  const leaveWithoutSaving = () => {
+    setShowLeaveDialog(false)
+    const action = pendingNavigationRef.current
+    pendingNavigationRef.current = null
+    action?.()
+  }
+
+  const saveAndContinue = async () => {
+    const saved = await pageSaveRef.current?.()
+    if (saved) leaveWithoutSaving()
+    else setShowLeaveDialog(false)
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -363,11 +413,19 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
               <Storefront aria-hidden="true" size={16} weight="bold" />
               Shopify store
             </a>
-            <Link to="/" className="admin-secondary w-full gap-2">
+            <Link
+              to="/"
+              onClick={(event) => {
+                if (!pageDirty) return
+                event.preventDefault()
+                requestNavigation(() => window.location.assign("/"))
+              }}
+              className="admin-secondary w-full gap-2"
+            >
               <ArrowLeft aria-hidden="true" size={16} weight="bold" />
               Back to site
             </Link>
-            <button type="button" onClick={onSignOut} className="admin-secondary w-full gap-2">
+            <button type="button" onClick={signOut} className="admin-secondary w-full gap-2">
               <SignOut aria-hidden="true" size={16} weight="bold" />
               Sign out
             </button>
@@ -375,7 +433,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
         </div>
       </aside>
       <section className="min-h-screen flex-1 pl-72 md:pl-80">
-        <div className="mx-auto w-full max-w-6xl px-8 py-10">
+        <div className="mx-auto w-full max-w-7xl px-8 py-10">
           {/* Keyed by section so switching tabs clears a previously caught
               error and retries the panel. Without this, a throw in one panel
               (e.g. a failing Convex query) would unmount the whole dashboard. */}
@@ -393,19 +451,58 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
               />
             )}
             {section === "pageAbout" && (
-              <Placeholder title="About" eyebrow="Page editor">
-                Controls for editing the About page will live here.
-              </Placeholder>
+              <AboutPageEditor
+                onDirtyChange={setPageDirty}
+                saveRef={pageSaveRef as PageEditorSaveRef}
+              />
+            )}
+            {section === "pageContact" && (
+              <ContactPageEditor
+                onDirtyChange={setPageDirty}
+                saveRef={pageSaveRef as PageEditorSaveRef}
+              />
             )}
             {section === "pageGlobal" && (
-              <Placeholder title="Global / Footer" eyebrow="Page editor">
-                Controls for site-wide footer and global content will live here.
-              </Placeholder>
+              <GlobalPageEditor
+                onDirtyChange={setPageDirty}
+                saveRef={pageSaveRef as PageEditorSaveRef}
+              />
             )}
             {section === "inquiries" && <InquiriesPanel />}
           </ErrorBoundary>
         </div>
       </section>
+      {showLeaveDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-dark/35 p-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-dark/10 bg-canvas p-7 shadow-2xl">
+            <p className="mb-2 text-xs tracking-[0.22em] text-dark/45 uppercase">Unsaved changes</p>
+            <h2 className="text-3xl">Leave this page?</h2>
+            <p className="mt-3 text-sm leading-relaxed text-dark/60">
+              Your latest edits have not been published. Save them before continuing or leave
+              without saving.
+            </p>
+            <div className="mt-7 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="admin-secondary"
+                onClick={() => setShowLeaveDialog(false)}
+              >
+                Stay
+              </button>
+              <button type="button" className="admin-secondary" onClick={leaveWithoutSaving}>
+                Leave without saving
+              </button>
+              <button
+                type="button"
+                className="admin-primary"
+                onClick={() => void saveAndContinue()}
+              >
+                Save and continue
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -450,27 +547,6 @@ function PanelError({ error }: { error: Error }) {
         <pre className="overflow-x-auto rounded-lg bg-dark/5 p-4 text-xs leading-5 text-red-700">
           {error.message}
         </pre>
-      </div>
-    </section>
-  )
-}
-
-function Placeholder({
-  title,
-  eyebrow = "Coming next",
-  children,
-}: {
-  title: string
-  eyebrow?: string
-  children?: React.ReactNode
-}) {
-  return (
-    <section>
-      <AdminHeader title={title} eyebrow={eyebrow} />
-      <div className="rounded-lg border border-dark/10 bg-light/45 p-8">
-        <p className="text-sm text-dark/60">
-          {children ?? "This dashboard section is reserved for future editing controls."}
-        </p>
       </div>
     </section>
   )

@@ -1,5 +1,5 @@
 import { clsx } from "clsx"
-import { useMutation } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { useState } from "react"
 import { useSearchParams } from "react-router"
 import { api } from "../../../convex/_generated/api"
@@ -9,31 +9,7 @@ import { HoverLabel } from "../../components/ui/hover-label"
 import { Navbar } from "../../components/ui/navbar"
 import { useLenis } from "../../hooks/use-lenis"
 
-const INQUIRY_TYPES = [
-  { key: "general", label: "General" },
-  { key: "custom", label: "Custom print" },
-  { key: "order", label: "Order support" },
-] as const
-
-type InquiryKey = (typeof INQUIRY_TYPES)[number]["key"]
-
-const FAQ_ITEMS = [
-  {
-    question: "Are these original pieces or reprints?",
-    answer:
-      "Both. Each listing specifies whether it is an original vintage piece, a limited archival reprint, or a framed reproduction. Originals are one-of-a-kind; reprints are produced in numbered runs on acid-free stock.",
-  },
-  {
-    question: "Do you ship internationally?",
-    answer:
-      "Yes - we ship worldwide. All pieces are wrapped in archival tissue and packed in rigid board mailers to survive the journey. Tracking is included on every order.",
-  },
-  {
-    question: "Can I request a piece from a specific country or era?",
-    answer:
-      "Absolutely. Use the contact form to describe what you're after - city, decade, style - and we'll search our current stock and upcoming sourcing trips for a match.",
-  },
-]
+type InquiryKey = "general" | "custom" | "order"
 
 interface FieldState {
   value: string
@@ -44,11 +20,11 @@ const emptyField = (): FieldState => ({ value: "", status: "idle" })
 
 export function ContactPage() {
   useLenis()
+  const content = useQuery(api.pages.getContact)
+  const globalContent = useQuery(api.pages.getGlobal)
 
   const [searchParams] = useSearchParams()
-  const initialInquiry: InquiryKey = searchParams.get("inquiry") === "custom" ? "custom" : "general"
-
-  const [inquiryType, setInquiryType] = useState<InquiryKey>(initialInquiry)
+  const inquiryType: InquiryKey = searchParams.get("inquiry") === "custom" ? "custom" : "general"
   const [fields, setFields] = useState({
     firstName: emptyField(),
     lastName: emptyField(),
@@ -58,7 +34,6 @@ export function ContactPage() {
     size: emptyField(),
     message: emptyField(),
   })
-  const [terms, setTerms] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -98,7 +73,7 @@ export function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validate() || !terms) return
+    if (!validate()) return
     setSubmitError(null)
     setIsSubmitting(true)
     try {
@@ -120,6 +95,9 @@ export function ContactPage() {
     }
   }
 
+  if (content === undefined || globalContent === undefined)
+    return <div className="min-h-screen bg-canvas" />
+
   return (
     <div className="min-h-screen bg-canvas text-dark">
       <Navbar />
@@ -129,11 +107,9 @@ export function ContactPage() {
         <div className="flex flex-col justify-between">
           <div>
             <p className="mb-4 text-xs font-medium tracking-widest text-dark/50 uppercase">
-              Get in touch
+              {content.eyebrow}
             </p>
-            <h1 className="text-64 mb-12 leading-tight font-medium">
-              Tell us what you're hunting for
-            </h1>
+            <h1 className="text-64 mb-12 leading-tight font-medium">{content.heading}</h1>
             <div className="space-y-4 text-sm text-dark/60">
               {/* Logo sized to match the wordmark's width: the inline-block box
                   shrinks to the text (w-0 keeps the image from widening it), and
@@ -145,26 +121,30 @@ export function ContactPage() {
                   aria-hidden="true"
                   className="mb-2 block h-auto w-0 min-w-full"
                 />
-                <p className="font-medium text-dark">Stryk Studios</p>
+                <p className="font-medium text-dark">{content.studioName}</p>
               </div>
-              <p>
-                1234 Maker Street
-                <br />
-                New York, NY 10001
-              </p>
-              <a href="mailto:info@stryk.co" className="block transition-colors hover:text-dark">
-                info@stryk.co
+              <p className="whitespace-pre-line">{content.address}</p>
+              <a
+                href={`mailto:${globalContent.email}`}
+                className="block transition-colors hover:text-dark"
+              >
+                {globalContent.email}
               </a>
-              <a href="tel:+12125550100" className="block transition-colors hover:text-dark">
-                +1 212 555 0100
+              <a
+                href={`tel:${globalContent.phone.replace(/[^+\d]/g, "")}`}
+                className="block transition-colors hover:text-dark"
+              >
+                {globalContent.phone}
               </a>
             </div>
           </div>
 
           {/* FAQ */}
           <div className="mt-16">
-            <p className="mb-6 text-xs font-medium tracking-widest text-dark/50 uppercase">FAQ</p>
-            <Accordion items={FAQ_ITEMS} />
+            <p className="mb-6 text-xs font-medium tracking-widest text-dark/50 uppercase">
+              {content.faqHeading}
+            </p>
+            <Accordion items={content.faqs} />
           </div>
         </div>
 
@@ -191,31 +171,6 @@ export function ContactPage() {
               onSubmit={(event) => void handleSubmit(event)}
               className="w-full max-w-lg space-y-5"
             >
-              {/* Inquiry type */}
-              <div>
-                <p className="mb-1.5 block text-xs font-medium tracking-widest text-dark/50 uppercase">
-                  Inquiry type
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {INQUIRY_TYPES.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setInquiryType(key)}
-                      aria-pressed={inquiryType === key}
-                      className={clsx(
-                        "group rounded-lg border px-4 py-2 text-xs font-medium transition-colors",
-                        inquiryType === key
-                          ? "border-dark bg-dark text-canvas"
-                          : "border-dark/20 text-dark hover:border-dark/40",
-                      )}
-                    >
-                      <HoverLabel>{label}</HoverLabel>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <Field
                   label="First name"
@@ -290,35 +245,6 @@ export function ContactPage() {
                 />
                 <FieldIcon status={fields.message.status} />
               </div>
-
-              <label className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={terms}
-                  onChange={(e) => setTerms(e.target.checked)}
-                  aria-label="I agree to the Terms & Conditions"
-                  className="sr-only"
-                />
-                <span
-                  aria-hidden="true"
-                  className={clsx(
-                    "mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center border transition-colors",
-                    terms ? "border-dark bg-dark" : "border-dark/30",
-                  )}
-                >
-                  {terms && (
-                    <svg viewBox="0 0 10 8" fill="none" className="h-2.5 w-2.5">
-                      <polyline points="1 4 3.5 6.5 9 1" stroke="#f0ede6" strokeWidth="1.5" />
-                    </svg>
-                  )}
-                </span>
-                <span className="text-xs text-dark/50">
-                  I agree to the{" "}
-                  <button type="button" className="underline hover:text-dark">
-                    Terms & Conditions
-                  </button>
-                </span>
-              </label>
 
               {submitError && <p className="text-sm text-red-700">{submitError}</p>}
 
